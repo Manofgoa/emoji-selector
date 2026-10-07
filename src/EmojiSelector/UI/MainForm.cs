@@ -23,11 +23,17 @@ internal sealed class MainForm : Form
     // A side resize border at 96 DPI, its invisible part included: SM_CXSIZEFRAME + SM_CXPADDEDBORDER.
     private const int LogicalSideBorder = 8;
 
+    // The default size, in emojis: this many columns wide, and high enough for a section's header then this many full
+    // rows when that section is scrolled to the top.
+    private const int DefaultColumns = 16;
+    private const int DefaultRows = 8;
+
     public const string OpenAppFolderText = "Open app folder";
 
     private readonly TrayIcon trayIcon;
     private readonly ContextMenuStrip settingsMenu;
     private readonly IReadOnlyList<EmojiCategory> categories;
+    private readonly TableLayoutPanel searchBar;
     private readonly TextBox searchBox;
     private readonly Button clearButton;
     private readonly CategoryTabStrip tabStrip;
@@ -49,8 +55,8 @@ internal sealed class MainForm : Form
         AutoScaleMode = AutoScaleMode.Dpi;
         this.SecondTitle = secondTitle;
         this.Text = secondTitle is null ? AppTitle : $"{AppTitle} — {secondTitle}";
+        // Sized in OnLoad, once the bars are laid out at the window's DPI.
         this.StartPosition = FormStartPosition.CenterScreen;
-        this.ClientSize = new Size(440, 450);
 
         // No caption (see WndProc): nothing to minimize or maximize from, and Windows refuses Win+Up, Win+Down and
         // the double-click on the drag area.
@@ -70,7 +76,8 @@ internal sealed class MainForm : Form
         this.clearButton.FlatAppearance.BorderSize = 0;
         this.Controls.Add(this.grid);
         this.Controls.Add(this.tabStrip);
-        this.Controls.Add(this.CreateSearchBar());
+        this.searchBar = this.CreateSearchBar();
+        this.Controls.Add(this.searchBar);
         // The placeholder stays while the box has the focus — it always has it, and PlaceholderText hides on focus.
         this.searchBox.HandleCreated += (_, _) => SendMessageW(this.searchBox.Handle, EmSetCueBanner, 1, SearchPlaceholder);
         // The ✕ is a square as high as the box, with its margins: showing it never changes the bar's height.
@@ -193,6 +200,14 @@ internal sealed class MainForm : Form
         return base.ProcessCmdKey(ref msg, keyData);
     }
 
+    // Sized before base.OnLoad centres the window: the handle exists, at the DPI of its monitor, and the bars can be
+    // measured.
+    protected override void OnLoad(EventArgs e)
+    {
+        this.SetClientArea(this.DefaultClientSize());
+        base.OnLoad(e);
+    }
+
     // The window frame is computed again, now that WndProc answers WM_NCCALCSIZE.
     protected override void OnHandleCreated(EventArgs e)
     {
@@ -254,6 +269,29 @@ internal sealed class MainForm : Form
         return point.X < border ? WindowFrame.HtTopLeft
             : point.X >= this.ClientSize.Width - border ? WindowFrame.HtTopRight
             : WindowFrame.HtTop;
+    }
+
+    // The client size showing the grid DefaultColumns wide and DefaultRows high, the search bar and the tab strip above
+    // it — device pixels, at the current DPI.
+    private Size DefaultClientSize()
+    {
+        // The search bar's preferred height: before the first show, its AutoSize may not have applied yet.
+        Size grid = this.grid.SizeFor(DefaultColumns, DefaultRows);
+        int searchBarHeight = this.searchBar.GetPreferredSize(new Size(grid.Width, 0)).Height;
+        return new Size(grid.Width, searchBarHeight + this.tabStrip.Height + grid.Height);
+    }
+
+    // Sizes the window for a client area of clientSize, reduced if needed so the whole window — its invisible resize
+    // borders included — fits the working area of its monitor; MinimumSize still wins. The borders are the ones Windows
+    // draws: the ClientSize setter counts a caption, which is client area here (see WndProc).
+    private void SetClientArea(Size clientSize)
+    {
+        GetWindowRect(this.Handle, out Rect window);
+        GetClientRect(this.Handle, out Rect client);
+        var borders = new Size(window.Right - window.Left - client.Right, window.Bottom - window.Top - client.Bottom);
+        Rectangle workingArea = Screen.FromControl(this).WorkingArea;
+        this.Size = new Size(Math.Min(clientSize.Width + borders.Width, workingArea.Width),
+            Math.Min(clientSize.Height + borders.Height, workingArea.Height));
     }
 
     // The menu of the tab strip's settings button, shown under it, its right edge on the button's.
@@ -532,6 +570,9 @@ internal sealed class MainForm : Form
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern bool GetWindowRect(IntPtr window, out Rect rect);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern bool GetClientRect(IntPtr window, out Rect rect);
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern IntPtr GetForegroundWindow();
