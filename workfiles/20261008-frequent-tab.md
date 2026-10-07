@@ -81,6 +81,9 @@ from `Data/EmojiCatalog.cs`.
 - **Limit**: as many emojis as **3 rows** of the grid hold — the limit
   follows the number of columns, so resizing the window shows more or fewer. The rows count lives
   in **one constant**.
+- **Use count**: each emoji of the section shows its **number of uses under it**, inside its cell —
+  small grey text, the emoji moved up to make room. Up to 999 as is, beyond that `999+`. Only in this
+  section: the catalog sections and the search results show no count.
 - **Empty** (no emoji used yet): the tab is **shown** and the section reads **`No emoji used yet`**,
   painted like `No emoji found`, one cell high under the header.
 - **Refresh**: the section is rebuilt after each use. A use hides the window, so it is never seen
@@ -129,6 +132,7 @@ hand** in the running app, not by unit tests.
 | An invalid `usage.json` or a read-only folder → no error, the app runs | — (manual) | — |
 | A search never returns an emoji twice | — (manual) | — |
 | Every show brings the grid back to the top, on the frequent section | — (manual) | — |
+| Each frequent emoji shows its use count under it; the other sections show none | — (manual) | — |
 | *Clear frequently used* asks, then empties the section and `usage.json`; greyed with no counter | — (manual) | — |
 
 ---
@@ -178,6 +182,12 @@ Go given for **code, tests and documentation**, in a **worktree**
 (`.claude/worktrees/frequent-tab`, branch `feature/frequent-tab`, from `main` at `a278285`). The
 scope is frozen as the sections above stand. The confirmation of *Clear frequently used* (Yes / No,
 *No* the default) was proposed with the go and is part of it.
+
+### Iteration 4 — 2026-10-08 — ⚙️ Post-implementation — Use count under each emoji
+
+Requested during the run: the frequent section shows each emoji's **number of uses under it**. The
+cell keeps its size; the emoji moves up, the count is drawn below it in small grey text, `999+`
+beyond 999 (the agent's choice, so that the count never overflows the cell). See *Frequent Tab*.
 
 ---
 
