@@ -1,4 +1,6 @@
 using System.Runtime.InteropServices;
+using EmojiSelector.Data;
+using EmojiSelector.Input;
 
 namespace EmojiSelector.UI;
 
@@ -13,6 +15,9 @@ internal sealed class MainForm : Form
     public const string AppTitle = "Emoji Selector";
 
     private readonly TrayIcon trayIcon;
+    private readonly CategoryTabStrip tabStrip;
+    private readonly EmojiGrid grid;
+    private readonly ForegroundTracker foregroundTracker = new();
 
     // The state the window comes back in from the tray: its last one, never minimized.
     private FormWindowState restoreState = FormWindowState.Normal;
@@ -28,8 +33,18 @@ internal sealed class MainForm : Form
         this.SecondTitle = secondTitle;
         this.Text = secondTitle is null ? AppTitle : $"{AppTitle} — {secondTitle}";
         this.StartPosition = FormStartPosition.CenterScreen;
-        this.ClientSize = new Size(420, 320);
+        this.ClientSize = new Size(400, 450);
         this.MinimumSize = new Size(320, 240);
+
+        // The tabs above, the grid filling the rest. Docking runs from the last control added: the strip first.
+        IReadOnlyList<EmojiCategory> categories = EmojiCatalog.Load();
+        this.grid = new EmojiGrid(categories) { Dock = DockStyle.Fill };
+        this.tabStrip = new CategoryTabStrip(categories) { Dock = DockStyle.Top };
+        this.Controls.Add(this.grid);
+        this.Controls.Add(this.tabStrip);
+        this.tabStrip.TabClicked += (_, category) => this.grid.ScrollToCategory(category);
+        this.grid.ActiveCategoryChanged += (_, _) => this.tabStrip.ActiveTab = this.grid.ActiveCategory;
+        this.grid.EmojiClicked += (_, emoji) => this.InsertEmoji(emoji);
         ResumeLayout(performLayout: false);
 
         this.trayIcon = new TrayIcon(this.Text);
@@ -70,14 +85,34 @@ internal sealed class MainForm : Form
         if (disposing && !this.IsDisposed)
         {
             this.trayIcon.Dispose();
+            this.foregroundTracker.Dispose();
         }
 
         base.Dispose(disposing);
     }
 
     // The one place telling the tray icon an emoji was used.
-    //TODO: the picker (search box, paste — README § Planned) calls this when an emoji is used; nothing does yet.
     private void OnEmojiUsed(string emoji) => this.trayIcon.ShowEmoji(emoji);
+
+    // A clicked emoji goes into the window that was in front before this one, then the window hides to the tray,
+    // like Win+;. The previous window is brought back while this app is still in front: only the foreground app may
+    // hand the foreground over. No previous window: the window hides, nothing is typed.
+    private void InsertEmoji(Emoji emoji)
+    {
+        IntPtr target = this.foregroundTracker.PreviousWindow;
+        if (target != IntPtr.Zero)
+        {
+            EmojiInserter.Activate(target);
+        }
+
+        this.Hide();
+        if (target != IntPtr.Zero)
+        {
+            EmojiInserter.Type(emoji.Text);
+        }
+
+        this.OnEmojiUsed(emoji.Text);
+    }
 
     // Hidden → shown. Shown but covered by another window → brought to the front. Shown in front → hidden.
     private void OnTrayIconClicked(object? sender, EventArgs e)
