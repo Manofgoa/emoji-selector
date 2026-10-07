@@ -96,7 +96,7 @@ show) and the grid.
 | Focus | Key | Does |
 |---|---|---|
 | Search box | ← / →, Home / End, Ctrl+Home / Ctrl+End | The text caret, as in any text box |
-| Search box | ↓ | The **grid** takes the keyboard; the selection goes to the **first emoji** (the first result in search mode) |
+| Search box | ↓ | The **grid** takes the keyboard; the selection goes to the **first emoji** (the first result in search mode). **No result → nothing**: the keyboard stays in the box |
 | Search box | Enter | Inserts the **selection** — the first emoji of the grid when the box is blank, the first result in search mode unless the arrows moved it. Replaces the search box's *nothing when the box is blank* |
 | Search box | Esc | Unchanged: clears the box, or hides the window when it is empty |
 | Search box | Page Up / Page Down, Tab / Shift+Tab | **Ignored** — only ↓ leaves the box |
@@ -238,6 +238,12 @@ workfile's run. No Open Question left.
 Go given: code, unit tests and documentation (no unit tests by design, Q&A 14), in a **worktree**
 (`.claude/worktrees/keyboard-navigation`, branch `feature/keyboard-navigation`, from `0c621e2`) —
 other sessions work on `main` in the original checkout.
+
+### Iteration 6 — 2026-10-08 — ⚙️ Post-implementation — ↓ with no result
+
+Requested by the user during the run, after testing the check instance: when the search finds
+**no emoji**, ↓ in the box does nothing — the keyboard **stays in the box** instead of going to an
+empty grid. *With the search box* updated.
 
 ---
 
