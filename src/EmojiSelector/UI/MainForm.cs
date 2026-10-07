@@ -18,9 +18,14 @@ internal sealed class MainForm : Form
     private readonly CategoryTabStrip tabStrip;
     private readonly EmojiGrid grid;
     private readonly ForegroundTracker foregroundTracker = new();
+    private readonly ShortcutHook shortcutHook;
 
     // The state the window comes back in from the tray: its last one, never minimized.
     private FormWindowState restoreState = FormWindowState.Normal;
+
+    // The invisible resize borders around the visible frame, read the last time the window was shown: a hidden
+    // window has no frame to read them from.
+    private Padding frameMargins;
 
     /// <summary>The second title given with <see cref="TitleArgument"/>, null without one.</summary>
     public string? SecondTitle { get; }
@@ -50,6 +55,10 @@ internal sealed class MainForm : Form
         this.trayIcon = new TrayIcon(this.Text);
         this.trayIcon.Clicked += this.OnTrayIconClicked;
         this.trayIcon.ExitRequested += (_, _) => Application.Exit();
+
+        // Created after the controls: the hook posts Win+; through the UI thread's synchronization context.
+        this.shortcutHook = new ShortcutHook();
+        this.shortcutHook.Pressed += this.OnShortcutPressed;
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
@@ -84,6 +93,7 @@ internal sealed class MainForm : Form
     {
         if (disposing && !this.IsDisposed)
         {
+            this.shortcutHook.Dispose();
             this.trayIcon.Dispose();
             this.foregroundTracker.Dispose();
         }
@@ -130,6 +140,87 @@ internal sealed class MainForm : Form
         }
 
         this.Activate();
+    }
+
+    // Win+;. Shown in front → hidden, the previous window getting the foreground back so typing resumes there. Hidden,
+    // or shown but covered → placed under the text cursor of the previous window and brought to the foreground. A
+    // window last maximized comes back maximized, not placed.
+    private void OnShortcutPressed(object? sender, EventArgs e)
+    {
+        IntPtr previous = this.foregroundTracker.PreviousWindow;
+        if (this.Visible && !this.IsCovered())
+        {
+            if (previous != IntPtr.Zero)
+            {
+                EmojiInserter.Activate(previous);
+            }
+
+            this.Hide();
+            return;
+        }
+
+        if (this.restoreState == FormWindowState.Maximized)
+        {
+            this.Show();
+            this.WindowState = FormWindowState.Maximized;
+        }
+        else
+        {
+            // Placed before being shown, so it does not appear at its old place first; placed again once shown, when
+            // its frame can be read and a move to a monitor of another DPI has resized it.
+            Rectangle anchor = CaretLocator.Locate(previous);
+            bool minimized = this.WindowState == FormWindowState.Minimized;
+            if (!minimized)
+            {
+                this.PlaceAt(anchor);
+            }
+
+            this.Show();
+            if (minimized)
+            {
+                this.WindowState = FormWindowState.Normal;
+            }
+
+            this.PlaceAt(anchor);
+        }
+
+        this.TakeForeground();
+    }
+
+    // Moves the window so its visible frame sits against the anchor, as WindowPlacement computes it.
+    private void PlaceAt(Rectangle anchor)
+    {
+        if (this.Visible)
+        {
+            Rectangle frame = GetFrameBounds(this.Handle);
+            this.frameMargins = new Padding(frame.Left - this.Left, frame.Top - this.Top, this.Right - frame.Right,
+                this.Bottom - frame.Bottom);
+        }
+
+        var frameSize = new Size(this.Width - this.frameMargins.Horizontal, this.Height - this.frameMargins.Vertical);
+        Rectangle workingArea = Screen.FromPoint(anchor.Location).WorkingArea;
+        int gap = WindowPlacement.Gap * this.DeviceDpi / 96;
+        Point location = WindowPlacement.Place(anchor, frameSize, workingArea, gap);
+        this.Location = new Point(location.X - this.frameMargins.Left, location.Y - this.frameMargins.Top);
+    }
+
+    // The shortcut hook's dummy key makes this app the last one to have sent input, which lets it take the
+    // foreground. Should Windows still refuse, the input of the thread in front is attached to this one for the time
+    // of the call.
+    private void TakeForeground()
+    {
+        this.Activate();
+        IntPtr foreground = GetForegroundWindow();
+        if (foreground == this.Handle || foreground == IntPtr.Zero)
+        {
+            return;
+        }
+
+        uint foregroundThread = GetWindowThreadProcessId(foreground, out _);
+        uint ownThread = GetCurrentThreadId();
+        AttachThreadInput(ownThread, foregroundThread, true);
+        SetForegroundWindow(this.Handle);
+        AttachThreadInput(ownThread, foregroundThread, false);
     }
 
     // Whether a window above this one in the z-order overlaps it. Ignored: hidden windows, cloaked ones (a
@@ -191,6 +282,21 @@ internal sealed class MainForm : Form
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern bool GetWindowRect(IntPtr window, out Rect rect);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern bool SetForegroundWindow(IntPtr window);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern bool AttachThreadInput(uint attach, uint attachTo, bool doAttach);
+
+    [DllImport("kernel32.dll", ExactSpelling = true)]
+    private static extern uint GetCurrentThreadId();
 
     [DllImport("dwmapi.dll", ExactSpelling = true)]
     private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out Rect value, int size);
