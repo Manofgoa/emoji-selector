@@ -99,11 +99,12 @@ Owned by `MainForm` (new `UI/SettingsMenu.cs` if it grows past a few lines). For
 
 | Item | Does |
 |---|---|
-| See Open Question 5 | Opens the folder holding the exe (`AppContext.BaseDirectory`) in the File Explorer — see Open Question 6 |
+| `Open app folder` | Opens the folder holding the exe in the File Explorer, **the exe selected** in it |
 
-- The File Explorer is started with `Process.Start` (`UseShellExecute`), never through a shell
-  command line.
-- What the window does once the item is clicked: see Open Question 7.
+- The File Explorer is started with `Process.Start("explorer.exe", ...)` and the argument
+  `/select,"<exe path>"` (`Environment.ProcessPath`), never through a shell command line.
+- **The window stays** as it is once the item is clicked: the File Explorer simply comes in front
+  of it.
 
 ### Close Cross
 
@@ -170,11 +171,9 @@ taskbar and the tray tooltip still show the second title; Windows 11 rounded cor
 - [x] ~~2. The cross's hover look: Windows' own red, or the tabs' grey?~~ → Windows' own red
 - [x] ~~3. Unit tests: none and checked by hand, or create a test project?~~ → None, checked by hand
 - [x] ~~4. Right click on the drag area: Windows' system menu, or nothing?~~ → The system menu
-- [ ] 5. The menu item's label (the UI is in English): `Open app folder`, `Open install folder`, or
-  `Show in Explorer`?
-- [ ] 6. Open the folder plainly, or open it with the exe **selected** in it (`explorer /select`)?
-- [ ] 7. Once the item is clicked: the window stays as it is (the File Explorer comes in front of
-  it), or hides to the tray?
+- [x] ~~5. The menu item's label?~~ → `Open app folder`
+- [x] ~~6. Open the folder plainly, or with the exe selected?~~ → The exe selected (`explorer /select`)
+- [x] ~~7. Once the item is clicked: the window stays, or hides to the tray?~~ → It stays
 
 ---
 
@@ -214,6 +213,11 @@ shown under it, like the tray icon's menu; the folder opened with `Process.Start
 grows to 428 logical pixels. Three points left open (Open Questions 5–7): the item's label, opening
 the folder plainly or with the exe selected, and whether the window hides once the item is clicked.
 
+### Iteration 4 — 2026-10-08
+
+Open Questions 5–7 answered (Q&A 9–11): the item reads `Open app folder`, opens the folder with the
+exe selected, and the window stays once it is clicked. No open question remains.
+
 ---
 
 ## Implementation Log
@@ -244,9 +248,9 @@ Questions asked by the agent during design, with user responses.
 | 6 | OQ2 — The cross's hover look? | Windows' own red | 2026-10-08 |
 | 7 | OQ3 — Unit tests? | None, checked by hand | 2026-10-08 |
 | 8 | OQ4 — Right click on the drag area? | Windows' system menu | 2026-10-08 |
-| 9 | OQ5 — The menu item's label? | | |
-| 10 | OQ6 — Folder opened plainly, or with the exe selected? | | |
-| 11 | OQ7 — Once the item is clicked, does the window stay or hide? | | |
+| 9 | OQ5 — The menu item's label? | `Open app folder` | 2026-10-08 |
+| 10 | OQ6 — Folder opened plainly, or with the exe selected? | The exe selected | 2026-10-08 |
+| 11 | OQ7 — Once the item is clicked, does the window stay or hide? | It stays | 2026-10-08 |
 
 ---
 
