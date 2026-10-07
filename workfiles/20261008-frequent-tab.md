@@ -98,12 +98,15 @@ from `Data/EmojiCatalog.cs`.
   cells are **rectangles, taller than wide**: as wide as the other sections' (the columns line
   up), taller to hold the count. Up to 999 as is, beyond that `999+`. Only in this
   section: the catalog sections and the search results show no count.
+- **Selection** (keyboard navigation, merged from `main`): its frame follows the cell — a rectangle
+  around a frequent emoji and its count. Replacing the section (a use, *Clear*) puts the selection
+  back on the first emoji in view, the cell it was on may be gone.
 - **Empty** (no emoji used yet): the tab is **shown** and the section reads **`No emoji used yet`**,
   painted like `No emoji found`, one cell high under the header.
 - **Refresh**: the section is rebuilt after each use. A use hides the window, so it is never seen
   changing.
-- **Every show** scrolls the grid **to the top**, on the frequent section, like Win+; — after the
-  search is cleared (`ShowCategories` would otherwise bring back the previous scroll position). The
+- **Every show** scrolls the grid **to the top**, on the frequent section, like Win+; — through
+  `main`'s `EmojiGrid.ResetToTop`, which also selects the first emoji — after the search is cleared (`ShowCategories` would otherwise bring back the previous scroll position). The
   scroll position kept while searching is still restored when the box is emptied without hiding.
 - **Search**: the search box searches the **catalog categories only** — the frequent section would
   otherwise give each of its emojis twice in the results.
@@ -244,6 +247,16 @@ No project rule broken. Choices the frozen design did not state:
 - **Merge of `main`** into the branch, at the user's request during the run — no conflict.
 - **Seen, not fixed** (out of scope): in one capture taken right after a resize, the tab strip
   showed its gear and cross twice — a stale paint of the strip, it seems. Offered as an open question.
+
+### Iteration 8 — 2026-10-08 — ⚙️ Post-implementation — Merge of the keyboard navigation
+
+Requested by the user: bring `main`'s new selection design in, then test it with the taller cells.
+`main` (with `feature/keyboard-navigation` merged) merged into the branch — conflicts in
+`EmojiGridLayout.cs`, `EmojiGrid.cs`, `MainForm.cs`, `RULES.md`, `README.md`, `README.fr.md`, all
+resolved by keeping both sides: the navigation methods next to the row heights; the selection frame
+drawn around the whole cell, captioned or not; `ResetToTop` on show in place of
+`ScrollToCategory(0)` (same top); *Planned* without keyboard navigation nor recents. One addition the
+merge required: `ReplaceCategory` resets the selection to the first emoji in view.
 
 ---
 
