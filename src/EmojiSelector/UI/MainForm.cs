@@ -31,6 +31,8 @@ internal sealed class MainForm : Form
 
     public const string OpenAppFolderText = "Open app folder";
 
+    public const string ResetWindowSizeText = "Reset window size";
+
     public const string ClearFrequentText = "Clear frequently used";
 
     public const string ClearFrequentQuestion =
@@ -352,11 +354,20 @@ internal sealed class MainForm : Form
     {
         var menu = new ContextMenuStrip();
         menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
+        menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
         ToolStripItem clearFrequent = menu.Items.Add(ClearFrequentText, image: null, (_, _) => this.ClearFrequent());
         menu.Opening += (_, _) => clearFrequent.Enabled = !this.usage.IsEmpty;
         menu.Opened += (_, _) => this.tabStrip.SettingsMenuOpen = true;
         menu.Closed += (_, _) => this.tabStrip.SettingsMenuOpen = false;
         return menu;
+    }
+
+    // Back to the default size right away, its top-left corner where it is, and at the next launch too: the saved size
+    // is removed. The window stays shown.
+    private void ResetWindowSize()
+    {
+        SettingsFile.WriteWindowSize(null);
+        this.SetClientArea(this.DefaultClientSize());
     }
 
     // Every counter reset, after a confirmation: they cannot be brought back. No is the default button.
