@@ -173,6 +173,18 @@ Questions asked by the agent during design, with user responses.
 | 2 | When the window appears, which emoji is selected? | The first of the grid | 2026-10-07 |
 | 3 | How do the mouse and the keyboard selection coexist? | Hover moves the selection (one shared selection) | 2026-10-07 |
 | 4 | Is the subject straightforward or tricky / long to explore? | Straightforward | 2026-10-07 |
+| 5 | ← / → at a row end: continue on the next row and across sections, or stop? (Open Question 1) | | |
+| 6 | ↑ / ↓ across a short row and a section boundary (Open Question 2) | | |
+| 7 | Grid edges: stay put or wrap? (Open Question 3) | | |
+| 8 | Home / End: whole grid or current category? (Open Question 4) | | |
+| 9 | Tab past the last category: wrap or stay? (Open Question 5) | | |
+| 10 | Selection highlight: hover fill or accent frame? (Open Question 6) | | |
+| 11 | Name of a keyboard-selected emoji: tooltip or nothing? (Open Question 7) | | |
+| 12 | Window shown again: back to the top, or first visible emoji? (Open Question 8) | | |
+| 13 | Tab click moves the selection? Mouse leaving the grid keeps it? (Open Question 9) | | |
+| 14 | Unit tests: by hand or a test project? (Open Question 10) | | |
+| 15 | Search box overlap: this workfile owns Enter / Esc for the grid, the search box adapts? (Open Question 11) | | |
+| 16 | Backlog: mark the *Keyboard navigation* row with this workfile? (Open Question 12) | | |
 
 ---
 

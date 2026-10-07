@@ -64,44 +64,72 @@ another size (DPI change) rebuilds them.
 
 ### Paint Before the Pre-Render Reaches an Emoji
 
-{See Open Questions — synchronous fallback or blank cell.}
+**Never rendered on the UI thread.** A cell whose emoji is not ready yet is filled with **fluorescent green**
+(`#39FF14`, inside the cell like the hover highlight), so a missing emoji is obvious rather than looking like an
+empty slot.
+
+- When bitmaps are published, the cache tells the grid on the UI thread (`BeginInvoke`), **coalesced**: one pending
+  notification at most; the grid then invalidates itself and the green cells get their emoji.
+- The hovered cell's highlight is drawn under the emoji as today; a not-ready hovered cell stays green.
 
 ---
 
 ## Disk Cache Next to the Exe
 
-The user asked whether a cache can live in a subfolder of the exe's folder. Feasible:
+The pre-rendered emojis are saved in a subfolder of the exe's folder, and reloaded from it at the next launch
+instead of being rendered again.
 
-- A kebab-case folder (`cache`, one `FolderName` constant — `../CLAUDE.md` § Folder Names) next to the exe, one
-  atlas image per emoji size, keyed by: the emoji size in pixels, the Segoe UI Emoji font file's version, the
-  Emojibase data version, the rendering parameters. Any key change → re-rendered and rewritten.
-- Limits: an exe installed under `Program Files` cannot write next to itself → no disk cache there, silently (or a
-  fallback under `%LOCALAPPDATA%`). A Windows update changing the font invalidates it.
-- Gain: it only shortens the **first second or two after launch** — the time the background pre-render needs.
-  Once the pre-render is done, the disk cache brings nothing more.
+- **Folder**: `cache` in `AppContext.BaseDirectory` — kebab-case, one `FolderName` constant in the cache's class
+  (`../CLAUDE.md` § Folder Names). Created on first write.
+- **Files, per emoji size**: `emojis-{size}.png`, an **atlas** — every emoji in pre-render order (tab order, then
+  grid order), on a fixed number of columns, premultiplied colours saved as non-premultiplied PNG — and
+  `emojis-{size}.key`, a text file holding the **key** the atlas was built for.
+- **Key**: the emoji size in pixels; the Segoe UI Emoji font file's size and last-write time
+  (`%WINDIR%\Fonts\seguiemj.ttf`, so a Windows update changing the font invalidates it); a hash of the ordered emoji
+  list (so an Emojibase update or a catalog change invalidates it); the renderer's parameters (font scale, raise,
+  a format version). The key file is compared as a whole: any difference → the atlas is ignored.
+- **Launch flow, on the pre-render thread**: key matches → the atlas is loaded and cut into one bitmap per emoji,
+  published like rendered ones. Missing, mismatched or unreadable → everything is rendered (§ Background
+  Pre-Rendering), then the atlas and its key are written.
+- **Write**: to temporary files in the same folder, then renamed over the old ones, the key last — a crash never
+  leaves a key pointing at a half-written atlas.
+- **Not writable** (an exe under `Program Files`, a read-only folder): every write error is swallowed — the app
+  renders at every launch, nothing else changes. No fallback location.
+- **DPI change**: the same flow at the new size; the files of every size already met are kept side by side.
 
-{In scope or not: see Open Questions.}
+---
+
+## Documentation
+
+- `RULES.md` § Categories and Insertion: the emojis are pre-rendered in the background at launch, cached in
+  `cache\` next to the exe, a not-ready cell shown fluorescent green.
+- `README.md` / `README.fr.md`: the `cache` folder the app creates next to its exe, and that deleting it is safe.
 
 ---
 
 ## Test Impact
 
-The repository has **no test project** today.
+**No unit test**: the repository has no test project, and none is created for this work (user's decision). The
+verification is manual, during the run, and written in this workfile:
 
-| Behaviour to pin | Test file | Create / Update |
+| Behaviour to verify | How | Create / Update |
 |---|---|---|
-| {See Open Questions — whether to create a test project} | | |
+| Time to pre-render every emoji, cold (no cache) | Timing measured in the run (`Stopwatch`, debug output) | — |
+| Time to load them from the atlas, warm | Same | — |
+| First scroll over every category, once the pre-render is done: no green cell, no hitch | Manual, app launched | — |
+| A key change (another DPI) rebuilds the atlas at the new size | Manual | — |
+| A read-only `cache` folder: the app still works | Manual | — |
 
 ---
 
 ## Open Questions
 
-- [ ] Disk cache next to the exe: in this workfile, or left for later (a backlog row) once the background
-  pre-render's real duration is measured?
-- [ ] An emoji painted before the pre-render reached it: rendered synchronously on the UI thread (never a blank
-  cell, a small hitch possible in the first instants) or left blank and drawn as soon as it is ready (never a hitch)?
-- [ ] No test project exists: create one for this work (e.g. the pre-render order, the cache's hand-over), or keep
-  the verification manual (timings measured during the run and written in this workfile)?
+- [x] ~~Disk cache next to the exe: in this workfile, or left for later?~~ → In this workfile; silent fallback (no
+  disk cache) when the folder cannot be written.
+- [x] ~~An emoji painted before the pre-render reached it: synchronous render or blank cell?~~ → A cell filled with
+  fluorescent green, so a missing emoji is obvious; drawn as soon as it is ready.
+- [x] ~~No test project exists: create one, or keep the verification manual?~~ → Manual verification, timings
+  written in this workfile.
 
 ---
 
@@ -114,6 +142,14 @@ take longer; the accepted trade-off is background pre-rendering; the subject is 
 (single exploration pass). Exploration found the cost: a full Direct2D setup per emoji, done lazily inside
 `OnPaint`. Proposed: reuse the renderer's per-size resources, and pre-render every emoji at launch on a background
 thread. The user's disk-cache question is answered in its section and left open as to scope.
+
+### Iteration 2 — 2026-10-07
+
+Open questions answered. The **disk cache** joins the scope: a `cache` folder next to the exe, one PNG atlas and
+one key file per emoji size, silently skipped when the folder cannot be written. A not-ready emoji is **never
+rendered on the UI thread**: its cell is filled with fluorescent green so a missing emoji is obvious, then drawn
+once the pre-render publishes it. No test project: the verification is manual, timings recorded here. A
+Documentation section is added (RULES, README in both languages).
 
 ---
 
@@ -135,9 +171,10 @@ thread. The user's disk-cache question is answered in its section and left open 
 | 2 | What does "ultra fast" target? | Instant display; the app's start may take longer (pre-rendering) | 2026-10-07 |
 | 3 | Which trade-offs are acceptable? (more memory, background pre-render, disk cache, other rendering tech) | Background pre-rendering | 2026-10-07 |
 | 4 | Straightforward or tricky subject? | Straightforward | 2026-10-07 |
-| 5 | Disk cache next to the exe: now or later? | | |
-| 6 | Emoji painted before the pre-render reached it: synchronous render or blank cell? | | |
-| 7 | Create a test project, or manual verification? | | |
+| 5 | Disk cache next to the exe: now or later? | In this workfile | 2026-10-07 |
+| 6 | Emoji painted before the pre-render reached it: synchronous render or blank cell? | Blank cell with a fluorescent green background, so it is clear the emoji is missing | 2026-10-07 |
+| 7 | Create a test project, or manual verification? | Manual verification | 2026-10-07 |
+| 8 | Go for implementation? (scope, where) | | |
 
 ---
 
