@@ -81,9 +81,20 @@ the same setting, two places. Labels: *Show frequently used* (⚙) and *Hide fre
 
 ## Custom Groups
 
-The same logic applied to the custom groups of the custom tab (Q&A #10). Its exact shape is open
-(see *Open Questions*): what is hidden — each group, or the custom tab as a whole — and where it is
-shown again from.
+The same logic applied to the custom groups of the custom tab (Q&A #10), shaped by
+[20261008-custom-tabs.md](20261008-custom-tabs.md) as it is delivered.
+
+- **Each group** is hidden on its own (Q&A #11): its "…" menu gets **Hide group**, next to
+  *Rename…*, *Reorder* and *Delete group*. No confirmation, like the frequent tab.
+- A hidden group's section leaves the grid. The **custom tab** leaves the strip once **every** group
+  is hidden; the minimum width follows the tab count, as for the frequent tab.
+- **Shown again** from a **submenu of the settings menu ⚙**, *Show groups* (Q&A #12): one checkable
+  item per group, in the groups' order, checked while the group is shown — unchecking one hides it
+  too. Greyed while no group exists.
+- A hidden group **stays in the right-click *Add to…* menu** (Q&A #13): it keeps receiving emojis,
+  as the hidden frequent tab keeps counting.
+- After a toggle with the window open: back to the top, on the first emoji, as for the frequent tab.
+- Where the hidden flag is saved: see *Open Questions*.
 
 ---
 
@@ -125,7 +136,10 @@ harness in the session's scratchpad, as `EmojiUsage` was.
 | *Hide frequently used* in the "…" menu does the same as unchecking, and the ⚙ item reflects it | — (manual) | — |
 | Hidden: a use still adds 1 to the counter; shown again, the section shows it | — (manual) | — |
 | The setting survives a restart; a read-only folder → no error, kept until the app ends | — (manual) | — |
-| A hidden custom group behaves like the hidden frequent tab (shape pending the open questions) | — (manual) | — |
+| *Hide group* in a group's "…" menu removes its section; the custom tab leaves once every group is hidden | — (manual) | — |
+| *Show groups* (⚙) lists every group, checked while shown; checking one puts its section back | — (manual) | — |
+| A hidden group still appears in *Add to…*, and an emoji added there is in it once it is shown again | — (manual) | — |
+| A hidden group stays hidden after a restart | — (manual) | — |
 
 ---
 
@@ -137,9 +151,10 @@ harness in the session's scratchpad, as `EmojiUsage` was.
 - [x] ~~The window's minimum width while the tab is hidden: kept as with every tab, or one tab narrower?~~ → One tab narrower, computed again at every toggle
 - [x] ~~Where do the grid and the selection go after a toggle while the window is open?~~ → Back to the top, on the first emoji
 - [x] ~~The custom tabs workfile also designs a "…" button on its group headers and says the frequent section has none: implement the "…" mechanism here first, and update that workfile so its groups reuse it?~~ → No: wait for the custom tabs to be delivered, reuse their "…" button, and apply the same hiding logic to the custom groups (Q&A #10)
-- [ ] Custom groups: what is hidden — **each group** on its own (its "…" menu gets *Hide*), or the **custom tab as a whole** (one setting, like the frequent tab)?
-- [ ] Custom groups: where is a hidden one shown again from — one checkable item per group in the settings menu, a submenu, or something else?
-- [ ] Does a hidden custom group still receive emojis from the right-click *Add to…* menu?
+- [x] ~~Custom groups: what is hidden — each group on its own, or the custom tab as a whole?~~ → Each group; the custom tab leaves once every group is hidden
+- [x] ~~Custom groups: where is a hidden one shown again from?~~ → A *Show groups* submenu in ⚙, one checkable item per group
+- [x] ~~Does a hidden custom group still receive emojis from the right-click *Add to…* menu?~~ → Yes
+- [ ] Where is a custom group's hidden flag saved: in the custom groups' own file, with the group (a renamed or deleted group carries it along), or in `settings.json` (keyed by the group's name, lost on a rename)?
 
 ---
 
@@ -178,6 +193,12 @@ Q&A #5-9: the labels *Show frequently used* / *Hide frequently used*; no confirm
 minimum width one tab narrower while hidden, computed again at every toggle; after a toggle, the
 grid back to the top on its first emoji.
 
+### Iteration 4 — 2026-10-08
+
+Q&A #11-13: each custom group is hidden on its own from its "…" menu (*Hide group*), the custom tab
+leaving once every group is hidden; shown again from a *Show groups* submenu in ⚙; a hidden group
+still receives emojis from *Add to…*. New open question: where the hidden flag is saved.
+
 ---
 
 ## Implementation Log
@@ -209,9 +230,10 @@ Questions asked by the agent during design, with user responses.
 | 8 | Minimum window width while hidden? | One tab narrower | 2026-10-08 |
 | 9 | Grid and selection after a toggle with the window open? | Back to the top, on the first emoji | 2026-10-08 |
 | 10 | Implement the "…" mechanism here first, and update the custom tabs workfile? | Unasked — the user said: wait for the custom tabs, and apply the same logic to them | 2026-10-08 |
-| 11 | Custom groups: hide each group, or the custom tab as a whole? | | 2026-10-08 |
-| 12 | Custom groups: where is a hidden one shown again from? | | 2026-10-08 |
-| 13 | Does a hidden custom group still receive emojis from *Add to…*? | | 2026-10-08 |
+| 11 | Custom groups: hide each group, or the custom tab as a whole? | Each group | 2026-10-08 |
+| 12 | Custom groups: where is a hidden one shown again from? | A *Show groups* submenu in ⚙ | 2026-10-08 |
+| 13 | Does a hidden custom group still receive emojis from *Add to…*? | Yes |
+| 14 | Where is a custom group's hidden flag saved? | | 2026-10-08 | 2026-10-08 |
 
 ---
 
