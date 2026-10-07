@@ -10,8 +10,8 @@ namespace EmojiSelector.UI;
 /// While the search box holds text the strip is <see cref="Greyed"/>.
 /// <para>
 /// The window has no caption: right of the tabs, the strip holds the <b>drag area</b>, an empty band moving the window
-/// (<see cref="IsDragArea"/>), then the <b>close cross</b> raising <see cref="CloseClicked"/>. The cross is never
-/// greyed.
+/// (<see cref="IsDragArea"/>), the <b>settings button</b> raising <see cref="SettingsClicked"/>, then the <b>close
+/// cross</b> raising <see cref="CloseClicked"/>. The two buttons are never greyed.
 /// </para>
 /// </summary>
 internal sealed class CategoryTabStrip : Control
@@ -31,7 +31,12 @@ internal sealed class CategoryTabStrip : Control
     private const int LogicalMinimumDragWidth = 24;
 
     private const char CloseGlyph = '\uE8BB';
+    private const char SettingsGlyph = '\uE713';
     public const string CloseText = "Close";
+    public const string SettingsText = "Settings";
+
+    // A press on the settings button this soon after its menu closed is the press that closed it: not a new click.
+    private const int MenuClosingPressMilliseconds = 250;
 
     // Windows' own close button: red on hover, a lighter red pressed, the glyph white on both.
     private static readonly Color CloseHoverColor = Color.FromArgb(0xC4, 0x2B, 0x1C);
@@ -46,6 +51,8 @@ internal sealed class CategoryTabStrip : Control
     private StripButton hoveredButton;
     private StripButton pressedButton;
     private bool greyed;
+    private bool settingsMenuOpen;
+    private long settingsMenuClosedByPressAt = long.MinValue;
 
     public CategoryTabStrip(IReadOnlyList<EmojiCategory> categories)
     {
@@ -61,6 +68,7 @@ internal sealed class CategoryTabStrip : Control
     private enum StripButton
     {
         None,
+        Settings,
         Close,
     }
 
@@ -70,9 +78,38 @@ internal sealed class CategoryTabStrip : Control
     /// <summary>The close cross was clicked: pressed and released over it.</summary>
     public event EventHandler? CloseClicked;
 
-    /// <summary>The narrowest the strip can be with every tab, a drag area and the cross, in logical pixels.</summary>
+    /// <summary>The settings button was clicked: its bounds, in the strip's coordinates, to show the menu under it.</summary>
+    public event EventHandler<Rectangle>? SettingsClicked;
+
+    /// <summary>The narrowest the strip can be with every tab, a drag area and the buttons, in logical pixels.</summary>
     public int LogicalMinimumWidth =>
-        LogicalPadding + this.categories.Count * LogicalTabWidth + LogicalMinimumDragWidth + LogicalButtonWidth;
+        LogicalPadding + this.categories.Count * LogicalTabWidth + LogicalMinimumDragWidth + 2 * LogicalButtonWidth;
+
+    /// <summary>
+    /// Whether the settings menu is open: the button stays drawn as hovered meanwhile. Closed by a press on the button
+    /// itself, that press does not open it again.
+    /// </summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool SettingsMenuOpen
+    {
+        get => this.settingsMenuOpen;
+        set
+        {
+            if (value == this.settingsMenuOpen)
+            {
+                return;
+            }
+
+            this.settingsMenuOpen = value;
+            if (!value && (MouseButtons & MouseButtons.Left) != 0
+                && this.SettingsBounds.Contains(this.PointToClient(MousePosition)))
+            {
+                this.settingsMenuClosedByPressAt = Environment.TickCount64;
+            }
+
+            this.Invalidate();
+        }
+    }
 
     /// <summary>The active tab: the category at the top of the grid.</summary>
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -116,13 +153,16 @@ internal sealed class CategoryTabStrip : Control
 
     private Rectangle CloseBounds => new(this.Width - this.ButtonWidth, 0, this.ButtonWidth, this.Height);
 
+    private Rectangle SettingsBounds => new(this.Width - 2 * this.ButtonWidth, 0, this.ButtonWidth, this.Height);
+
     /// <summary>
     /// Whether <paramref name="location"/>, in the strip's coordinates, lies in the drag area: between the last tab
-    /// and the cross. The window answers it as its caption, so Windows moves the window and opens its system menu.
+    /// and the settings button. The window answers it as its caption, so Windows moves the window and opens its system
+    /// menu.
     /// </summary>
     public bool IsDragArea(Point location) =>
         location.Y >= 0 && location.Y < this.Height
-        && location.X >= this.TabBounds(this.categories.Count - 1).Right && location.X < this.CloseBounds.Left;
+        && location.X >= this.TabBounds(this.categories.Count - 1).Right && location.X < this.SettingsBounds.Left;
 
     protected override void OnPaint(PaintEventArgs e)
     {
@@ -153,6 +193,7 @@ internal sealed class CategoryTabStrip : Control
             }
         }
 
+        this.PaintSettings(e.Graphics);
         this.PaintClose(e.Graphics);
 
         using var separator = new Pen(SystemColors.ControlLight);
@@ -203,7 +244,10 @@ internal sealed class CategoryTabStrip : Control
         base.OnMouseDown(e);
         if (e.Button == MouseButtons.Left)
         {
-            this.pressedButton = this.ButtonAt(e.Location);
+            StripButton button = this.ButtonAt(e.Location);
+            bool closedTheMenu = Environment.TickCount64 - this.settingsMenuClosedByPressAt < MenuClosingPressMilliseconds;
+            this.pressedButton = button == StripButton.Settings && closedTheMenu ? StripButton.None : button;
+            this.settingsMenuClosedByPressAt = long.MinValue;
             this.Invalidate();
         }
     }
@@ -220,9 +264,18 @@ internal sealed class CategoryTabStrip : Control
 
         this.pressedButton = StripButton.None;
         this.Invalidate();
-        if (this.ButtonAt(e.Location) == pressed)
+        if (this.ButtonAt(e.Location) != pressed)
+        {
+            return;
+        }
+
+        if (pressed == StripButton.Close)
         {
             this.CloseClicked?.Invoke(this, EventArgs.Empty);
+        }
+        else
+        {
+            this.SettingsClicked?.Invoke(this, this.SettingsBounds);
         }
     }
 
@@ -258,11 +311,13 @@ internal sealed class CategoryTabStrip : Control
         }
 
         int tab = (location.X - this.LeftPadding) / this.TabWidth;
-        return tab < this.categories.Count && location.X < this.CloseBounds.Left ? tab : -1;
+        return tab < this.categories.Count && location.X < this.SettingsBounds.Left ? tab : -1;
     }
 
     private StripButton ButtonAt(Point location) =>
-        this.CloseBounds.Contains(location) ? StripButton.Close : StripButton.None;
+        this.CloseBounds.Contains(location) ? StripButton.Close
+        : this.SettingsBounds.Contains(location) ? StripButton.Settings
+        : StripButton.None;
 
     private void SetHovered(int tab, StripButton button)
     {
@@ -273,9 +328,28 @@ internal sealed class CategoryTabStrip : Control
 
         this.hoveredTab = tab;
         this.hoveredButton = button;
-        string? tip = button == StripButton.Close ? CloseText : tab >= 0 ? this.categories[tab].Name : null;
+        string? tip = button switch
+        {
+            StripButton.Close => CloseText,
+            StripButton.Settings => SettingsText,
+            _ => tab >= 0 ? this.categories[tab].Name : null,
+        };
         this.toolTip.SetToolTip(this, tip);
         this.Invalidate();
+    }
+
+    // Grey like an inactive tab, with the tabs' hover — kept while its menu is open.
+    private void PaintSettings(Graphics graphics)
+    {
+        Rectangle bounds = this.SettingsBounds;
+        if (this.hoveredButton == StripButton.Settings || this.pressedButton == StripButton.Settings || this.settingsMenuOpen)
+        {
+            using var hover = new SolidBrush(SystemColors.ControlLight);
+            graphics.FillRectangle(hover, Rectangle.Inflate(bounds, -2, -4));
+        }
+
+        TextRenderer.DrawText(graphics, SettingsGlyph.ToString(), this.iconFont, bounds, SystemColors.GrayText,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
     }
 
     // Grey like an inactive tab; on hover, Windows' own red with a white glyph.

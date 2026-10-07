@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using EmojiSelector.Data;
 using EmojiSelector.Input;
@@ -22,7 +23,10 @@ internal sealed class MainForm : Form
     // A side resize border at 96 DPI, its invisible part included: SM_CXSIZEFRAME + SM_CXPADDEDBORDER.
     private const int LogicalSideBorder = 8;
 
+    public const string OpenAppFolderText = "Open app folder";
+
     private readonly TrayIcon trayIcon;
+    private readonly ContextMenuStrip settingsMenu;
     private readonly IReadOnlyList<EmojiCategory> categories;
     private readonly TextBox searchBox;
     private readonly Button clearButton;
@@ -81,6 +85,9 @@ internal sealed class MainForm : Form
         this.clearButton.Click += (_, _) => this.ClearSearch();
         this.tabStrip.TabClicked += (_, category) => this.grid.ScrollToCategory(category);
         this.tabStrip.CloseClicked += (_, _) => this.Close();
+        this.settingsMenu = this.CreateSettingsMenu();
+        this.tabStrip.SettingsClicked += (_, bounds) =>
+            this.settingsMenu.Show(this.tabStrip, new Point(bounds.Right, bounds.Bottom), ToolStripDropDownDirection.BelowLeft);
         this.grid.ActiveCategoryChanged += (_, _) => this.tabStrip.ActiveTab = this.grid.ActiveCategory;
         this.grid.EmojiClicked += (_, emoji) => this.InsertEmoji(emoji);
         ResumeLayout(performLayout: false);
@@ -154,6 +161,7 @@ internal sealed class MainForm : Form
         if (disposing && !this.IsDisposed)
         {
             this.shortcutHook.Dispose();
+            this.settingsMenu.Dispose();
             this.trayIcon.Dispose();
             this.foregroundTracker.Dispose();
         }
@@ -177,6 +185,26 @@ internal sealed class MainForm : Form
         return point.X < border ? WindowFrame.HtTopLeft
             : point.X >= this.ClientSize.Width - border ? WindowFrame.HtTopRight
             : WindowFrame.HtTop;
+    }
+
+    // The menu of the tab strip's settings button, shown under it, its right edge on the button's.
+    private ContextMenuStrip CreateSettingsMenu()
+    {
+        var menu = new ContextMenuStrip();
+        menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
+        menu.Opened += (_, _) => this.tabStrip.SettingsMenuOpen = true;
+        menu.Closed += (_, _) => this.tabStrip.SettingsMenuOpen = false;
+        return menu;
+    }
+
+    // The folder holding the exe, in the File Explorer, the exe selected. The window stays as it is: the File Explorer
+    // comes in front of it.
+    private static void OpenAppFolder()
+    {
+        if (Environment.ProcessPath is string exe)
+        {
+            using Process? explorer = Process.Start("explorer.exe", $"/select,\"{exe}\"");
+        }
     }
 
     // The search box, and the ✕ next to it while it holds text.
