@@ -131,13 +131,14 @@ internal sealed class MainForm : Form
         base.OnFormClosing(e);
     }
 
-    // Every show, whatever its path: the search starts over, the box ready for typing.
+    // Every show, whatever its path: the search starts over, the box ready for typing, the grid on the frequent tab.
     protected override void OnVisibleChanged(EventArgs e)
     {
         base.OnVisibleChanged(e);
         if (this.Visible)
         {
             this.ClearSearch();
+            this.grid.ScrollToCategory(0);
         }
     }
 
