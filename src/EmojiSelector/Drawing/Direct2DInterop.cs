@@ -217,5 +217,5 @@ internal interface IWICBitmap
     void CopyPalette();
 
     [PreserveSig]
-    int CopyPixels(IntPtr rect, int stride, int bufferSize, [Out, MarshalAs(UnmanagedType.LPArray)] byte[] buffer);
+    int CopyPixels(IntPtr rect, int stride, int bufferSize, IntPtr buffer);
 }
