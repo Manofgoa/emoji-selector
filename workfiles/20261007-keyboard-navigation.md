@@ -59,7 +59,11 @@ Backlog: this covers the whole **Keyboard navigation** row of
   selected cell entirely. The active tab follows the scroll, as today.
 - **A scroll does not move the selection**: the re-hit-test of `OnScrolled` stops changing it —
   otherwise a keyboard scroll would hand the selection to the emoji under a cursor that never
-  moved. Only a real mouse move does.
+  moved. Only a real mouse move does: `EmojiGrid` compares the cursor's **screen** position with the
+  last one seen, reset on every show — Windows also sends a mouse move when the window appears under
+  a still cursor.
+- **Emptying the box** while the window stays open → the first emoji entirely in view.
+- A navigation key with no selection (no result left) selects the first emoji.
 
 ---
 
@@ -101,7 +105,7 @@ show) and the grid.
 | Search box | Esc | Unchanged: clears the box, or hides the window when it is empty |
 | Search box | Page Up / Page Down, Tab / Shift+Tab | **Ignored** — only ↓ leaves the box |
 | Grid | ↑ on the grid's **first row** | Back to the **search box** — instead of staying put (*Grid edges*) |
-| Grid | A character typed | Back to the **search box**, the character typed into it |
+| Grid | A character typed, Backspace | Back to the **search box**, the key typed into it, at the end of its text |
 | Grid | Every other key of the table above | As described there |
 
 - **Search mode**: on every change of the text, the selection goes to the **first result**; Enter
@@ -245,6 +249,42 @@ Requested by the user during the run, after testing the check instance: when the
 **no emoji**, ↓ in the box does nothing — the keyboard **stays in the box** instead of going to an
 empty grid. *With the search box* updated.
 
+### Iteration 7 — 2026-10-08 — 🧭 Implementation choices
+
+⚠️ Rule broken — every launch by an agent passes the session's name as the second title
+(`CLAUDE.md` § Launch). The first check instance was launched with `--title "Gestion de la
+sélection au clavier (check)"`: the name plus a suffix. Why: a slip, not a necessity — the later
+launches pass the name alone. Autonomous run: reported instead of asked.
+
+Choices the frozen design did not state:
+
+- **Focus**: the grid stays non-selectable (a click never focuses it) and gets the focus from
+  `Control.Focus()` on ↓. `MainForm.ProcessCmdKey` routes every key, for the box and the grid alike;
+  the box's `OnSearchBoxKeyDown` is gone, and with it the `searchResults` field — Enter reads
+  `EmojiGrid.SelectedEmoji`. Going back to the box sets `ActiveControl` **and** calls `Focus()`.
+- **Esc in the grid** behaves as in the box (clears, or hides).
+- **Backspace** in the grid goes back to the box and edits the search, like a typed character.
+  Characters reach the box as `WM_CHAR`, at the end of its text.
+- **Emptying the box** while open selects the first emoji entirely in view; a navigation key with no
+  selection selects the first emoji.
+- **Mouse guard**: compares screen positions, reset on every show. Found during the checks: the
+  window appearing under a still cursor sent a mouse move that took the selection away from the
+  first emoji.
+- **Frame**: 2 logical pixels, inset, `SystemColors.Highlight`, drawn over the green placeholder cell
+  too. The grey hover fill is gone.
+- **Tab** starts from the selection's category, the active tab's when there is no selection.
+- **API**: `EmojiGridLayout.First / Last / FirstOf / LastOf / Next / Previous / Above / Below`;
+  `EmojiGrid.SelectedEmoji / MoveSelection / SelectCategory / ResetToTop` — `SelectCategory`
+  replaces `ScrollToCategory`.
+- **Checks**: the navigation targets by reflection on the built DLL (18 cases: row ends, empty
+  sections skipped, short rows, grid edges); on the running app, keys **posted** to the focused
+  control, with a posted `WM_ACTIVATE` instead of taking the foreground: ↓ into the grid, arrows,
+  ↑ back to the box, a typed character back to the box, ↓ with `zzq` (no result) staying in the box.
+  The user was using the check instance at the same time (it answers Win+;), which blurred a few
+  runs. Not checked by script: Enter (it would type into a real app), Ctrl+Home / Ctrl+End and
+  Shift+Tab (a posted key carries no modifier state), Page Up / Down — left to the user's test.
+- `RULES.md` gains a **Keyboard** section, with how an agent checks the keys from a script.
+
 ---
 
 ## Implementation Log
@@ -254,10 +294,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | |
-| README | | | |
-| RULES.md, glossary | | | |
+| Code | 5, 6 | 2026-10-08 | `c5583ad` layout targets, `15bfc7b` selection and keys (↓ with no result included) |
+| Unit tests | 5 | 2026-10-08 | Not applicable — no test project, checked by hand (Q&A 14); layout targets checked by reflection |
+| README | 5 | 2026-10-08 | `1b10217`, English and French |
+| RULES.md, glossary | 5 | 2026-10-08 | `ce2ff50` RULES § Keyboard and § Search Box; `b8f3955` *Selection*, English and French |
 
 ---
 
