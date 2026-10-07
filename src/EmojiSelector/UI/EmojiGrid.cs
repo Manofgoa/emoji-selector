@@ -99,7 +99,7 @@ internal sealed class EmojiGrid : Control
     public void ShowSearchResults(IReadOnlyList<Emoji> results)
     {
         this.categoriesOffset ??= this.Offset;
-        this.sections = [new EmojiCategory(SearchResultsHeader, ' ', results)];
+        this.sections = [new EmojiCategory(SearchResultsHeader, ' ', results, EmptyText: NoResultText)];
         this.Relayout();
         this.SetOffset(0);
     }
@@ -134,6 +134,14 @@ internal sealed class EmojiGrid : Control
                 TextRenderer.DrawText(graphics, this.sections[section].Name, this.headerFont, header, SystemColors.ControlText,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
             }
+
+            // An empty section's message fills the row the layout keeps for it, under the header.
+            if (this.sections[section] is { Emojis.Count: 0, EmptyText: string emptyText })
+            {
+                var message = new Rectangle(this.layout.Padding, header.Bottom, width - 2 * this.layout.Padding, this.layout.CellSize);
+                TextRenderer.DrawText(graphics, emptyText, this.Font, message, SystemColors.GrayText,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            }
         }
 
         int emojiSize = this.EmojiSize;
@@ -156,14 +164,6 @@ internal sealed class EmojiGrid : Control
             }
 
             graphics.DrawImage(bitmap, cell.X + (cell.Width - emojiSize) / 2, cell.Y + (cell.Height - emojiSize) / 2, emojiSize, emojiSize);
-        }
-
-        if (this.IsSearching && this.sections[0].Emojis.Count == 0)
-        {
-            var message = new Rectangle(this.layout.Padding, this.layout.HeaderTop(0) + this.layout.HeaderHeight - offset,
-                width - 2 * this.layout.Padding, this.layout.CellSize);
-            TextRenderer.DrawText(graphics, NoResultText, this.Font, message, SystemColors.GrayText,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
         }
     }
 
@@ -237,7 +237,8 @@ internal sealed class EmojiGrid : Control
     }
 
     private EmojiGridLayout CreateLayout() => new(
-        this.sections.Select(section => section.Emojis.Count).ToList(),
+        this.sections.Select(section => new EmojiGridLayout.Section(
+            section.Emojis.Count, MinRows: section.EmptyText is null ? 0 : 1, section.MaxRows)).ToList(),
         this.ClientSize.Width - this.scrollBar.Width,
         this.ViewportHeight,
         this.LogicalToDeviceUnits(LogicalCellSize),

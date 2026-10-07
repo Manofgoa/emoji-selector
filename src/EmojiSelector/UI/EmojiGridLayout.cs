@@ -7,20 +7,25 @@ namespace EmojiSelector.UI;
 /// </summary>
 internal sealed class EmojiGridLayout
 {
+    private readonly Section[] sections;
     private readonly int[] counts;
     private readonly int[] headerTops;
     private readonly int[] cellsTops;
 
-    /// <param name="counts">The number of emojis of each section, in order.</param>
+    /// <param name="sections">Each section's emoji count and row bounds, in order.</param>
     /// <param name="width">The width the cells fit in, padding included.</param>
     /// <param name="viewportHeight">The visible height: the content is tall enough to bring the last header to the top.</param>
-    public EmojiGridLayout(IReadOnlyList<int> counts, int width, int viewportHeight, int cellSize, int headerHeight, int padding)
+    public EmojiGridLayout(IReadOnlyList<Section> sections, int width, int viewportHeight, int cellSize, int headerHeight, int padding)
     {
-        this.counts = [.. counts];
+        this.sections = [.. sections];
         this.CellSize = cellSize;
         this.HeaderHeight = headerHeight;
         this.Padding = padding;
         this.Columns = Math.Max(1, (width - 2 * padding) / cellSize);
+
+        // A section with a row limit shows only the emojis its rows hold: more or fewer as the columns change.
+        this.counts = [.. sections.Select(section =>
+            section.MaxRows is int maxRows ? Math.Min(section.Count, maxRows * this.Columns) : section.Count)];
         this.headerTops = new int[this.counts.Length];
         this.cellsTops = new int[this.counts.Length];
 
@@ -129,5 +134,12 @@ internal sealed class EmojiGridLayout
         }
     }
 
-    private int RowCount(int section) => (this.counts[section] + this.Columns - 1) / this.Columns;
+    private int RowCount(int section) =>
+        Math.Max(this.sections[section].MinRows, (this.counts[section] + this.Columns - 1) / this.Columns);
+
+    /// <summary>
+    /// A section's size: its emoji count, at least <paramref name="MinRows"/> rows (room for a message when it is
+    /// empty), at most <paramref name="MaxRows"/> when set.
+    /// </summary>
+    public readonly record struct Section(int Count, int MinRows = 0, int? MaxRows = null);
 }
