@@ -54,10 +54,13 @@ are moved by drag and drop — and *Delete group*.
   (Q&A #22). Its tooltip is its name, `Custom`.
 - **Position**: right **after the frequent tab**, before *Smileys & People*; its groups are the
   sections right after the frequent section in the continuous grid (Q&A #9).
-- **One tab, several sections**: today a tab is one section. The custom tab covers **all** the group
-  sections — a click on it scrolls to the first group; it is the active tab while the section at the
-  top of the grid is one of the groups. The tab ↔ section mapping, today an identity, becomes a
-  lookup.
+- **One tab, several sections**: the custom tab covers **all** the group sections — a click on it
+  scrolls to the first group; it is the active tab while the section at the top of the grid is one of
+  the groups. The tab strip keeps a **fixed** list (frequent, custom, the catalog's); only the grid's
+  custom sections change (`EmojiGrid.ReplaceCategories`), and `MainForm.TabOf` / `SectionOf` map one
+  to the other.
+- A change to the groups keeps the view on what it showed: when it was below the groups, it moves with
+  their change of height.
 - **No group yet**: the tab is **shown** all the same; it stands for one section, `Custom`, reading
   **`Create a group from ⚙ → New group…`**, painted like `No emoji found` (Q&A #23). It goes away
   with the first group and comes back with the deletion of the last one.
@@ -69,7 +72,9 @@ are moved by drag and drop — and *Delete group*.
 - Glossary term: **Custom group** (*groupe personnalisé*) (Q&A #21).
 - **Several**, created, named, renamed and deleted by the user (Q&A #1, #10).
 - **Created** from the **settings menu** ⚙ — a *New group…* item next to *Open app folder* — which
-  asks for the group's name (Q&A #6). A new group comes **last**.
+  asks for the group's name (Q&A #6) — `UI/GroupNameDialog.cs`, titled `New group`. A new group comes
+  **last**, and the grid scrolls to it unless a search is shown. The item sits right after *Open app
+  folder*.
 - **Name** (*New group…* and *Rename…*): trimmed, **non-blank** — *OK* greyed while blank; duplicates
   allowed, no length limit — a long one ends with an ellipsis in the header (Q&A #20).
 - **Order** of the groups: the user's, changed by *Move up* / *Move down* (Q&A #19).
@@ -100,13 +105,19 @@ are moved by drag and drop — and *Delete group*.
   frequent tab toggle gives it to the frequent section next.
 - Its menu: **Rename…**, **Reorder**, **Move up**, **Move down**, **Delete group** (Q&A #8, #19) —
   the only place offering them. *Move up* / *Move down* swap the group with its neighbour, greyed on
-  the first / last group.
+  the first / last group, and keep it in view. *Reorder* is greyed while the group shows fewer than
+  two emojis. A separator stands before *Delete group*.
+- The "…" is grey text; *Done* is in the accent colour; both get the tab strip's hover background.
 - **Reorder** turns on a **drag-and-drop mode inside that group only** (Q&A #2) — custom groups only.
 - **While it is on** (Q&A #13): the group's header shows a **`Done`** button in place of "…"; a click
   on an emoji of the group **inserts nothing** — the mouse only drags; each drop is **saved at once**.
   **Enter** on the group's selected emoji inserts nothing either; the arrows still move the
   selection, never the emoji (Q&A #24).
-- **It ends** on *Done*, on **Esc**, and when the window **hides**.
+- **It ends** on *Done*, on **Esc**, and when the window **hides** — and also when a search starts
+  and when a group is moved or deleted.
+- No automatic scroll while dragging near the edges: the mouse wheel scrolls meanwhile.
+- A press that began on a header button or on a dragged emoji inserts nothing, wherever it is
+  released.
 - The drag is hand-rolled inside the grid (mouse down / move / up, an insertion marker painted in
   `OnPaint`), not OLE drag and drop: nothing leaves the section. While dragging, the hover and the
   selection that `OnMouseMove` drives are suspended.
@@ -130,6 +141,8 @@ are moved by drag and drop — and *Delete group*.
 - **Written** after each change, the whole file, through a temporary file then a replace. A folder
   that cannot be written is not an error: the groups live in memory until the app ends.
 - An emoji in the file that the catalog no longer has is **kept in the file** and not shown.
+- The emojis are the **catalog's texts**, `FE0F` included: an emoji written by hand in the file
+  without it does not match, and is not shown (not normalized).
 
 ## Search
 
@@ -268,6 +281,33 @@ Go given: code, tests and documentation, in a worktree (`.claude/worktrees/custo
 `feature/custom-tabs`, created from `main` at `4bc672d`). The scope is the design sections as they
 stand at this entry.
 
+### Iteration 9 — 2026-10-08 — 🧭 Implementation choices
+
+Decisions the frozen design left open, taken by the implementation run (domain sections updated):
+
+- **Tab ↔ section mapping**: the tab strip keeps a fixed list of nine tabs; only the grid's custom
+  sections change (`EmojiGrid.ReplaceCategories`), mapped by `MainForm.TabOf` / `SectionOf`.
+- **View kept**: a change to the groups while the view is below them shifts the scroll by their change
+  of height, so what was shown stays shown (also applied to the scroll position kept during a search).
+- **New group…** sits right after *Open app folder*; the grid scrolls to the new group unless a search
+  is shown. **Move up / Move down** keep the moved group in view.
+- **Group menu**: *Reorder* greyed while the group shows fewer than two emojis; a separator before
+  *Delete group*. Delete question: `Delete the group "<name>"? Its list of emojis cannot be brought back.`
+- **Name dialog**: `UI/GroupNameDialog.cs`, a `Name:` field with *OK* / *Cancel*, titled `New group` or
+  `Rename group`, the current name selected.
+- **Reorder mode** also ends when a search starts and when a group is moved or deleted; no automatic
+  scroll while dragging (the wheel works); a press that began on a header button or on a dragged emoji
+  inserts nothing, wherever it is released.
+- **Look**: "…" in grey text, *Done* in the accent colour, both with the tab strip's hover background;
+  the insertion marker is a 3 px accent bar in the gap.
+- **Menus** built for one show and disposed once closed (`MainForm.ShowOnce`); a group name's `&` is
+  doubled so it shows.
+- **File**: `EmojiUsage.ReadableEmojis` made `internal` and shared, so `custom-groups.json` shows the
+  emojis as themselves. Emojis are matched by the catalog's exact text, `FE0F` included — not
+  normalized; found while checking with a hand-written file.
+
+No project rule broken.
+
 ---
 
 ## Implementation Log
@@ -277,10 +317,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | Not applicable — no test project, checked by hand |
-| README | | | |
-| RULES.md, glossary | | | |
+| Code | 8, 9 | 2026-10-08 | `Data/CustomGroups.cs`, `UI/GroupNameDialog.cs`; `EmojiGrid` (header button, reorder mode, right click, `ReplaceCategories`), `EmojiGridLayout` (`HeaderButton`, `Insertion`), `MainForm`. Checked by a launch: the heart tab, the group sections, their "…", the help message. The menus, the dialog and the drag are left to the hand test |
+| Unit tests | 8 | 2026-10-08 | Not applicable — no test project, checked by hand |
+| README | 8 | 2026-10-08 | `README.md` / `README.fr.md`: *Custom groups* feature, *New group…* in the gear's menu, *Favorites* removed from *Planned* |
+| RULES.md, glossary | 8 | 2026-10-08 | `RULES.md` § Custom Tab, window and keyboard tables; `GLOSSARY.md` / `.fr.md`: *Custom tab*, *Custom group* in, *Favorite* out |
 
 ---
 
