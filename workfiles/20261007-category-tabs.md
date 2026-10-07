@@ -72,8 +72,12 @@ Labels in English, like the rest of the app's UI. No Flags tab: Segoe UI Emoji h
 - Emojis are drawn in **color** through Direct2D/DirectWrite with the color-font option, with the
   system font (Segoe UI Emoji). Each emoji is rendered once into a cached bitmap, then the grid
   draws the bitmaps.
-- Which Direct2D layer: see Open Questions (the tray icon's hand-written interop or the
-  `Vortice.Direct2D1` NuGet).
+- **Direct2D layer**: the tray icon's hand-written interop (`Drawing/Direct2DInterop.cs` and its
+  `EmojiRenderer`), reused — no NuGet package. It already draws an emoji into a bitmap, which is all
+  the grid needs. A move to `Vortice.Direct2D1` is worth it only if the needs grow (drawing straight
+  into the window, measuring text, checking glyph coverage…).
+- **Prerequisite**: the tray icon's work ([20261007-tray-icon.md](20261007-tray-icon.md)) is
+  committed before this implementation starts — it is not yet.
 - Emojis newer than the system font are drawn anyway: they render as boxes. No coverage check.
 
 ---
@@ -133,30 +137,35 @@ the app's window **hides** — like Win+;.
 
 ## Test Impact
 
-See Open Questions for whether a test project is created. If it is:
+**No unit test**: the app has no test project and none is created — everything is checked by hand,
+like the tray icon (Q&A #13).
 
 | Behaviour to pin | Test file | Create / Update |
 |---|---|---|
-| The data parses into 7 categories in Win+; order, Smileys & People merging the two Unicode groups | `src/EmojiSelector.Tests/Data/EmojiCatalogTests.cs` | Create |
-| Components, flags and skin-tone variants are excluded | `src/EmojiSelector.Tests/Data/EmojiCatalogTests.cs` | Create |
-| Layout: each section starts a new row; a section's top offset follows the column count | `src/EmojiSelector.Tests/UI/EmojiGridLayoutTests.cs` | Create |
-| Scroll offset → active category, at and between section boundaries | `src/EmojiSelector.Tests/UI/EmojiGridLayoutTests.cs` | Create |
+| — | — | — |
 
-Rendering and the click action are checked by hand.
+Manual checks:
+
+- 7 tabs in Win+; order; no Flags tab; no skin-tone variant, no component swatch in the grid.
+- Emojis in color; a too-recent emoji shows as a box.
+- Clicking a tab brings its section header to the top; scrolling moves the active tab.
+- Resizing the window reflows the columns; each section starts on a new row.
+- Hover highlights the cell and shows the emoji's name.
+- Clicking an emoji in front of Notepad: the window hides, the emoji is typed into Notepad.
 
 ---
 
 ## Open Questions
 
 - [x] ~~Data source: Emojibase vendored, or Unicode `emoji-test.txt`?~~ → Emojibase, vendored
-- [ ] Direct2D layer: reuse the tray icon's hand-written interop (`Drawing/Direct2DInterop.cs`, not committed yet), or the `Vortice.Direct2D1` NuGet?
+- [x] ~~Direct2D layer: reuse the tray icon's hand-written interop (`Drawing/Direct2DInterop.cs`, not committed yet), or the `Vortice.Direct2D1` NuGet?~~ → The tray icon's interop; the tray icon is committed first
 - [x] ~~Flags (no glyphs in Segoe UI Emoji): bundle images for the flags only, keep letter pairs, or drop the Flags tab?~~ → No Flags tab; logged in TODO-FEATURES.md
 - [x] ~~Emojis newer than the system font (boxes): hide them, or show them anyway?~~ → Shown anyway
 - [x] ~~Click action: copy to the clipboard, insert into the previously focused window, or both?~~ → Insert into the previously focused window
 - [x] ~~After a click: the window stays open, or hides?~~ → Hides
 - [x] ~~Tab icons: color emojis, or monochrome icons like Win+; (Segoe Fluent Icons)?~~ → Monochrome, like Win+;
-- [ ] Keyboard navigation in the grid (arrows, Enter): in scope, or backlog?
-- [ ] Unit tests: create an xUnit test project, or check everything by hand like the tray icon?
+- [x] ~~Keyboard navigation in the grid (arrows, Enter): in scope, or backlog?~~ → Backlog
+- [x] ~~Unit tests: create an xUnit test project, or check everything by hand like the tray icon?~~ → By hand, no test project
 
 ---
 
@@ -192,6 +201,12 @@ are **monochrome** glyphs like Win+;. The Direct2D question stays open: the user
 User request, logged in [TODO-FEATURES.md](TODO-FEATURES.md) (backlog, not this workfile):
 Copy (UTF-8), Copy (PNG), and a user-chosen global shortcut that shows the window.
 
+### Iteration 5 — 2026-10-07
+
+Last answers: the Direct2D layer is the tray icon's hand-written interop — the tray icon's work
+becomes a prerequisite; keyboard navigation goes to the backlog; no test project, everything is
+checked by hand (Test Impact lists the manual checks). No open question remains.
+
 ---
 
 ## Implementation Log
@@ -202,7 +217,7 @@ says so rather than staying blank.
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
 | Code | | | |
-| Unit tests | | | |
+| Unit tests | 5 | 2026-10-07 | Not applicable — no test project, checked by hand (Q&A #13) |
 | README | | | |
 
 ---
@@ -224,10 +239,10 @@ Questions asked by the agent during design, with user responses.
 | 9 | Click action: clipboard, insert, or both? | Insert | 2026-10-07 |
 | 10 | After a click: window stays or hides? | Hides | 2026-10-07 |
 | 11 | Tab icons: color emojis or monochrome icons? | Monochrome (Win+;) | 2026-10-07 |
-| 12 | Keyboard navigation: in scope or backlog? | | |
-| 13 | Unit tests: xUnit project or by hand? | | |
+| 12 | Keyboard navigation: in scope or backlog? | Backlog | 2026-10-07 |
+| 13 | Unit tests: xUnit project or by hand? | By hand | 2026-10-07 |
 | 14 | Direct2D layer, after the pros and cons: tray icon's interop or Vortice? | The explanation does not say what Vortice is for nor the advantages of each situation | 2026-10-07 |
-| 15 | Direct2D layer, after explaining what Vortice is: tray icon's interop or Vortice? | | |
+| 15 | Direct2D layer, after explaining what Vortice is: tray icon's interop or Vortice? | The tray icon's interop | 2026-10-07 |
 
 ---
 
