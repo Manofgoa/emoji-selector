@@ -10,6 +10,11 @@
     <RootNamespace>EmojiSelector</RootNamespace>
   </PropertyGroup>
 
+  <!-- The emoji list, by category: Emojibase's data (MIT), read by Data/EmojiCatalog. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Data\Emojibase\compact.json" LogicalName="EmojiSelector.Data.Emojibase.compact.json" />
+  </ItemGroup>
+
   <!-- dotnet publish -c Release: one small .exe, precompiled for fast startup; needs the .NET 10 Desktop Runtime. -->
   <PropertyGroup>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
