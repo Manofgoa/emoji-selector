@@ -12,6 +12,8 @@ each.
 | Keyword (*mot-clé*) | A word an emoji is found by in the search box — its name or one of its tags |
 | Category (*catégorie*) | A group of emojis by theme (Smileys & People, Animals & Nature, Food & Drink…), browsed without typing: one tab and one section of the grid each |
 | Previous window (*fenêtre précédente*) | The window of another app that was in front before the app's window — the one a clicked emoji is inserted into |
+| Shortcut (*raccourci*) | Win+;, the global keyboard shortcut showing the window from any app — in place of Windows' own emoji panel while the app runs |
+| Text cursor (*curseur de texte*) | The blinking insertion point of the previous window, where typed text goes — Win+; shows the window just under it |
 | Favorite (*favori*) | An emoji the user marked to keep it at hand, shown before the others |
 | Recent (*récent*) | An emoji the user picked lately, kept in a short list for quick reuse |
 | Tray icon (*icône de notification*) | The app's icon in the notification area, shown as long as the app runs; it shows the last emoji used |
