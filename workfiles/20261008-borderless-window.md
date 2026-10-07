@@ -40,11 +40,16 @@ Components: `UI/MainForm.cs` (frame, hit-testing, the minimize / maximize code g
     to be redrawn by hand.
 - **Top edge**: the caption took the top resize border with it — `WM_NCHITTEST` answers `HTTOP`
   (`HTTOPLEFT` / `HTTOPRIGHT` at the corners) on the top few pixels of the window, the same
-  thickness as the side borders (`SM_CXSIZEFRAME` + `SM_CXPADDEDBORDER`, DPI-scaled).
+  thickness as the side borders (`SM_CXSIZEFRAME` + `SM_CXPADDEDBORDER`, DPI-scaled). The messages,
+  codes and that thickness live in `UI/WindowFrame.cs`.
+- Windows asks the **child control under the mouse** first: the search bar on top (`MainForm.SearchBar`)
+  and the tab strip answer `HTTRANSPARENT` over the top band, so the hit test reaches the window.
 - **No minimize, no maximize**: `MinimizeBox = false`, `MaximizeBox = false`. Windows then refuses
   Win+Up, Win+Down to minimize, the drag-to-top snap and the double-click on the drag area.
-- **Size**: `ClientSize` keeps 400 × 450 — the window gets shorter by the caption's height.
-  `MinimumSize` grows so the tabs, a minimal drag area and the cross always fit (see
+- **Size**: `ClientSize` is set to 440 × 450 — wide enough for the minimum width below. WinForms
+  computes the window from it with the caption, which then becomes client area: the window keeps
+  that outer size, the grid gaining the caption's height. `MinimumSize` is the strip's
+  `LogicalMinimumWidth` plus two side borders of 8 logical pixels, 240 high as before (see
   *Tab Strip Layout*).
 - **Alt+F4** still closes (`CloseReason.UserClosing` → hidden to the tray), unchanged.
 
@@ -90,12 +95,16 @@ From left to right:
 - **Click** (left button): the strip raises a new `SettingsClicked` event with the button's bounds;
   `MainForm` shows the **settings menu** right under the button, its right edge aligned with the
   button's — a `ContextMenuStrip`, like the tray icon's menu. The button stays drawn as hovered while
-  the menu is open.
+  the menu is open (`SettingsMenuOpen`).
+- A press on the button **closing** its open menu does not open it again: a press within 250 ms of
+  the menu closing under a left press over the button is ignored.
+- The settings button and the cross are **never greyed** by a search: only the tabs are.
 - Not selectable, no keyboard focus, like the tabs and the cross.
 
 ### Settings Menu
 
-Owned by `MainForm` (new `UI/SettingsMenu.cs` if it grows past a few lines). For now, one item:
+Owned by `MainForm` (`CreateSettingsMenu`, `OpenAppFolder`): a few lines, no file of its own. For
+now, one item:
 
 | Item | Does |
 |---|---|
@@ -129,10 +138,10 @@ Owned by `MainForm` (new `UI/SettingsMenu.cs` if it grows past a few lines). For
 
 ### With the Search Box
 
-The search box (`20261007-search-box.md`, implemented in its worktree) docks **above** the tab
-strip. The cross and the drag area stay **on the tab row**: once both are merged, the window's top
-row is the search box, the second the tabs with the drag area and the cross. Whichever branch is
-merged second adapts the docking order in `MainForm`; nothing else depends on it.
+The search box (`20261007-search-box.md`) docks **above** the tab strip — it was merged into `main`
+before this run started. The drag area, the settings button and the cross stay **on the tab row**:
+the window's top row is the search box, the second the tabs. The docking order is unchanged; the
+search bar became a `TableLayoutPanel` subclass letting the top resize band through.
 
 ---
 
@@ -223,6 +232,33 @@ exe selected, and the window stays once it is clicked. No open question remains.
 Go given: code, unit tests and documentation (no unit test, as designed), in a worktree —
 `.claude/worktrees/borderless-window`, branch `feature/borderless-window`, created from `db6c663`.
 
+### Iteration 6 — 2026-10-08 — 🧭 Implementation choices
+
+No project rule broken. Choices the frozen design did not state:
+
+- **The search box was already in `main`** when the run started (merged while this workfile was
+  designed): the top resize band falls over the search bar, not the tab strip. The bar became
+  `MainForm.SearchBar`, a `TableLayoutPanel` answering `HTTRANSPARENT` there; the tab strip does the
+  same over the band, should it ever be on top.
+- **Window size**: `ClientSize` 440 × 450 instead of 400 × 450 — the design's minimum width (428)
+  exceeded 400. The window keeps the outer size WinForms computes with the caption; the grid gains
+  the caption's height rather than the window shrinking.
+- **`MinimumSize`** = the strip's `LogicalMinimumWidth` + 2 × 8 logical pixels of side borders
+  (a constant: the metric at 96 DPI), height 240 kept.
+- **`UI/WindowFrame.cs`**, a new static class: the `WM_NCCALCSIZE` / `WM_NCHITTEST` messages, the
+  hit-test codes, the border thickness (`GetSystemMetricsForDpi`), shared by the form and the strip.
+- `SWP_FRAMECHANGED` sent once the handle exists, so the frame is computed again with the caption
+  removed.
+- **Buttons never greyed** by a search; a press closing the settings menu does not reopen it
+  (250 ms window).
+- The settings menu stays in `MainForm` — no `UI/SettingsMenu.cs`.
+- **Checks**: the frame was checked in the launched app (no caption, rounded corners and shadow,
+  cross right of the tabs, gear left of it). The settings menu could **not** be checked from a
+  script: a click posted to the strip showed no menu — most likely because the app was not in the
+  foreground, so the result proves nothing. The user was moving the mouse over the window at the
+  same time, so the run stopped simulating input. The menu is left to the hand test. One scripted
+  click went astray before the window was up, at the screen's left edge (0, 84).
+
 ---
 
 ## Implementation Log
@@ -232,10 +268,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | |
-| README | | | |
-| RULES | | | |
+| Code | 5, 6 | 2026-10-08 | Frame (`WindowFrame`, `MainForm`), close cross and drag area, settings button and menu — three commits |
+| Unit tests | 5 | 2026-10-08 | None, as designed (Q&A 7): no test project |
+| README | 5 | 2026-10-08 | `README.md` + `README.fr.md`: second title, tray icon, a *Window* feature line |
+| RULES | 5 | 2026-10-08 | § Command-Line Arguments, § Window and Tray Icon (table + new § Frame), § Shortcut |
 
 ---
 
