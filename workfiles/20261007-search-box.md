@@ -11,22 +11,22 @@
 
 A **search box** sits at the top of the window, above the category tabs. Every time the window
 opens it is **cleared and focused**, so the user types right away. As soon as it holds text, the
-**tabs are greyed** and the grid shows one flat **Search results** list instead of its category
-sections; emptying it brings the category view back.
+**tabs are greyed** and the grid shows one flat **Search results** list, **ranked by relevance**,
+instead of its category sections; emptying it brings the category view back where it was.
 
 Keywords come from Emojibase, in **English and French at once**: `cat` and `chat` both find 🐱,
 with no setting.
 
-Reference: Twitter's emoji picker (screenshot shared by the user) — rounded box with a magnifier
-and a ✕ clear button, tabs greyed while searching, a *Résultats de recherche* header over a flat
-list; `caca` finds 🥜 (*cacahuète*) and 💩 (*caca*), so a typed word matches the **start** of a
-word.
+Reference: Twitter's emoji picker (screenshot shared by the user) — tabs greyed while searching, a
+*Résultats de recherche* header over a flat list; `caca` finds 💩 (*caca*) and 🥜 (*cacahuète*).
 
 | In scope | Out of scope |
 |---|---|
 | Search box, focused and cleared on every show | Recents tab, skin tones, flags tab ([TODO-FEATURES.md](TODO-FEATURES.md)) |
-| English and French keywords (label + tags) | Keyboard navigation in the grid ([TODO-FEATURES.md](TODO-FEATURES.md)) — see Open Questions for Enter / Esc |
-| Greyed tabs and flat result list while searching | A language setting — both languages are always searched |
+| English and French keywords (label + tags) | Arrow-key navigation in the grid ([TODO-FEATURES.md](TODO-FEATURES.md) *Keyboard navigation*) |
+| Relevance ranking | A language setting — both languages are always searched |
+| Greyed tabs and flat result list while searching | A custom-drawn, Twitter-like box (rounded, magnifier inside) |
+| Enter inserts the first result, Esc clears / hides | Unit tests — checked by hand (Q&A #13) |
 
 ### Starting point
 
@@ -41,7 +41,7 @@ word.
 | `EmojiGridLayout` takes a list of section counts — one flat section is `[n]`; `EmojiGrid` indexes `categories[section]` everywhere (paint, hit test, header text) | `UI/EmojiGridLayout.cs`, `UI/EmojiGrid.cs` |
 | The grid and the tab strip are not selectable: clicking them does not take the focus | `ControlStyles.Selectable = false` |
 | Insertion depends on `ForegroundTracker`, not on this window's focus — a focused text box does not disturb it | `Input/` |
-| No test project — the category tabs workfile chose to check everything by hand | [20261007-category-tabs.md](20261007-category-tabs.md) Q&A #13 |
+| No test project | `src/` |
 
 ---
 
@@ -53,24 +53,47 @@ word.
 - **Join**: the French entries are matched to the English ones by `hexcode`. The English file stays
   the master list (categories, order, skipped groups); a French entry with no English match is
   ignored, an English entry with no French match keeps its English keywords only.
-- **Keywords** of an emoji = its English `label` and `tags` + its French `label` and `tags`. `Emoji`
-  gains them, pre-normalized for matching (see *Matching*). The shown name (`Emoji.Name`) stays the
-  English label — the app's UI is in English.
+- **Keywords** of an emoji, each tagged **name** or **tag**:
+  - *name*: the English `label` and the French `label`;
+  - *tag*: the English `tags` and the French `tags`.
+
+  `Emoji` gains them, pre-normalized and split into words (see *Matching*). The shown name
+  (`Emoji.Name`) stays the English label — the app's UI is in English.
 - `CONTRIBUTING.md § Emoji data` describes fetching both files.
 
 ---
 
 ## Matching
 
-Proposed — see Open Questions.
-
 - **Normalization**, on both the typed text and the keywords: lower case, **diacritics removed**
-  (`é` → `e`, `ç` → `c`), punctuation treated as a separator.
-- **Rule**: the typed text is split into words; an emoji matches when **every typed word is the
-  start of a word** of one of its keywords, in either language. `caca` → 🥜 (*cacahuete*) and 💩
-  (*caca*); `chat` → 🐱; `smil cat` → 😺.
+  (`é` → `e`, `ç` → `c`), punctuation and spaces are separators. A keyword is split into **words**
+  (`tête de chat` → `tete`, `de`, `chat`; `sentir mauvais` → `sentir`, `mauvais`).
+- **Typed words**: the text is split into words; an emoji is a **result** when **every typed word is
+  contained** in at least one word of its keywords, in either language — anywhere in the word, not
+  only at its start (`huet` finds 🥜 *cacahuète*).
 - **Live**: the results update at every keystroke — about 1 900 emojis, no delay needed.
-- **Order**: see Open Questions.
+
+### Relevance (tiers)
+
+A typed word's match against one keyword word is graded, best first:
+
+| Criterion | Order |
+|---|---|
+| 1. **Tier** | *exact* (the whole word) → *start* (the word begins with it) → *inside* (anywhere else) |
+| 2. **Coverage** | typed length ÷ word length, higher first — `caca` covers 100 % of *caca*, 44 % of *cacahuete* |
+| 3. **Source** | *name* before *tag* |
+
+A typed word's grade for an emoji is its **best** match among that emoji's keyword words.
+
+**Ranking of the results**:
+
+1. Single typed word: by its grade (tier, then coverage, then source).
+2. Several typed words: by the **worst tier** among them, then the **lowest coverage**, then the
+   number of words matched in a *name* (more first).
+3. Ties keep the **catalog order** (Win+; order) — a stable sort.
+
+Examples: `caca` → 💩 (*caca*, tag, exact) before 🥜 (*cacahuete*, tag, start, 44 %); `chat` → 🐱
+(*tête de chat*, name, exact) before 🐈 if *chat* is only one of its tags.
 
 ---
 
@@ -78,27 +101,37 @@ Proposed — see Open Questions.
 
 ### Search box
 
-- A text box docked at the top, **above the tab strip**, DPI-scaled like the other controls.
-- Look, placeholder, clear button: see Open Questions.
+- A native WinForms **`TextBox`**, docked at the top **above the tab strip**, DPI-scaled like the
+  other controls, placeholder **`Search emojis`** (`PlaceholderText`).
+- A **✕ clear button** next to it, shown only while the box holds text: empties the box and gives
+  the focus back to it.
 
 ### Show behaviour
 
 - Every time the window becomes visible (`OnVisibleChanged`, whatever the show path), the search
   box is **cleared** — which restores the category view — and **gets the focus**.
 
+### Keys in the box
+
+| Key | Does |
+|---|---|
+| Enter | Inserts the **first result** into the previous window, like a click on it (the window hides). Nothing when the box is blank or there is no result |
+| Esc | Box holds text → **clears** it. Box empty → **hides the window** to the tray, like the close button |
+
 ### Search mode (the box holds non-blank text)
 
 | Element | Behaviour |
 |---|---|
-| Tab strip | Every tab **greyed**, no active underline, no hover, clicks ignored — a new state of `CategoryTabStrip` (the built-in `Enabled` does not grey custom drawing) |
-| Grid | One section, header **`Search results`**, holding the matches; scrolled to the top on every change of the text |
-| No match | Message: see Open Questions |
+| Tab strip | Every tab **greyed**, no active underline, no hover, **clicks ignored** — a new state of `CategoryTabStrip` (the built-in `Enabled` does not grey custom drawing) |
+| Grid | One section, header **`Search results`**, holding the results in relevance order; scrolled to the top on every change of the text |
+| No result | The header, then the message **`No emoji found`** |
 | Emoji clicked | Inserted into the previous window, as today; the window hides |
 
 - `EmojiGrid` gets a way to swap its sections for the result list and back; the category view's
   `ActiveCategoryChanged` is not raised while searching.
-- **Leaving search mode** (box emptied): tabs enabled again, category view back — scroll position:
-  see Open Questions.
+- **Leaving search mode** (box emptied, by typing, ✕ or Esc): tabs enabled again, category view
+  back **at the scroll position it had before the search** (the active tab follows). On a show,
+  the box is cleared too, so the view also returns there.
 
 ---
 
@@ -106,39 +139,36 @@ Proposed — see Open Questions.
 
 | File | Change |
 |---|---|
-| `RULES.md` | New section: the search box, the matching rule, the show behaviour |
+| `RULES.md` | New section: the search box, the keys, the matching and relevance rules, the show behaviour |
 | `README.md` / `README.fr.md` | The search in the features |
 | `CONTRIBUTING.md` | § Emoji data: both locale files |
-| `GLOSSARY.md` / `GLOSSARY.fr.md` | Only if a term changes (*Search box* and *Keyword* already exist; *Keyword* gains "in English or French") |
+| `GLOSSARY.md` / `GLOSSARY.fr.md` | *Keyword*: its name or one of its tags, **in English or in French** |
 
 ---
 
 ## Test Impact
 
-Pending Open Question 8. If no test project is created, nothing testable changes in a test file:
-the behaviours below are checked by hand.
+**Nothing testable changes in a test file**: the app has no test project and none is created
+(Q&A #13) — every behaviour is checked by hand on the running app.
 
 | Behaviour to pin | Test file | Create / Update |
 |---|---|---|
-| Normalization: case, diacritics, separators | `tests/EmojiSelector.Tests/Data/EmojiSearchTests.cs` (if a test project is created) | Create |
-| Word-prefix match in either language (`caca` → 🥜 💩, `chat` → 🐱) | same | Create |
-| Every typed word must match (`smil cat` → 😺, not 😀) | same | Create |
-| French keywords joined to the right emoji by `hexcode` | `tests/EmojiSelector.Tests/Data/EmojiCatalogTests.cs` | Create |
-| One flat section laid out from `[n]` | `tests/EmojiSelector.Tests/UI/EmojiGridLayoutTests.cs` | Create |
+| — none (checked by hand: `caca` → 💩 before 🥜, `chat` / `cat` → 🐱, accents ignored, Enter / Esc, greyed tabs, scroll restored, focus on show) | — | — |
 
 ---
 
 ## Open Questions
 
-- [ ] 1. **Matching rule**: every typed word must be the start of a word of a keyword, case- and accent-insensitive (proposed, as on Twitter) — or a plain substring anywhere (`ton` would find *bouton*, *carton*…)?
-- [ ] 2. **Result order**: the catalog order (Win+; order) — or by relevance: name match first (e.g. `chat` → 🐱 *tête de chat* before 🐈‍⬛), then tag matches?
-- [ ] 3. **Keyboard in the box**: Enter inserts the first result? Esc clears the box when it holds text, otherwise hides the window? (Arrow navigation stays in the backlog.)
-- [ ] 4. **Look of the box**: native WinForms `TextBox` with a placeholder and a ✕ clear button next to it — or custom-drawn like Twitter (rounded border, magnifier, ✕ inside)?
-- [ ] 5. **UI texts** (English, like the rest of the UI): placeholder `Search emojis`, header `Search results`, no match `No emoji found` — OK, or other wording?
-- [ ] 6. **Leaving search mode** by emptying the box: the grid returns to where it was before the search — or to the top (first tab)?
-- [ ] 7. **Greyed tab clicked** while searching: ignored (as on Twitter) — or clears the search and jumps to that category?
-- [ ] 8. **Unit tests**: by hand like the category tabs — or create an xUnit test project now, since the matching is a pure function worth pinning?
-- [ ] 9. **Backlog**: mark the *Search box* row of [TODO-FEATURES.md](TODO-FEATURES.md) with this workfile?
+- [x] ~~1. Matching rule: start of a word, or a substring anywhere?~~ → Substring anywhere (*contains*), ranked: start of a word is worth more, and the share of the word covered counts (`caca` exact beats *cacahuète*)
+- [x] ~~2. Result order: catalog or relevance?~~ → Relevance, name matches before tag matches
+- [x] ~~3. Keyboard in the box?~~ → Enter inserts the first result; Esc clears the box, or hides the window when it is empty
+- [x] ~~4. Look of the box?~~ → Native `TextBox`, placeholder, ✕ button next to it
+- [x] ~~5. UI texts?~~ → `Search emojis`, `Search results`, `No emoji found`
+- [x] ~~6. Leaving search mode?~~ → Back where the grid was before the search
+- [x] ~~7. Greyed tab clicked?~~ → Ignored
+- [x] ~~8. Unit tests?~~ → By hand, no test project
+- [x] ~~9. Backlog row?~~ → Marked with this workfile
+- [x] ~~10. How do the relevance criteria combine?~~ → Tiers: exact → start → inside, then coverage, then name before tag, then catalog order
 
 ---
 
@@ -160,6 +190,23 @@ Initial design from the scoping batch (Q&A #1–#4) and the Twitter screenshot:
 - Word-prefix, accent-insensitive matching proposed, from the screenshot (`caca` → 🥜 *cacahuète*).
 - Scout pass only (the user rated the subject straightforward): data and window/grid layout.
 
+### Iteration 2 — 2026-10-08
+
+Open Questions answered (Q&A #5–#14):
+
+- **Matching** changed from word-prefix to *contains*, with a **relevance ranking** the user
+  described: a match at the start of a word is worth more, and the share of the word covered counts
+  (`caca` vs *caca* = 100 % beats `caca` vs *cacahuète*). Combined as **tiers** (exact → start →
+  inside, then coverage, then name before tag, then catalog order). Keywords are now tagged
+  *name* / *tag*.
+- Ranking of **several typed words** (worst tier, then lowest coverage, then name matches) is the
+  agent's extension of the tiers to multi-word queries — to be read by the user before the go.
+- Enter inserts the first result; Esc clears, or hides when empty.
+- Native `TextBox` with a ✕ button; texts `Search emojis` / `Search results` / `No emoji found`.
+- Leaving search mode restores the previous scroll position; greyed tabs ignore clicks.
+- No unit tests: Test Impact emptied, explicitly.
+- *Search box* row of `TODO-FEATURES.md` marked with this workfile.
+
 ---
 
 ## Implementation Log
@@ -170,7 +217,7 @@ says so rather than staying blank.
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
 | Code | | | |
-| Unit tests | | | |
+| Unit tests | | | Not applicable — no test project, checked by hand (Q&A #13) |
 | README | | | |
 
 ---
@@ -185,8 +232,17 @@ Questions asked by the agent during design, with user responses.
 | 2 | With text typed, how does the grid show the results? | Like Twitter: every tab greyed, the emojis filtered (screenshot: flat *Search results* list) | 2026-10-07 |
 | 3 | On every reopening of the window, what becomes of the search text? | Cleared | 2026-10-07 |
 | 4 | Is the subject straightforward or tricky / long? | Straightforward — scout pass only | 2026-10-07 |
-| 5 | Open Questions 1–9 | | 2026-10-07 |
+| 5 | Open Questions 1–9, asked in plain text | User asked for them as multiple choice instead (#6–#14) | 2026-10-07 |
+| 6 | Q1 — Matching rule: start of a word or substring? | *Contains*, but a match at the start is worth more, and the word's length matters: `caca` vs *caca* is 100 % of the letters, vs *cacahuète* less → *caca* comes first | 2026-10-08 |
+| 7 | Q2 — Result order: catalog or relevance? | Relevance | 2026-10-08 |
+| 8 | Q3 — Keys in the box? | Enter inserts the first result; Esc clears, or hides when empty | 2026-10-08 |
+| 9 | Q4 — Look of the box: native or custom-drawn? | Native `TextBox` | 2026-10-08 |
+| 10 | Q5 — UI texts `Search emojis` / `Search results` / `No emoji found`? | As proposed | 2026-10-08 |
+| 11 | Q6 — Leaving search mode: back where it was, or to the top? | Back where it was | 2026-10-08 |
+| 12 | Q7 — Greyed tab clicked: ignored, or clears and jumps? | Ignored | 2026-10-08 |
+| 13 | Q8 — Unit tests: xUnit project or by hand? | By hand | 2026-10-08 |
+| 14 | Q10 — Combine the relevance criteria: tiers or weighted score? Q9 — Mark the backlog row? | Tiers; mark the row | 2026-10-08 |
 
 ---
 
-*Last updated: 2026-10-07*
+*Last updated: 2026-10-08*
