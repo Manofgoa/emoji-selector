@@ -262,6 +262,12 @@ from the keyboard navigation: what Enter does in the reorder mode.
 Q&A #24 answered: in the reorder mode, Enter on the group's selected emoji inserts nothing, like the
 click; the arrows still move the selection. No open question left.
 
+### Iteration 8 — 2026-10-08 — ✅ Implemented
+
+Go given: code, tests and documentation, in a worktree (`.claude/worktrees/custom-tabs`, branch
+`feature/custom-tabs`, created from `main` at `4bc672d`). The scope is the design sections as they
+stand at this entry.
+
 ---
 
 ## Implementation Log
