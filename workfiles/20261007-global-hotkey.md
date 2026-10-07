@@ -21,8 +21,9 @@ adds the **global shortcut** the README announces as planned:
 - **Win+.** is left alone: it keeps opening Windows' panel, app running or not.
 
 Components touched: the new `Input/ShortcutHook.cs` (the keyboard hook), the new
-`Input/CaretLocator.cs` (where the text cursor is), the new `UI/WindowPlacement.cs` (where the window
-goes), `UI/MainForm.cs` (wiring, the toggle), the docs. `Program.cs`, `ForegroundTracker` and
+`Input/CaretLocator.cs` (where the text cursor is) and its interop `Input/AccessibilityInterop.cs`,
+the new `UI/WindowPlacement.cs` (where the window goes), `UI/MainForm.cs` (wiring, the toggle), the
+docs. `Program.cs`, `ForegroundTracker` and
 `EmojiInserter` are unchanged.
 
 ---
@@ -38,14 +39,14 @@ a crash, the Task Manager — Windows removes it and its own panel answers Win+;
 
 | Point | Design |
 |---|---|
-| Class | `Input/ShortcutHook.cs`, created and disposed by `MainForm`, installed on the UI thread (the hook is called on the installing thread's message loop) |
-| Event | `Pressed`, raised on the UI thread. The hook callback does nothing but recognise the keys and **post** the event (`BeginInvoke`): Windows silently removes a low-level hook whose callback is too slow (`LowLevelHooksTimeout`) |
-| The `;` key | The key that types `;` in the **keyboard layout of the previous window** (`VkKeyScanEx`), without Shift: `VK_OEM_1` on QWERTY, the `; .` key (`VK_OEM_PERIOD`) on AZERTY — where Win+Shift+(`; .`) stays Windows' (Q&A 5) |
-| Win key | Left or right Windows key held down, tracked by the hook from the events it sees |
+| Class | `Input/ShortcutHook.cs`, created and disposed by `MainForm`. The hook is installed on a **thread of its own**, running its own message loop (the hook is called on the installing thread's loop): on the UI thread, every key typed in any app would wait whenever the UI is busy — the first rendering of the grid takes seconds — and Windows would end up removing the hook |
+| Event | `Pressed`, raised on the UI thread. The hook callback does nothing but recognise the keys and **post** the event (the UI thread's `SynchronizationContext`): Windows silently removes a low-level hook whose callback is too slow (`LowLevelHooksTimeout`) |
+| The `;` key | The key that types `;` in the **keyboard layout of the window in front** (`VkKeyScanEx`), with the modifiers that layout needs for it: none for `VK_OEM_1` on QWERTY nor for the `; .` key (`VK_OEM_PERIOD`) on AZERTY — where Win+Shift+(`; .`) stays Windows' (Q&A 5) |
+| Win key | Left or right Windows key held down, read with `GetAsyncKeyState` when the `;` key goes down |
 | Other modifiers | Ctrl, Alt or Shift held → not the shortcut, passed on to Windows (Win+Shift+; and the others keep their meaning) |
 | Swallowed | The `;` key-down **and** its matching key-up. The Win key's own events are never swallowed |
 | Auto-repeat | Holding Win+; raises `Pressed` once: the repeated key-downs are swallowed without raising it again, until the key-up |
-| Start menu | Windows opens the Start menu when the Win key goes down then up with no other key between — which is what it sees once `;` is swallowed. The hook **injects a dummy key** (an unassigned virtual-key code, key-down and key-up, `SendInput`) right after swallowing `;`, so the Win key's release opens nothing. The injected events carry a marker in `dwExtraInfo` the hook recognises and lets through untouched |
+| Start menu | Windows opens the Start menu when the Win key goes down then up with no other key between — which is what it sees once `;` is swallowed. The hook **injects a dummy key** (`0xE8`, an unassigned virtual-key code, key-down and key-up, `SendInput`) right after swallowing `;`, so the Win key's release opens nothing. The injected events carry a marker in `dwExtraInfo` the hook recognises and lets through untouched |
 | Elevated window in front | A non-elevated app's hook is not called while an administrator window has the focus (UIPI): Win+; then opens Windows' own panel there — which is the right outcome, since the app could not type into that window anyway (`EmojiInserter` remarks) |
 
 ### What Win+; Does
@@ -63,8 +64,12 @@ The same three cases as the tray icon's left click, with a different placement:
   window means nothing.
 - **Foreground**: a process that is not in front may not take the foreground (`SetForegroundWindow`
   refuses and flashes the taskbar button). The dummy key injected by the hook makes the app the last
-  one to have sent input, which lets it take the foreground; if Windows still refuses, the
-  implementation picks the workaround (an injected Alt tap, `AttachThreadInput`).
+  one to have sent input, which lets it take the foreground (`Form.Activate`); should Windows still
+  refuse, the input of the thread in front is attached to the UI thread (`AttachThreadInput`) for
+  one more `SetForegroundWindow`.
+- **Shown from hidden**: placed before being shown, so it does not appear at its old place first,
+  then placed again once shown — its frame can be read then, and a move onto a monitor of another
+  DPI may have resized it. Hidden minimized, it is shown, restored, then placed.
 - The **tray icon's left click is unchanged**: the window comes back where it was left, not under the
   text cursor.
 
@@ -83,6 +88,11 @@ this order and keeping the first that answers:
 | 2 | MSAA: `AccessibleObjectFromWindow(focus, OBJID_CARET)` → `accLocation` | Apps that expose the caret to accessibility tools without a Win32 caret (several Chromium / Electron builds, Firefox) |
 | 3 | UI Automation: the focused element's `TextPattern2.GetCaretRange` → `GetBoundingRectangles` | Modern apps: Chromium, Edge, WinUI, WPF, Office |
 | 4 | UI Automation: the **focused element's** `BoundingRectangle` | The field has the focus but exposes no caret |
+
+- Sources 3 and 4 use the element having the keyboard focus **only when it belongs to the previous
+  window's process**: the focus may sit in the taskbar, clicked just before Win+;.
+- Source 3: a caret range is empty; when it has no rectangle, it is expanded to the character after
+  it, whose left edge and height give the caret's.
 | 5 | The **mouse pointer**'s position | Nothing above answered (or no previous window) |
 
 - An empty rectangle, or one outside every monitor, does not count: the next source is tried.
@@ -103,6 +113,7 @@ excluded). A pure function, no Windows call, so it can be tested.
 | Below | The window's top-left corner goes under the rectangle's bottom-left corner, a small gap (4 px, scaled to the monitor's DPI) between them — like Windows' panel |
 | Above | Not enough room below in the working area → the window's bottom-left corner goes above the rectangle's top-left corner, same gap |
 | Neither fits | (a focused element as tall as the screen) → the window is clamped inside the working area |
+| Frame | What is placed is the window's **visible frame** (DWM extended frame bounds), not its bounds with the invisible resize borders; the borders' size is read when the window is shown, and kept for the next time it is placed hidden |
 | Horizontal | Left edges aligned; shifted left as far as needed to stay inside the working area |
 | Pointer (5) | The pointer is treated as an empty rectangle at its position: the window goes just below-right of it, same rules |
 | Size | The window keeps its current size: only its location changes |
@@ -191,6 +202,40 @@ Windows* row is added; **no unit test**, checked by hand. Domain sections update
 Go given (Q&A 9): code and documentation — no unit test, as decided (Q&A 8). The run works on
 `main`, a deliberate choice of the user (Q&A 10). Scope frozen: the sections above as they stand.
 
+### Iteration 4 — 2026-10-08 — 🧭 Implementation choices
+
+No project rule broken. Choices the frozen design did not state, or substituted variants:
+
+1. **The hook runs on a thread of its own** — the design said the UI thread. Divergent, the closest
+   workable variant: the app's launch keeps the UI thread busy for seconds (the grid's first
+   rendering — Windows even showed the window as *Not responding*), and a hook on that thread makes
+   every key typed in any app wait, until Windows removes it.
+2. **The Win key is read with `GetAsyncKeyState`**, not tracked from the hook's events: a Win key
+   pressed while an elevated window was in front never reaches the hook, so tracking could get stuck.
+3. **The `;` key's modifiers are the ones the layout needs** (`VkKeyScanEx`'s Shift bit) rather than
+   *never Shift*: identical on QWERTY and AZERTY, and Win+; still works on a layout typing `;` with
+   Shift (German QWERTZ: Shift+`,`) instead of never matching. Ctrl and Alt never.
+4. **Interop in its own file**, `Input/AccessibilityInterop.cs` (UI Automation, MSAA), like
+   `Drawing/Direct2DInterop.cs`.
+5. **UI Automation's focused element is used only when it belongs to the previous window's process**;
+   an empty caret range is expanded to the next character for its rectangle.
+6. **Foreground**: `Form.Activate`, then `AttachThreadInput` + `SetForegroundWindow` if Windows still
+   refused — `Activate` alone succeeded in every check.
+7. **Placement**: the visible frame is placed (the invisible resize borders taken off), before and
+   again after showing; a window hidden minimized is shown, restored, then placed.
+8. Dummy key `0xE8`; the injected events' marker is `0x454D4F4A`.
+
+Checked by hand in the run (keys sent with `SendInput`, as RULES.md says): Win+; shows the window and
+takes the foreground; pressed again with the window in front, it hides it and the previous window
+(the Claude desktop app, Chromium) gets the foreground back; no Start menu, no Windows panel after
+the Win key's release; under the chat field at the bottom of the screen, the window went **above**
+it. Insertion after Win+; was seen in the test editor's text (a WinForms `TextBox`). Not checked in
+the run: Win+. and Win+Shift+;, the app exited, an elevated window, Notepad / VS Code / Word / WinUI
+apps, a second monitor of another DPI — left to the manual checks.
+
+Noticed, not in scope: the first rendering of the grid at launch takes about 20 s of CPU, Windows
+showing the window as *Not responding* meanwhile — the *Fast emoji display* workfile's subject.
+
 ---
 
 ## Implementation Log
@@ -200,9 +245,9 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | |
-| README | | | |
+| Code | 3, 4 | 2026-10-08 | WindowPlacement, CaretLocator + interop, ShortcutHook, MainForm wiring — 4 commits |
+| Unit tests | 2 | 2026-10-07 | Not applicable — no test project, checked by hand (Q&A 8) |
+| README | 3 | 2026-10-08 | README and README.fr; also glossary (EN/FR), RULES, TODO-FEATURES — 4 commits |
 
 ---
 
@@ -225,4 +270,4 @@ Questions asked by the agent during design, with user responses.
 
 ---
 
-*Last updated: 2026-10-07*
+*Last updated: 2026-10-08*
