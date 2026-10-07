@@ -13,6 +13,16 @@ Thanks for your interest in Emoji Selector. Issues and pull requests are welcome
 
 There is no test project: check a change by hand in the running app.
 
+## Emoji data
+
+The emoji list is [Emojibase](https://emojibase.dev)'s data, **version 17.0.0** (MIT, see
+[its LICENSE](src/EmojiSelector/Data/Emojibase/LICENSE)): `en/compact.json`, kept as published in
+`src/EmojiSelector/Data/Emojibase/` and embedded in the exe. `Data/EmojiCatalog` reads it.
+
+To update it, replace `compact.json` and `LICENSE` with those of the new `emojibase-data` version
+(`https://cdn.jsdelivr.net/npm/emojibase-data@<version>/en/compact.json`), then update the version
+above.
+
 ## Before changing the code
 
 - [RULES.md](RULES.md) holds the rules every change follows. A change that breaks one of them
