@@ -148,6 +148,11 @@ Q&A #4–6 answered: the **size only** is remembered, never the position; it is 
 **`settings.json`** next to the exe (logical pixels, other keys kept); a **`Reset window size`** item
 joins the settings menu — default size now, saved size removed. No open question left.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: **code, unit tests and documentation**, in a **worktree** (`.claude/worktrees/default-window-size`,
+branch `feature/default-window-size`). Scope frozen on the design sections above.
+
 ---
 
 ## Implementation Log
