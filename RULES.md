@@ -45,9 +45,19 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   data embedded in the exe ([CONTRIBUTING.md § Emoji data](CONTRIBUTING.md#emoji-data)). Left out:
   components, flags, skin-tone variants. An emoji newer than the system font is kept (a box).
 - The grid and the tab strip are **custom-drawn** (`UI/EmojiGrid.cs`, `UI/CategoryTabStrip.cs`);
-  where things sit is computed by `UI/EmojiGridLayout.cs` alone. Emojis go through
-  `EmojiRenderer`, once each, cached; the tab glyphs are monochrome (Segoe Fluent Icons, Segoe MDL2
-  Assets on Windows 10) and drawn with GDI.
+  where things sit is computed by `UI/EmojiGridLayout.cs` alone. The tab glyphs are monochrome
+  (Segoe Fluent Icons, Segoe MDL2 Assets on Windows 10) and drawn with GDI.
+- **The grid never renders an emoji on the UI thread.** `Drawing/EmojiBitmapCache.cs` pre-renders
+  every emoji at launch, on a background thread with its own `EmojiRenderer`, in grid order; a cell
+  whose emoji is not ready yet is filled with **fluorescent green**, on purpose. A DPI change starts
+  a new pre-render at the new size.
+- The pre-rendered emojis are saved in **`cache\` next to the exe** — one `emojis-{size}.png` atlas
+  and its `emojis-{size}.key` per emoji size — and reloaded at the next launch while the key still
+  matches (size, Segoe UI Emoji's file, the emoji list, the renderer's parameters). A change to the
+  rendering that the key does not see **bumps `EmojiBitmapCache.FormatVersion`**. A folder that
+  cannot be written is not an error: the emojis are rendered again at every launch.
+- One `EmojiRenderer` per thread, each with its own **isolated** DirectWrite factory: the shared
+  one cannot cross threads.
 - **Insertion** (`Input/`): the previous window is tracked by `ForegroundTracker` — the taskbar and
   the notification area are skipped, since a click on the tray icon goes through them. It is brought
   back to the foreground **before** the window hides (only the foreground app may hand it over),
