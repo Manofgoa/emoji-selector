@@ -197,6 +197,14 @@ No rule broken. Choices the frozen design did not state:
 - **Measurements** were taken with a temporary harness in `Program.Main`, removed before every commit.
 - **Not verified**: a live DPI change (window moved to a monitor of another scale).
 
+### Iteration 5 — 2026-10-08 — ⚙️ Post-implementation — Merge with the search box
+
+`main` had received the search box (`feature/search-box`) since the branch was created. Merging it into the branch
+conflicted in `UI/EmojiGrid.cs` only. Beyond the conflict, Git silently kept the cache lookup on
+`this.categories[section]`, while the grid now paints `this.sections` (the categories, or the search results): it
+was moved to `this.sections`. Checked in the app: the categories and a search (`cat`) both show their emojis from
+the cache. Then merged into `main`, the worktree and its branch removed.
+
 ---
 
 ## Implementation Log
