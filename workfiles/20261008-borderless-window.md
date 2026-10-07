@@ -81,7 +81,8 @@ From left to right:
 
 - Glyph **ChromeClose** (`U+E8BB`) of the tab icon font (Segoe Fluent Icons, Segoe MDL2 Assets on
   Windows 10), 10 logical pixels, grey (`SystemColors.GrayText`) like the inactive tabs.
-- Hover look: see Open Question 2.
+- **Hover**: Windows' own close button — red background `#C42B1C`, white glyph; pressed, the
+  same red a little lighter (`#C7493C`). The tabs keep their grey hover.
 - **Tooltip** `Close`, like the tabs' category names.
 - **Click** (left button, released over the cross): the strip raises a new `CloseClicked` event;
   `MainForm` answers with `this.Close()` — `CloseReason.UserClosing`, so the existing
@@ -93,8 +94,16 @@ From left to right:
 - The strip answers `WM_NCHITTEST` with `HTTRANSPARENT` over the drag area; `MainForm` answers
   `HTCAPTION` for those points. Windows then moves the window itself: a native drag, Aero snap to the
   sides of the screen (left / right halves — the top snap needs maximize, refused).
-- Right click on the drag area: see Open Question 4.
+- **Right click** on the drag area: Windows' **system menu**, native to `HTCAPTION` — Move, Size,
+  Close; minimize and maximize greyed.
 - No visual mark: an empty band, like the caption it replaces.
+
+### With the Search Box
+
+The search box (`20261007-search-box.md`, implemented in its worktree) docks **above** the tab
+strip. The cross and the drag area stay **on the tab row**: once both are merged, the window's top
+row is the search box, the second the tabs with the drag area and the cross. Whichever branch is
+merged second adapts the docking order in `MainForm`; nothing else depends on it.
 
 ---
 
@@ -106,14 +115,14 @@ From left to right:
 | `RULES.md` § Window and Tray Icon | Table: *Close cross* (and Alt+F4) hide to the tray; the *Minimize* row removed; a *drag area* row. The note on scripted checks: `SC_CLOSE` still works. A paragraph on the frame (no caption, resizable, never minimized nor maximized) |
 | `RULES.md` § Shortcut | "A window last maximized comes back maximized" removed |
 | `README.md` + `README.fr.md` | Second title: no longer "in its title bar". Tray icon: the window's **close cross** (and Alt+F4) hide it; the minimize button gone. A line: no title bar, moved by dragging the empty part of the tab strip |
-| `GLOSSARY.md` + `GLOSSARY.fr.md` | Nothing — unless Open Question 1 adds a term (*drag area*) |
+| `GLOSSARY.md` + `GLOSSARY.fr.md` | Nothing: *drag area* and *close cross* are UI parts, not domain terms |
 
 ---
 
 ## Test Impact
 
 **No unit test** — there is no test project (CONTRIBUTING § Build), and the earlier workfiles check
-by hand (global hotkey, Q&A 8). See Open Question 3.
+by hand (global hotkey, Q&A 8); the user kept that choice here (Q&A 7).
 
 | Behaviour to pin | Test file | Create / Update |
 |---|---|---|
@@ -128,15 +137,11 @@ taskbar and the tray tooltip still show the second title; Windows 11 rounded cor
 
 ## Open Questions
 
-- [ ] 1. The search box (`20261007-search-box.md`, being implemented in its worktree) goes **above**
-  the tab strip: the window's top edge will then be the box, and the drag area and the cross sit on
-  the second row. Keep them on the tab row anyway, or move them to a top row shared with the box?
-- [ ] 2. The cross's hover look: Windows' own (red `#C42B1C` background, white glyph), or the tabs'
-  (light grey background, grey glyph)?
-- [ ] 3. Unit tests: none and checked by hand, as before — or create a test project now, for the
-  strip's zones (tab / drag area / cross)?
-- [ ] 4. Right click on the drag area: Windows' system menu (Move, Size, Close — minimize and
-  maximize greyed), or nothing?
+- [x] ~~1. The search box goes above the tab strip: keep the drag area and the cross on the tab
+  row, or move them to a top row shared with the box?~~ → On the tab row
+- [x] ~~2. The cross's hover look: Windows' own red, or the tabs' grey?~~ → Windows' own red
+- [x] ~~3. Unit tests: none and checked by hand, or create a test project?~~ → None, checked by hand
+- [x] ~~4. Right click on the drag area: Windows' system menu, or nothing?~~ → The system menu
 
 ---
 
@@ -159,6 +164,12 @@ Proposed: caption removed through `WM_NCCALCSIZE` (shadow, rounded corners and r
 top border re-created by `WM_NCHITTEST`; the drag area answered `HTCAPTION`; the cross a new zone of
 `CategoryTabStrip` raising `CloseClicked` → `Close()`; the minimize / maximize code removed;
 minimum width 382 logical pixels. No backlog row matches the request.
+
+### Iteration 2 — 2026-10-08
+
+Open Questions 1–4 answered (Q&A 5–8): the cross and the drag area stay on the tab row once the
+search box is merged above it; the cross turns Windows red on hover; no test project, checked by
+hand; a right click on the drag area opens Windows' system menu. No open question remains.
 
 ---
 
@@ -186,7 +197,10 @@ Questions asked by the agent during design, with user responses.
 | 2 | Without a title bar, how is the window moved and resized? | Resizable borders + dragging the empty part of the tab strip | 2026-10-08 |
 | 3 | What becomes of minimize, maximize and the second title? | Minimize and maximize removed; the second title only in the taskbar, Alt+Tab and the tooltip | 2026-10-08 |
 | 4 | Exploration depth? | Straightforward | 2026-10-08 |
-| 5 | Open Questions 1–4 | | |
+| 5 | OQ1 — With the search box above the tabs, where do the cross and the drag area go? | On the tab row | 2026-10-08 |
+| 6 | OQ2 — The cross's hover look? | Windows' own red | 2026-10-08 |
+| 7 | OQ3 — Unit tests? | None, checked by hand | 2026-10-08 |
+| 8 | OQ4 — Right click on the drag area? | Windows' system menu | 2026-10-08 |
 
 ---
 
