@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using EmojiSelector.Data;
 using EmojiSelector.Input;
@@ -19,7 +20,13 @@ internal sealed class MainForm : Form
     // In logical pixels (96 DPI), scaled to the form's DPI.
     private const int LogicalSearchPadding = 8;
 
+    // A side resize border at 96 DPI, its invisible part included: SM_CXSIZEFRAME + SM_CXPADDEDBORDER.
+    private const int LogicalSideBorder = 8;
+
+    public const string OpenAppFolderText = "Open app folder";
+
     private readonly TrayIcon trayIcon;
+    private readonly ContextMenuStrip settingsMenu;
     private readonly IReadOnlyList<EmojiCategory> categories;
     private readonly TextBox searchBox;
     private readonly Button clearButton;
@@ -30,9 +37,6 @@ internal sealed class MainForm : Form
     private IReadOnlyList<Emoji>? searchResults;
     private readonly ForegroundTracker foregroundTracker = new();
     private readonly ShortcutHook shortcutHook;
-
-    // The state the window comes back in from the tray: its last one, never minimized.
-    private FormWindowState restoreState = FormWindowState.Normal;
 
     // The invisible resize borders around the visible frame, read the last time the window was shown: a hidden
     // window has no frame to read them from.
@@ -49,14 +53,21 @@ internal sealed class MainForm : Form
         this.SecondTitle = secondTitle;
         this.Text = secondTitle is null ? AppTitle : $"{AppTitle} — {secondTitle}";
         this.StartPosition = FormStartPosition.CenterScreen;
-        this.ClientSize = new Size(400, 450);
-        this.MinimumSize = new Size(320, 240);
+        this.ClientSize = new Size(440, 450);
+
+        // No caption (see WndProc): nothing to minimize or maximize from, and Windows refuses Win+Up, Win+Down and
+        // the double-click on the drag area.
+        this.MinimizeBox = false;
+        this.MaximizeBox = false;
 
         // The search box on top, the tabs below it, the grid filling the rest. Docking runs from the last control
         // added: the search bar first, then the strip.
         this.categories = EmojiCatalog.Load();
         this.grid = new EmojiGrid(this.categories) { Dock = DockStyle.Fill };
         this.tabStrip = new CategoryTabStrip(this.categories) { Dock = DockStyle.Top };
+
+        // Never narrower than the tab strip needs, its side resize borders added.
+        this.MinimumSize = new Size(this.tabStrip.LogicalMinimumWidth + 2 * LogicalSideBorder, 240);
         this.searchBox = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right };
         this.clearButton = new Button { Text = "✕", Visible = false, TabStop = false, FlatStyle = FlatStyle.Flat };
         this.clearButton.FlatAppearance.BorderSize = 0;
@@ -73,6 +84,10 @@ internal sealed class MainForm : Form
         this.searchBox.KeyDown += this.OnSearchBoxKeyDown;
         this.clearButton.Click += (_, _) => this.ClearSearch();
         this.tabStrip.TabClicked += (_, category) => this.grid.ScrollToCategory(category);
+        this.tabStrip.CloseClicked += (_, _) => this.Close();
+        this.settingsMenu = this.CreateSettingsMenu();
+        this.tabStrip.SettingsClicked += (_, bounds) =>
+            this.settingsMenu.Show(this.tabStrip, new Point(bounds.Right, bounds.Bottom), ToolStripDropDownDirection.BelowLeft);
         this.grid.ActiveCategoryChanged += (_, _) => this.tabStrip.ActiveTab = this.grid.ActiveCategory;
         this.grid.EmojiClicked += (_, emoji) => this.InsertEmoji(emoji);
         ResumeLayout(performLayout: false);
@@ -88,7 +103,7 @@ internal sealed class MainForm : Form
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
-        // A user close (✕, Alt+F4) hides the window to the tray. Any other reason — Exit in the tray icon's menu,
+        // A user close (the close cross, Alt+F4) hides the window to the tray. Any other reason — Exit in the tray icon's menu,
         // Windows shutting down, the Task Manager — lets the app end.
         if (e.CloseReason == CloseReason.UserClosing)
         {
@@ -109,19 +124,36 @@ internal sealed class MainForm : Form
         }
     }
 
-    protected override void OnResize(EventArgs e)
+    // The window frame is computed again, now that WndProc answers WM_NCCALCSIZE.
+    protected override void OnHandleCreated(EventArgs e)
     {
-        base.OnResize(e);
+        base.OnHandleCreated(e);
+        SetWindowPos(this.Handle, IntPtr.Zero, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
+    }
 
-        // Minimized, the window goes to the tray rather than the taskbar.
-        if (this.WindowState == FormWindowState.Minimized)
+    protected override void WndProc(ref Message m)
+    {
+        switch (m.Msg)
         {
-            this.Hide();
+            // The caption becomes client area: the default computation, its top put back to the window's top. The
+            // left, right and bottom resize borders, the shadow and the rounded corners stay Windows' own.
+            case WindowFrame.WmNcCalcSize when m.WParam != IntPtr.Zero:
+                int top = Marshal.ReadInt32(m.LParam, sizeof(int));
+                base.WndProc(ref m);
+                Marshal.WriteInt32(m.LParam, sizeof(int), top);
+                return;
+
+            case WindowFrame.WmNcHitTest:
+                base.WndProc(ref m);
+                if ((int)m.Result == WindowFrame.HtClient)
+                {
+                    m.Result = this.HitTestClient(WindowFrame.HitTestPoint(m.LParam));
+                }
+
+                return;
         }
-        else
-        {
-            this.restoreState = this.WindowState;
-        }
+
+        base.WndProc(ref m);
     }
 
     protected override void Dispose(bool disposing)
@@ -129,6 +161,7 @@ internal sealed class MainForm : Form
         if (disposing && !this.IsDisposed)
         {
             this.shortcutHook.Dispose();
+            this.settingsMenu.Dispose();
             this.trayIcon.Dispose();
             this.foregroundTracker.Dispose();
         }
@@ -136,11 +169,49 @@ internal sealed class MainForm : Form
         base.Dispose(disposing);
     }
 
+    // The caption took the top resize border with it: the top band of the client area answers for it, as thick as
+    // the side borders. The tab strip's drag area answers as the caption: Windows moves the window, snaps it to the
+    // sides of the screen and opens its system menu on a right click.
+    private int HitTestClient(Point screenPoint)
+    {
+        Point point = this.PointToClient(screenPoint);
+        int border = WindowFrame.ResizeBorder(this.DeviceDpi);
+        if (point.Y >= border)
+        {
+            return this.tabStrip.IsDragArea(this.tabStrip.PointToClient(screenPoint)) ? WindowFrame.HtCaption
+                : WindowFrame.HtClient;
+        }
+
+        return point.X < border ? WindowFrame.HtTopLeft
+            : point.X >= this.ClientSize.Width - border ? WindowFrame.HtTopRight
+            : WindowFrame.HtTop;
+    }
+
+    // The menu of the tab strip's settings button, shown under it, its right edge on the button's.
+    private ContextMenuStrip CreateSettingsMenu()
+    {
+        var menu = new ContextMenuStrip();
+        menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
+        menu.Opened += (_, _) => this.tabStrip.SettingsMenuOpen = true;
+        menu.Closed += (_, _) => this.tabStrip.SettingsMenuOpen = false;
+        return menu;
+    }
+
+    // The folder holding the exe, in the File Explorer, the exe selected. The window stays as it is: the File Explorer
+    // comes in front of it.
+    private static void OpenAppFolder()
+    {
+        if (Environment.ProcessPath is string exe)
+        {
+            using Process? explorer = Process.Start("explorer.exe", $"/select,\"{exe}\"");
+        }
+    }
+
     // The search box, and the ✕ next to it while it holds text.
     private TableLayoutPanel CreateSearchBar()
     {
         int padding = this.LogicalToDeviceUnits(LogicalSearchPadding);
-        var bar = new TableLayoutPanel
+        var bar = new SearchBar
         {
             Dock = DockStyle.Top,
             AutoSize = true,
@@ -242,17 +313,11 @@ internal sealed class MainForm : Form
         }
 
         this.Show();
-        if (this.WindowState == FormWindowState.Minimized)
-        {
-            this.WindowState = this.restoreState;
-        }
-
         this.Activate();
     }
 
     // Win+;. Shown in front → hidden, the previous window getting the foreground back so typing resumes there. Hidden,
-    // or shown but covered → placed under the text cursor of the previous window and brought to the foreground. A
-    // window last maximized comes back maximized, not placed.
+    // or shown but covered → placed under the text cursor of the previous window and brought to the foreground.
     private void OnShortcutPressed(object? sender, EventArgs e)
     {
         IntPtr previous = this.foregroundTracker.PreviousWindow;
@@ -267,31 +332,12 @@ internal sealed class MainForm : Form
             return;
         }
 
-        if (this.restoreState == FormWindowState.Maximized)
-        {
-            this.Show();
-            this.WindowState = FormWindowState.Maximized;
-        }
-        else
-        {
-            // Placed before being shown, so it does not appear at its old place first; placed again once shown, when
-            // its frame can be read and a move to a monitor of another DPI has resized it.
-            Rectangle anchor = CaretLocator.Locate(previous);
-            bool minimized = this.WindowState == FormWindowState.Minimized;
-            if (!minimized)
-            {
-                this.PlaceAt(anchor);
-            }
-
-            this.Show();
-            if (minimized)
-            {
-                this.WindowState = FormWindowState.Normal;
-            }
-
-            this.PlaceAt(anchor);
-        }
-
+        // Placed before being shown, so it does not appear at its old place first; placed again once shown, when its
+        // frame can be read and a move to a monitor of another DPI has resized it.
+        Rectangle anchor = CaretLocator.Locate(previous);
+        this.PlaceAt(anchor);
+        this.Show();
+        this.PlaceAt(anchor);
         this.TakeForeground();
     }
 
@@ -373,6 +419,27 @@ internal sealed class MainForm : Form
     private const int DwmwaExtendedFrameBounds = 9;
     private const int DwmwaCloaked = 14;
     private const int EmSetCueBanner = 0x1501;
+    private const uint SwpNoSize = 0x1;
+    private const uint SwpNoMove = 0x2;
+    private const uint SwpNoZOrder = 0x4;
+    private const uint SwpNoActivate = 0x10;
+    private const uint SwpFrameChanged = 0x20;
+
+    // The search bar sits at the window's top: its top band lets the hit test through to the window, which answers it
+    // as the top resize border.
+    private sealed class SearchBar : TableLayoutPanel
+    {
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WindowFrame.WmNcHitTest && WindowFrame.IsInTopResizeBand(this, m.LParam))
+            {
+                m.Result = WindowFrame.HtTransparent;
+                return;
+            }
+
+            base.WndProc(ref m);
+        }
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct Rect
@@ -382,6 +449,9 @@ internal sealed class MainForm : Form
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern IntPtr SendMessageW(IntPtr window, int message, nint wParam, string lParam);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern bool SetWindowPos(IntPtr window, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern IntPtr GetWindow(IntPtr window, uint command);
