@@ -92,8 +92,10 @@ Labels in English, like the rest of the app's UI. No Flags tab: Segoe UI Emoji h
 └──────────────────────────────────────┘
 ```
 
-- **Tab strip**: one icon per category, the active one underlined; the category name as a tooltip.
-  Custom-drawn, not a `TabControl` (a `TabControl` shows one page at a time).
+- **Tab strip**: one **monochrome** icon per category, like Win+; — a glyph of Segoe Fluent Icons
+  (Windows 11), falling back to Segoe MDL2 Assets (Windows 10) — grey, the active one in the accent
+  color and underlined; the category name as a tooltip. Drawn with GDI (a monochrome font needs no
+  Direct2D). Custom-drawn, not a `TabControl` (a `TabControl` shows one page at a time).
 - **Grid**: a custom-drawn, double-buffered scrolling panel. Fixed-size cells; the number of
   columns follows the window width (reflow on resize). Each section starts on a new row under its
   header.
@@ -108,8 +110,24 @@ Labels in English, like the rest of the app's UI. No Flags tab: Segoe UI Emoji h
 
 ## Click Action
 
-See Open Questions — copy to the clipboard, insert into the previously focused window, or both, and
-what the window does afterwards.
+Clicking an emoji **inserts** it into the window that had the focus before the app's window, then
+the app's window **hides** — like Win+;.
+
+1. The app remembers the **previous foreground window** when its own window is activated
+   (`WM_ACTIVATE`, the handle of the window being deactivated).
+2. On click, the window hides; the previous window is brought back to the foreground
+   (`SetForegroundWindow`).
+3. The emoji is typed into it with `SendInput` and `KEYEVENTF_UNICODE`, one event pair per UTF-16
+   code unit of its sequence — no clipboard involved.
+
+- **Hiding** goes through the tray icon's hide path ([20261007-tray-icon.md](20261007-tray-icon.md)):
+  the window goes to the tray. Without the tray icon, a hidden window could not come back: the
+  window minimizes instead.
+- **Caveat**: Windows blocks `SendInput` into an elevated (administrator) window from a
+  non-elevated app (UIPI) — the emoji is then not inserted. Not handled.
+- No previous window (none remembered, or it was closed): the window hides, nothing is typed.
+- Copying to the clipboard (text or image) is **not** a click action: backlog
+  ([TODO-FEATURES.md](TODO-FEATURES.md)).
 
 ---
 
@@ -134,9 +152,9 @@ Rendering and the click action are checked by hand.
 - [ ] Direct2D layer: reuse the tray icon's hand-written interop (`Drawing/Direct2DInterop.cs`, not committed yet), or the `Vortice.Direct2D1` NuGet?
 - [x] ~~Flags (no glyphs in Segoe UI Emoji): bundle images for the flags only, keep letter pairs, or drop the Flags tab?~~ → No Flags tab; logged in TODO-FEATURES.md
 - [x] ~~Emojis newer than the system font (boxes): hide them, or show them anyway?~~ → Shown anyway
-- [ ] Click action: copy to the clipboard, insert into the previously focused window, or both?
-- [ ] After a click: the window stays open, or hides?
-- [ ] Tab icons: color emojis, or monochrome icons like Win+; (Segoe Fluent Icons)?
+- [x] ~~Click action: copy to the clipboard, insert into the previously focused window, or both?~~ → Insert into the previously focused window
+- [x] ~~After a click: the window stays open, or hides?~~ → Hides
+- [x] ~~Tab icons: color emojis, or monochrome icons like Win+; (Segoe Fluent Icons)?~~ → Monochrome, like Win+;
 - [ ] Keyboard navigation in the grid (arrows, Enter): in scope, or backlog?
 - [ ] Unit tests: create an xUnit test project, or check everything by hand like the tray icon?
 
@@ -161,6 +179,18 @@ moved to [TODO-FEATURES.md](TODO-FEATURES.md).
 First batch of answers: Emojibase is the data source; the Flags tab is dropped (no flag glyphs in
 Segoe UI Emoji) and logged in the backlog — 7 tabs remain; emojis newer than the system font are
 shown anyway, as boxes. The Direct2D layer stays open: the user asked for the pros and cons first.
+
+### Iteration 3 — 2026-10-07
+
+Second batch of answers: a click **inserts** the emoji into the previously focused window
+(`SendInput`, Unicode) and the window **hides** (to the tray, minimized without it); the tab icons
+are **monochrome** glyphs like Win+;. The Direct2D question stays open: the user asked what
+`Vortice.Direct2D1` is for and what each option brings, which the first explanation did not answer.
+
+### Iteration 4 — 2026-10-07
+
+User request, logged in [TODO-FEATURES.md](TODO-FEATURES.md) (backlog, not this workfile):
+Copy (UTF-8), Copy (PNG), and a user-chosen global shortcut that shows the window.
 
 ---
 
@@ -191,12 +221,13 @@ Questions asked by the agent during design, with user responses.
 | 6 | Direct2D layer: tray icon's interop or Vortice? | Explain the pros and cons of each first | 2026-10-07 |
 | 7 | Flags: images, letter pairs, or no Flags tab? | No Flags tab | 2026-10-07 |
 | 8 | Emojis newer than the system font: hide or show? | Show them anyway | 2026-10-07 |
-| 9 | Click action: clipboard, insert, or both? | | |
-| 10 | After a click: window stays or hides? | | |
-| 11 | Tab icons: color emojis or monochrome icons? | | |
+| 9 | Click action: clipboard, insert, or both? | Insert | 2026-10-07 |
+| 10 | After a click: window stays or hides? | Hides | 2026-10-07 |
+| 11 | Tab icons: color emojis or monochrome icons? | Monochrome (Win+;) | 2026-10-07 |
 | 12 | Keyboard navigation: in scope or backlog? | | |
 | 13 | Unit tests: xUnit project or by hand? | | |
-| 14 | Direct2D layer, after the pros and cons: tray icon's interop or Vortice? | | |
+| 14 | Direct2D layer, after the pros and cons: tray icon's interop or Vortice? | The explanation does not say what Vortice is for nor the advantages of each situation | 2026-10-07 |
+| 15 | Direct2D layer, after explaining what Vortice is: tray icon's interop or Vortice? | | |
 
 ---
 
