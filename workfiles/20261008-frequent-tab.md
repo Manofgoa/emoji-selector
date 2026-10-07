@@ -82,7 +82,9 @@ from `Data/EmojiCatalog.cs`.
   follows the number of columns, so resizing the window shows more or fewer. The rows count lives
   in **one constant**.
 - **Use count**: each emoji of the section shows its **number of uses under it**, inside its cell —
-  small grey text, the emoji moved up to make room. Up to 999 as is, beyond that `999+`. Only in this
+  grey text a little smaller than the grid's font, the emoji at the top of the cell. The section's
+  cells are **rectangles, taller than wide**: as wide as the other sections' (the columns line
+  up), taller to hold the count. Up to 999 as is, beyond that `999+`. Only in this
   section: the catalog sections and the search results show no count.
 - **Empty** (no emoji used yet): the tab is **shown** and the section reads **`No emoji used yet`**,
   painted like `No emoji found`, one cell high under the header.
@@ -195,6 +197,13 @@ Requested during the run: the frequent emojis always fit in **3 rows at most**, 
 recomputed from the window's size. This is the design already (*Limit*, Q&A #9) and what the code
 does: `EmojiGridLayout` cuts the section to `3 × Columns`, computed again at every resize — checked
 at two widths. No change.
+
+### Iteration 6 — 2026-10-08 — ⚙️ Post-implementation — Larger count, taller cells
+
+Requested after a look at the running app: the count was hard to read. Its font grows a little
+(6.75 pt → 8.25 pt), and the frequent section's cells no longer need to be the other sections'
+squares: they keep their width, so the columns stay aligned and the limit stays `3 × Columns`, and
+grow taller to hold the emoji and its count. `EmojiGridLayout` gets a row height per section.
 
 ---
 
