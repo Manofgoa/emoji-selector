@@ -31,8 +31,8 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Tray icon, right click → `Exit` | Ends the app |
 | Win+; | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
 | Emoji clicked in the grid | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below) |
-| Enter in the search box | Inserts the first result, like a click on it (see *Search Box* below) |
-| Esc in the search box | Clears the box; already empty → hides the window to the tray |
+| Enter, in the search box or the grid | Inserts the **selection**, like a click on it (see *Keyboard* below) |
+| Esc, in the search box or the grid | Clears the box; already empty → hides the window to the tray |
 | Any other close reason — Windows shutting down, the Task Manager, a `WM_CLOSE` sent by another process | Ends the app, never blocked |
 
 - The tray icon shows the **last emoji used**, every launch starting on 😊 — **never persisted**.
@@ -126,16 +126,56 @@ The **search box** sits above the tab strip (`UI/MainForm.cs`); the matching and
 - **Ranking**, in tiers: the whole word → its start → anywhere else; then the share of the word
   covered; then a name before a tag. Several typed words: the worst tier, then the lowest coverage,
   then the most name matches. Ties keep the catalog order. `caca` → 💩 before 🥜 *cacahuète*.
-- **Every show** clears the box and focuses it (`OnVisibleChanged`). The placeholder is the native
+- **Every show** clears the box and focuses it (`OnVisibleChanged`), and brings the grid back to the
+  top on its first emoji (see *Keyboard*). The placeholder is the native
   cue banner shown while focused (`EM_SETCUEBANNER`): `PlaceholderText` hides on focus, and the box
   always has it.
 - **Search mode** (non-blank text): the tab strip is `Greyed` (clicks ignored), the grid shows one
   `Search results` section (`No emoji found` when empty) and raises no `ActiveCategoryChanged`.
-  Emptying the box brings the categories back at their previous scroll position.
+  Emptying the box while the window stays open brings the categories back at their previous scroll
+  position; a show brings them back at the top.
 - The ✕ next to the box is exactly as high as it: showing it must not move the tabs.
 - An agent checking the search from a script sends `WM_SETTEXT` / `WM_KEYDOWN` to the box itself,
   never global keystrokes (`SendKeys`, `SendInput`): the window may not be in front, and the keys
   would land in another app.
+
+## Keyboard
+
+One emoji of the grid is the **selection** (`UI/EmojiGrid.cs`), framed in the accent colour
+(`SystemColors.Highlight`). The mouse moving over an emoji selects it; the keyboard moves it. Enter
+inserts it, wherever the keyboard is.
+
+The keyboard has **two places**: the search box, focused on every show, and the grid, which gets the
+focus only from ↓ in the box — it is not selectable, a click never focuses it. `MainForm.ProcessCmdKey`
+routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
+
+| Focus | Key | Does |
+|---|---|---|
+| Search box | ← / →, Home / End | The text caret |
+| Search box | ↓ | The grid gets the keyboard, the selection on its first emoji; no result → nothing, the keyboard stays in the box |
+| Search box | Page Up / Page Down, Tab / Shift+Tab | Ignored |
+| Grid | ← / → | Previous / next emoji, across rows and categories |
+| Grid | ↑ / ↓ | One row up / down, same column, across categories; a shorter row → its last emoji. ↑ on the grid's first row → back to the search box |
+| Grid | Home / End | First / last emoji of the selection's category |
+| Grid | Ctrl+Home / Ctrl+End | First / last emoji of the grid |
+| Grid | Page Up / Page Down | As many rows as the viewport holds, stopping on the first / last row |
+| Grid | Tab / Shift+Tab | First emoji of the next / previous category, its header at the top; wraps around. Ignored in search mode |
+| Grid | A character, Backspace | Back to the search box, the key typed into it |
+| Both | Enter | Inserts the selection (nothing when there is none) |
+| Both | Esc | Clears the box; already empty → hides the window |
+
+- **Where the selection goes**: every show → the grid's first emoji, scrolled to the top; every
+  change of the search text → the first result; emptying the box → the first emoji in view; a tab
+  click or Tab → the category's first emoji. Anything else leaves it alone.
+- A keyboard move scrolls the least that shows the selected cell. **Only a real mouse move selects**:
+  Windows also sends `WM_MOUSEMOVE` when the content scrolls or the window appears under a still
+  cursor, so `EmojiGrid` compares the cursor's screen position with the last one seen — reset on
+  every show.
+- The tooltip names the emoji under the **mouse** only; a keyboard selection shows no name.
+- An agent checking the keys from a script **posts** `WM_KEYDOWN` to the focused control (`SendMessage`
+  skips `ProcessCmdKey`); a window that is not in front has no focus — post it `WM_ACTIVATE` first
+  rather than taking the foreground. The check instance also answers Win+;: while it runs, the
+  user's Win+; may open it.
 
 ## Repository Docs
 
