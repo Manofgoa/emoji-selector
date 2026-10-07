@@ -52,7 +52,8 @@ internal sealed class CategoryTabStrip : Control
     private StripButton pressedButton;
     private bool greyed;
     private bool settingsMenuOpen;
-    private long settingsMenuClosedByPressAt = long.MinValue;
+    // When the settings menu last closed under a press on the button; null when it did not.
+    private long? settingsMenuClosedByPressAt;
 
     public CategoryTabStrip(IReadOnlyList<EmojiCategory> categories)
     {
@@ -247,7 +248,7 @@ internal sealed class CategoryTabStrip : Control
             StripButton button = this.ButtonAt(e.Location);
             bool closedTheMenu = Environment.TickCount64 - this.settingsMenuClosedByPressAt < MenuClosingPressMilliseconds;
             this.pressedButton = button == StripButton.Settings && closedTheMenu ? StripButton.None : button;
-            this.settingsMenuClosedByPressAt = long.MinValue;
+            this.settingsMenuClosedByPressAt = null;
             this.Invalidate();
         }
     }
