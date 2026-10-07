@@ -5,7 +5,8 @@ namespace EmojiSelector.UI;
 
 /// <summary>
 /// Every emoji in <b>one continuous scrolling grid</b>, one section per <b>category</b> under its header (see
-/// <see cref="EmojiGridLayout"/>). Each emoji is drawn in colour once, at its size, then reused. The hovered cell is
+/// <see cref="EmojiGridLayout"/>). The emojis' bitmaps come from an <see cref="EmojiBitmapCache"/>, pre-rendered in
+/// the background: a cell whose emoji is not ready yet is filled with <see cref="MissingColor"/>. The hovered cell is
 /// highlighted and the emoji's name shown as a tooltip; a click raises <see cref="EmojiClicked"/>.
 /// While the search box holds text, the sections give way to one <c>Search results</c> section
 /// (<see cref="ShowSearchResults"/>), until <see cref="ShowCategories"/> brings them back where they were.
@@ -28,10 +29,10 @@ internal sealed class EmojiGrid : Control
     private readonly IReadOnlyList<EmojiCategory> categories;
     private readonly VScrollBar scrollBar = new() { Dock = DockStyle.Right };
     private readonly ToolTip toolTip = new();
-    private readonly EmojiRenderer renderer = new();
+    private readonly EmojiBitmapCache bitmaps;
 
-    // The emojis drawn so far, at the current emoji size.
-    private readonly Dictionary<string, Bitmap> bitmaps = [];
+    // A cell whose emoji is not pre-rendered yet: loud on purpose, so a missing emoji never passes for an empty slot.
+    private static readonly Color MissingColor = Color.FromArgb(0x39, 0xFF, 0x14);
 
     // The sections shown: the categories, or the search results alone.
     private IReadOnlyList<EmojiCategory> sections;
@@ -56,6 +57,11 @@ internal sealed class EmojiGrid : Control
         this.Controls.Add(this.scrollBar);
         this.layout = this.CreateLayout();
         this.UpdateScrollBar();
+
+        // In grid order: the first screen is ready first.
+        this.bitmaps = new EmojiBitmapCache(categories.SelectMany(category => category.Emojis).Select(emoji => emoji.Text).ToList());
+        this.bitmaps.BitmapsReady += (_, _) => this.Invalidate();
+        this.EnsureBitmapSize();
     }
 
     /// <summary>An emoji was clicked.</summary>
@@ -135,13 +141,20 @@ internal sealed class EmojiGrid : Control
         {
             Rectangle cell = this.layout.CellBounds(section, index);
             cell.Offset(0, -offset);
+            Bitmap? bitmap = this.bitmaps.TryGet(this.sections[section].Emojis[index].Text);
+            if (bitmap is null)
+            {
+                using var missingBrush = new SolidBrush(MissingColor);
+                graphics.FillRectangle(missingBrush, Rectangle.Inflate(cell, -1, -1));
+                continue;
+            }
+
             if (this.hovered == (section, index))
             {
                 using var brush = new SolidBrush(SystemColors.ControlLight);
                 graphics.FillRectangle(brush, Rectangle.Inflate(cell, -1, -1));
             }
 
-            Bitmap bitmap = this.GetBitmap(this.sections[section].Emojis[index].Text, emojiSize);
             graphics.DrawImage(bitmap, cell.X + (cell.Width - emojiSize) / 2, cell.Y + (cell.Height - emojiSize) / 2, emojiSize, emojiSize);
         }
 
@@ -163,8 +176,16 @@ internal sealed class EmojiGrid : Control
     protected override void OnDpiChangedAfterParent(EventArgs e)
     {
         base.OnDpiChangedAfterParent(e);
-        this.ClearBitmaps();
+        this.EnsureBitmapSize();
         this.Relayout();
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+
+        // The handle may be created on a monitor of another DPI than the one the constructor assumed.
+        this.EnsureBitmapSize();
     }
 
     protected override void OnFontChanged(EventArgs e)
@@ -207,8 +228,7 @@ internal sealed class EmojiGrid : Control
     {
         if (disposing)
         {
-            this.ClearBitmaps();
-            this.renderer.Dispose();
+            this.bitmaps.Dispose();
             this.toolTip.Dispose();
             this.headerFont.Dispose();
         }
@@ -291,24 +311,13 @@ internal sealed class EmojiGrid : Control
         this.Invalidate();
     }
 
-    private Bitmap GetBitmap(string emoji, int size)
+    // Pre-renders the emojis at the current DPI's size, unless that is already the size being pre-rendered.
+    private void EnsureBitmapSize()
     {
-        if (!this.bitmaps.TryGetValue(emoji, out Bitmap? bitmap))
+        if (this.bitmaps.Size != this.EmojiSize)
         {
-            bitmap = this.renderer.Render(emoji, size);
-            this.bitmaps[emoji] = bitmap;
+            this.bitmaps.Start(this.EmojiSize);
+            this.Invalidate();
         }
-
-        return bitmap;
-    }
-
-    private void ClearBitmaps()
-    {
-        foreach (Bitmap bitmap in this.bitmaps.Values)
-        {
-            bitmap.Dispose();
-        }
-
-        this.bitmaps.Clear();
     }
 }
