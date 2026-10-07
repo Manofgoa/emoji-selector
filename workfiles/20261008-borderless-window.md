@@ -1,7 +1,7 @@
 # Borderless Window
 
-> Working document — the Windows title bar removed, a close cross drawn at the right of the
-> category tabs.
+> Working document — the Windows title bar removed, a close cross and a settings button drawn at
+> the right of the category tabs.
 > This file is the source of truth for the planned work until implemented,
 > then the log of every adjustment made to it afterwards.
 
@@ -21,8 +21,11 @@ the Win+; panel it replaces. What the title bar gave is redistributed:
 | Maximize ☐, double-click on the caption | **Removed** — the window can no longer be maximized |
 | The second title, shown in the caption | No longer shown **in** the window; still in the taskbar, Alt+Tab and the tray icon's tooltip (`Form.Text` unchanged) |
 
+New, next to the cross: a **settings button** (gear) opening a menu, holding for now a single item
+that opens the exe's folder in the File Explorer.
+
 Components: `UI/MainForm.cs` (frame, hit-testing, the minimize / maximize code going away),
-`UI/CategoryTabStrip.cs` (the cross, the drag area), `RULES.md`, `README.md` / `README.fr.md`.
+`UI/CategoryTabStrip.cs` (the cross, the settings button, the drag area), `RULES.md`, `README.md` / `README.fr.md`.
 `UI/WindowPlacement.cs` and `Input/` are not touched.
 
 ---
@@ -71,11 +74,36 @@ From left to right:
 | Left padding | 4 | Nothing (as today) |
 | Tabs | 44 each, 7 | Click → scrolls the grid to the category (as today) |
 | **Drag area** | The rest, at least 24 | Moves the window |
+| **Settings button** | 46, the full height of the strip | Opens the settings menu |
 | **Close cross** | 46, the full height of the strip | Hides the window to the tray |
 
-- **Minimum width**: 4 + 7 × 44 + 24 + 46 = **382** logical pixels of client area — `MinimumSize`
-  follows (the borders added), DPI-scaled as today.
-- The separator line under the strip runs under the cross and the drag area too.
+- **Minimum width**: 4 + 7 × 44 + 24 + 46 + 46 = **428** logical pixels of client area —
+  `MinimumSize` follows (the borders added), DPI-scaled as today.
+- The separator line under the strip runs under the buttons and the drag area too.
+
+### Settings Button
+
+- Glyph **Settings** (`U+E713`, a gear) of the tab icon font, 16 logical pixels like the tab glyphs,
+  grey (`SystemColors.GrayText`).
+- **Hover**: the tabs' grey background (`SystemColors.ControlLight`) — only the cross turns red.
+- **Tooltip** `Settings`.
+- **Click** (left button): the strip raises a new `SettingsClicked` event with the button's bounds;
+  `MainForm` shows the **settings menu** right under the button, its right edge aligned with the
+  button's — a `ContextMenuStrip`, like the tray icon's menu. The button stays drawn as hovered while
+  the menu is open.
+- Not selectable, no keyboard focus, like the tabs and the cross.
+
+### Settings Menu
+
+Owned by `MainForm` (new `UI/SettingsMenu.cs` if it grows past a few lines). For now, one item:
+
+| Item | Does |
+|---|---|
+| See Open Question 5 | Opens the folder holding the exe (`AppContext.BaseDirectory`) in the File Explorer — see Open Question 6 |
+
+- The File Explorer is started with `Process.Start` (`UseShellExecute`), never through a shell
+  command line.
+- What the window does once the item is clicked: see Open Question 7.
 
 ### Close Cross
 
@@ -112,9 +140,9 @@ merged second adapts the docking order in `MainForm`; nothing else depends on it
 | File | Change |
 |---|---|
 | `RULES.md` § Command-Line Arguments | The second title is shown in the taskbar, Alt+Tab and the tooltip — no longer "in the window title bar" |
-| `RULES.md` § Window and Tray Icon | Table: *Close cross* (and Alt+F4) hide to the tray; the *Minimize* row removed; a *drag area* row. The note on scripted checks: `SC_CLOSE` still works. A paragraph on the frame (no caption, resizable, never minimized nor maximized) |
+| `RULES.md` § Window and Tray Icon | Table: *Close cross* (and Alt+F4) hide to the tray; the *Minimize* row removed; a *drag area* row; a *settings button* row and its menu item. The note on scripted checks: `SC_CLOSE` still works. A paragraph on the frame (no caption, resizable, never minimized nor maximized) |
 | `RULES.md` § Shortcut | "A window last maximized comes back maximized" removed |
-| `README.md` + `README.fr.md` | Second title: no longer "in its title bar". Tray icon: the window's **close cross** (and Alt+F4) hide it; the minimize button gone. A line: no title bar, moved by dragging the empty part of the tab strip |
+| `README.md` + `README.fr.md` | Second title: no longer "in its title bar". Tray icon: the window's **close cross** (and Alt+F4) hide it; the minimize button gone. A line: no title bar, moved by dragging the empty part of the tab strip. A line: the settings button and its menu item |
 | `GLOSSARY.md` + `GLOSSARY.fr.md` | Nothing: *drag area* and *close cross* are UI parts, not domain terms |
 
 ---
@@ -130,7 +158,7 @@ by hand (global hotkey, Q&A 8); the user kept that choice here (Q&A 7).
 
 Checked by hand in the launched app: no caption; the four borders and corners resize; dragging the
 empty band moves the window, snaps left / right; the cross hides to the tray, its tooltip; Alt+F4
-hides; Win+Up / Win+Down do nothing; Win+; still places the window under the text cursor; the
+hides; the gear opens its menu under itself, the item opens the exe's folder; Win+Up / Win+Down do nothing; Win+; still places the window under the text cursor; the
 taskbar and the tray tooltip still show the second title; Windows 11 rounded corners and shadow.
 
 ---
@@ -142,6 +170,11 @@ taskbar and the tray tooltip still show the second title; Windows 11 rounded cor
 - [x] ~~2. The cross's hover look: Windows' own red, or the tabs' grey?~~ → Windows' own red
 - [x] ~~3. Unit tests: none and checked by hand, or create a test project?~~ → None, checked by hand
 - [x] ~~4. Right click on the drag area: Windows' system menu, or nothing?~~ → The system menu
+- [ ] 5. The menu item's label (the UI is in English): `Open app folder`, `Open install folder`, or
+  `Show in Explorer`?
+- [ ] 6. Open the folder plainly, or open it with the exe **selected** in it (`explorer /select`)?
+- [ ] 7. Once the item is clicked: the window stays as it is (the File Explorer comes in front of
+  it), or hides to the tray?
 
 ---
 
@@ -170,6 +203,16 @@ minimum width 382 logical pixels. No backlog row matches the request.
 Open Questions 1–4 answered (Q&A 5–8): the cross and the drag area stay on the tab row once the
 search box is merged above it; the cross turns Windows red on hover; no test project, checked by
 hand; a right click on the drag area opens Windows' system menu. No open question remains.
+
+### Iteration 3 — 2026-10-08
+
+User request: a **settings button** (gear icon) next to the close cross, opening a menu that holds,
+to begin with, a single item opening the exe's folder in the File Explorer.
+
+Proposed: the gear left of the cross, same width, grey hover like the tabs; a `ContextMenuStrip`
+shown under it, like the tray icon's menu; the folder opened with `Process.Start`. The minimum width
+grows to 428 logical pixels. Three points left open (Open Questions 5–7): the item's label, opening
+the folder plainly or with the exe selected, and whether the window hides once the item is clicked.
 
 ---
 
@@ -201,6 +244,9 @@ Questions asked by the agent during design, with user responses.
 | 6 | OQ2 — The cross's hover look? | Windows' own red | 2026-10-08 |
 | 7 | OQ3 — Unit tests? | None, checked by hand | 2026-10-08 |
 | 8 | OQ4 — Right click on the drag area? | Windows' system menu | 2026-10-08 |
+| 9 | OQ5 — The menu item's label? | | |
+| 10 | OQ6 — Folder opened plainly, or with the exe selected? | | |
+| 11 | OQ7 — Once the item is clicked, does the window stay or hide? | | |
 
 ---
 
