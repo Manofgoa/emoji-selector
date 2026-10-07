@@ -27,13 +27,15 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Close cross ✕ right of the tabs, Alt+F4 (`CloseReason.UserClosing`) | Hides the window to the tray — the app keeps running |
 | Drag area — the empty band between the last tab and the settings button | Moves the window; right click → Windows' system menu |
 | Settings button ⚙ left of the close cross → `Open app folder` | Opens the exe's folder in the File Explorer, the exe selected; the window stays |
+| Settings button ⚙ → `New group…` | Asks for a name, then creates a **custom group**, last, and scrolls to it (see *Custom Tab* below) |
 | Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept, and the saved size removed (see *Size* below); the window stays |
 | Tray icon, left click | Hidden → shown; covered by another window → brought to the front; already in front → hidden |
 | Tray icon, right click → `Exit` | Ends the app |
 | Win+; | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
-| Emoji clicked in the grid | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below); its use counted (see *Frequent Tab* below) |
-| Enter, in the search box or the grid | Inserts the **selection**, like a click on it (see *Keyboard* below) |
-| Esc, in the search box or the grid | Clears the box; already empty → hides the window to the tray |
+| Emoji clicked in the grid — not one of the group in reorder mode | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below); its use counted (see *Frequent Tab* below) |
+| Emoji right-clicked in the grid | Its menu: `Add to ▸` the custom groups, `Remove` in a group (see *Custom Tab* below) |
+| Enter, in the search box or the grid | Inserts the **selection**, like a click on it (see *Keyboard* below) — never an emoji of the group in reorder mode |
+| Esc, in the search box or the grid | Ends the reorder mode; otherwise clears the box; already empty → hides the window to the tray |
 | Any other close reason — Windows shutting down, the Task Manager, a `WM_CLOSE` sent by another process | Ends the app, never blocked |
 
 - The tray icon shows the **last emoji used**, every launch starting on 😊 — **never persisted**.
@@ -115,7 +117,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 
 ## Categories and Insertion
 
-- **Categories** come from `Data/EmojiCatalog.cs` only — the frequent tab aside (see *Frequent Tab*): seven tabs in the Win+; order, the Emojibase
+- **Categories** come from `Data/EmojiCatalog.cs` only — the frequent and custom tabs aside (see *Frequent Tab*, *Custom Tab*): seven tabs in the Win+; order, the Emojibase
   data embedded in the exe ([CONTRIBUTING.md § Emoji data](CONTRIBUTING.md#emoji-data)). Left out:
   components, flags, skin-tone variants. An emoji newer than the system font is kept (a box).
 - The grid and the tab strip are **custom-drawn** (`UI/EmojiGrid.cs`, `UI/CategoryTabStrip.cs`);
@@ -175,6 +177,47 @@ counters (`MainForm.CreateFrequentCategory`), not from the catalog.
 - **Clear frequently used**, in the settings menu: a Yes / No confirmation, *No* the default, then
   every counter reset and `usage.json` rewritten empty. Greyed while there is no counter.
 
+## Custom Tab
+
+The second tab, **Custom** (a heart, `EB51`), right after the frequent one, holds the user's **custom
+groups**: one section each, under the group's name. While there is no group, it holds one `Custom`
+section reading `Create a group from ⚙ → New group…`.
+
+- **One tab, several sections**: the tab strip's list is fixed — frequent, custom, the catalog's —
+  while the grid's custom sections come and go (`EmojiGrid.ReplaceCategories`). `MainForm.TabOf` /
+  `SectionOf` map one to the other: a click on the tab scrolls to the first group, and the tab is
+  active while any group's section is at the top. A change to the groups keeps the view where it was
+  when it is below them (it moves with their change of height).
+- **Groups**: `Data/CustomGroups.cs` alone. **`custom-groups.json`**, next to the exe, like
+  `usage.json`: a JSON array of `{ "name", "emojis" }`, the groups and their emojis in the user's
+  order, the emojis as their text (`EmojiUsage.ReadableEmojis`). Read once at launch — missing or
+  invalid → no group; a group without a name or an emoji list is left out. Written after each
+  change, through `custom-groups.json.tmp` then a replace; a folder that cannot be written keeps the
+  groups in memory until the app ends.
+- The emojis are the **catalog's texts**, `FE0F` included (`👍️`, `✅️`): a file written by hand
+  without it does not match, and the emoji is not shown. An emoji the catalog no longer has stays in
+  the file and is not shown. An emoji is at most once in a group, and may be in several groups.
+- **New group…** (settings menu): `UI/GroupNameDialog.cs` asks for the name — trimmed, *OK* greyed
+  while blank, duplicates allowed, no length limit. The group comes last; the grid scrolls to it
+  unless a search is shown.
+- **Right click** on an emoji, in any section — search results included: `Add to ▸` lists every
+  group, the ones holding the emoji **checked**; a click adds it at the end of the group, or takes
+  it out when checked. Greyed while there is no group. In a group's section, `Remove` takes it out
+  of that group. The menus are built for one show (`MainForm.ShowOnce`).
+- **"…" button**, at the right end of a section's header when its `EmojiCategory.HasMenu` is set —
+  the groups' only; the header's name ends before it. Its menu: `Rename…`, `Reorder` (greyed under
+  two emojis shown), `Move up` / `Move down` (swap with the neighbour, greyed at the ends, the group
+  kept in view), `Delete group` — a Yes / No confirmation, *No* the default, when the group holds
+  emojis; an empty one is deleted right away.
+- **Reorder mode** (`EmojiGrid.StartReorder`), one section at a time: its "…" becomes `Done`, in the
+  accent colour. A press on one of its emojis then a move beyond `SystemInformation.DragSize` drags
+  it: hover and selection stay still, a bar in the accent colour shows the gap it goes in
+  (`EmojiGridLayout.Insertion`), the release drops it (`EmojiMoved`) and the file is written at once.
+  A click or Enter on its emojis inserts nothing; the other sections insert as usual. It ends on
+  `Done`, Esc, the window hiding, a search, and a group being moved or deleted.
+- The **search box** searches the catalog's categories only: a group would give its emojis twice.
+- The grid pre-renders the catalog's emojis only: the groups reuse their bitmaps.
+
 ## Search Box
 
 The **search box** sits above the tab strip (`UI/MainForm.cs`); the matching and the ranking live in
@@ -224,8 +267,8 @@ routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
 | Grid | Page Up / Page Down | As many rows as the viewport holds, stopping on the first / last row |
 | Grid | Tab / Shift+Tab | First emoji of the next / previous category, its header at the top; wraps around. Ignored in search mode |
 | Grid | A character, Backspace | Back to the search box, the key typed into it |
-| Both | Enter | Inserts the selection (nothing when there is none) |
-| Both | Esc | Clears the box; already empty → hides the window |
+| Both | Enter | Inserts the selection (nothing when there is none, or when it is in the group in reorder mode) |
+| Both | Esc | Ends the reorder mode; otherwise clears the box; already empty → hides the window |
 
 - **Where the selection goes**: every show → the grid's first emoji, scrolled to the top; every
   change of the search text → the first result; emptying the box → the first emoji in view; a tab
