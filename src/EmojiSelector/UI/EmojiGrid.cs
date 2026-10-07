@@ -110,6 +110,18 @@ internal sealed class EmojiGrid : Control
 
     private int EmojiSize => this.LogicalToDeviceUnits(LogicalEmojiSize);
 
+    /// <summary>
+    /// The client size holding exactly <paramref name="columns"/> columns, and a section's header followed by
+    /// <paramref name="rows"/> full rows when that section is scrolled to the top — device pixels, at the current DPI.
+    /// </summary>
+    public Size SizeFor(int columns, int rows)
+    {
+        int cellSize = this.LogicalToDeviceUnits(LogicalCellSize);
+        return new Size(
+            columns * cellSize + 2 * this.LogicalToDeviceUnits(LogicalPadding) + this.scrollBar.Width,
+            this.LogicalToDeviceUnits(LogicalHeaderHeight) + rows * cellSize);
+    }
+
     /// <summary>Scrolls <paramref name="category"/>'s header to the top of the viewport and selects its first emoji.</summary>
     public void SelectCategory(int category)
     {

@@ -24,7 +24,14 @@ internal sealed class MainForm : Form
     // A side resize border at 96 DPI, its invisible part included: SM_CXSIZEFRAME + SM_CXPADDEDBORDER.
     private const int LogicalSideBorder = 8;
 
+    // The default size, in emojis: this many columns wide, and high enough for a section's header then this many full
+    // rows when that section is scrolled to the top.
+    private const int DefaultColumns = 16;
+    private const int DefaultRows = 8;
+
     public const string OpenAppFolderText = "Open app folder";
+
+    public const string ResetWindowSizeText = "Reset window size";
 
     public const string ClearFrequentText = "Clear frequently used";
 
@@ -49,6 +56,7 @@ internal sealed class MainForm : Form
     // The catalog's categories, without the frequent tab.
     private readonly IReadOnlyList<EmojiCategory> categories;
     private readonly Dictionary<string, Emoji> emojisByText;
+    private readonly TableLayoutPanel searchBar;
     private readonly TextBox searchBox;
     private readonly Button clearButton;
     private readonly CategoryTabStrip tabStrip;
@@ -61,6 +69,10 @@ internal sealed class MainForm : Form
     // window has no frame to read them from.
     private Padding frameMargins;
 
+    // The client size when the user started a resize, logical pixels: a resize leaving it unchanged — a move, a drag to
+    // a monitor of another DPI — saves nothing.
+    private Size sizeBeforeResize;
+
     /// <summary>The second title given with <see cref="TitleArgument"/>, null without one.</summary>
     public string? SecondTitle { get; }
 
@@ -71,8 +83,8 @@ internal sealed class MainForm : Form
         AutoScaleMode = AutoScaleMode.Dpi;
         this.SecondTitle = secondTitle;
         this.Text = secondTitle is null ? AppTitle : $"{AppTitle} — {secondTitle}";
+        // Sized in OnLoad, once the bars are laid out at the window's DPI.
         this.StartPosition = FormStartPosition.CenterScreen;
-        this.ClientSize = new Size(440, 450);
 
         // No caption (see WndProc): nothing to minimize or maximize from, and Windows refuses Win+Up, Win+Down and
         // the double-click on the drag area.
@@ -96,7 +108,8 @@ internal sealed class MainForm : Form
         this.clearButton.FlatAppearance.BorderSize = 0;
         this.Controls.Add(this.grid);
         this.Controls.Add(this.tabStrip);
-        this.Controls.Add(this.CreateSearchBar());
+        this.searchBar = this.CreateSearchBar();
+        this.Controls.Add(this.searchBar);
         // The placeholder stays while the box has the focus — it always has it, and PlaceholderText hides on focus.
         this.searchBox.HandleCreated += (_, _) => SendMessageW(this.searchBox.Handle, EmSetCueBanner, 1, SearchPlaceholder);
         // The ✕ is a square as high as the box, with its margins: showing it never changes the bar's height.
@@ -219,6 +232,32 @@ internal sealed class MainForm : Form
         return base.ProcessCmdKey(ref msg, keyData);
     }
 
+    // Sized before base.OnLoad centres the window: the handle exists, at the DPI of its monitor, and the bars can be
+    // measured. The size the user last resized to wins over the default one.
+    protected override void OnLoad(EventArgs e)
+    {
+        this.SetClientArea(SettingsFile.ReadWindowSize() is Size saved ? this.LogicalToDeviceUnits(saved) : this.DefaultClientSize());
+        base.OnLoad(e);
+    }
+
+    protected override void OnResizeBegin(EventArgs e)
+    {
+        base.OnResizeBegin(e);
+        this.sizeBeforeResize = this.LogicalClientSize();
+    }
+
+    // Saved when the user finishes a resize, not at exit: Windows shutting down or the Task Manager may end the app
+    // without running its code.
+    protected override void OnResizeEnd(EventArgs e)
+    {
+        base.OnResizeEnd(e);
+        Size size = this.LogicalClientSize();
+        if (size != this.sizeBeforeResize)
+        {
+            SettingsFile.WriteWindowSize(size);
+        }
+    }
+
     // The window frame is computed again, now that WndProc answers WM_NCCALCSIZE.
     protected override void OnHandleCreated(EventArgs e)
     {
@@ -282,16 +321,53 @@ internal sealed class MainForm : Form
             : WindowFrame.HtTop;
     }
 
+    // The client size showing the grid DefaultColumns wide and DefaultRows high, the search bar and the tab strip above
+    // it — device pixels, at the current DPI.
+    private Size DefaultClientSize()
+    {
+        // The search bar's preferred height: before the first show, its AutoSize may not have applied yet.
+        Size grid = this.grid.SizeFor(DefaultColumns, DefaultRows);
+        int searchBarHeight = this.searchBar.GetPreferredSize(new Size(grid.Width, 0)).Height;
+        return new Size(grid.Width, searchBarHeight + this.tabStrip.Height + grid.Height);
+    }
+
+    // The client size in logical pixels (96 DPI): reloaded on a monitor of another scale, it holds as many emojis.
+    private Size LogicalClientSize() => new(
+        (int)Math.Round(this.ClientSize.Width * 96.0 / this.DeviceDpi),
+        (int)Math.Round(this.ClientSize.Height * 96.0 / this.DeviceDpi));
+
+    // Sizes the window for a client area of clientSize, reduced if needed so the whole window — its invisible resize
+    // borders included — fits the working area of its monitor; MinimumSize still wins. The borders are the ones Windows
+    // draws: the ClientSize setter counts a caption, which is client area here (see WndProc).
+    private void SetClientArea(Size clientSize)
+    {
+        GetWindowRect(this.Handle, out Rect window);
+        GetClientRect(this.Handle, out Rect client);
+        var borders = new Size(window.Right - window.Left - client.Right, window.Bottom - window.Top - client.Bottom);
+        Rectangle workingArea = Screen.FromControl(this).WorkingArea;
+        this.Size = new Size(Math.Min(clientSize.Width + borders.Width, workingArea.Width),
+            Math.Min(clientSize.Height + borders.Height, workingArea.Height));
+    }
+
     // The menu of the tab strip's settings button, shown under it, its right edge on the button's.
     private ContextMenuStrip CreateSettingsMenu()
     {
         var menu = new ContextMenuStrip();
         menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
+        menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
         ToolStripItem clearFrequent = menu.Items.Add(ClearFrequentText, image: null, (_, _) => this.ClearFrequent());
         menu.Opening += (_, _) => clearFrequent.Enabled = !this.usage.IsEmpty;
         menu.Opened += (_, _) => this.tabStrip.SettingsMenuOpen = true;
         menu.Closed += (_, _) => this.tabStrip.SettingsMenuOpen = false;
         return menu;
+    }
+
+    // Back to the default size right away, its top-left corner where it is, and at the next launch too: the saved size
+    // is removed. The window stays shown.
+    private void ResetWindowSize()
+    {
+        SettingsFile.WriteWindowSize(null);
+        this.SetClientArea(this.DefaultClientSize());
     }
 
     // Every counter reset, after a confirmation: they cannot be brought back. No is the default button.
@@ -588,6 +664,9 @@ internal sealed class MainForm : Form
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern bool GetWindowRect(IntPtr window, out Rect rect);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern bool GetClientRect(IntPtr window, out Rect rect);
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern IntPtr GetForegroundWindow();

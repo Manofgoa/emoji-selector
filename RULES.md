@@ -27,6 +27,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Close cross ✕ right of the tabs, Alt+F4 (`CloseReason.UserClosing`) | Hides the window to the tray — the app keeps running |
 | Drag area — the empty band between the last tab and the settings button | Moves the window; right click → Windows' system menu |
 | Settings button ⚙ left of the close cross → `Open app folder` | Opens the exe's folder in the File Explorer, the exe selected; the window stays |
+| Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept, and the saved size removed (see *Size* below); the window stays |
 | Tray icon, left click | Hidden → shown; covered by another window → brought to the front; already in front → hidden |
 | Tray icon, right click → `Exit` | Ends the app |
 | Win+; | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
@@ -60,6 +61,30 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 - The close cross and the settings button belong to the tab strip (`UI/CategoryTabStrip.cs`) and
   are never greyed by a search. The cross turns Windows red on hover; the settings button's menu is a
   `ContextMenuStrip` shown under it, owned by `MainForm`.
+
+### Size
+
+- **Default size**, measured in emojis: **16 columns** wide, and high enough for a section's header
+  then **8 full rows** when that section is scrolled to the top (`MainForm.DefaultColumns` /
+  `DefaultRows`). Computed in `MainForm.OnLoad`, before the window is centred, from the grid's metrics
+  at the window's DPI (`EmojiGrid.SizeFor`) and the heights of the search bar and the tab strip —
+  never a hard-coded pixel size.
+- The window is sized through **`MainForm.SetClientArea`**, never the `ClientSize` setter: that one
+  counts a caption, which is client area here (see *Frame*) — the window would come out a caption too
+  tall. The borders are read from the window itself (`GetWindowRect` / `GetClientRect`).
+- **Remembered size**: when the user **finishes a resize** (`OnResizeEnd`), the client size is saved
+  in **`settings.json` next to the exe**, in logical pixels (96 DPI), and reloaded at the next launch
+  in place of the default. Not at exit: Windows shutting down or the Task Manager may end the app
+  without running its code. A move, or a drag to a monitor of another scale, saves nothing.
+- `settings.json` is the app's **shared settings file** (`Data/SettingsFile.cs`): `{ "windowWidth":
+  …, "windowHeight": … }` for now; a write keeps the keys it does not know. Written through
+  `settings.json.new` then a replace.
+- **The size only**: the position is never saved — centred at launch, Win+; places it anyway.
+- Missing, unreadable or invalid file, a folder that cannot be written → the default size, never an
+  error. A size larger than the working area of the monitor is reduced to fit it; `MinimumSize` wins
+  over a smaller one.
+- An agent checking a resize from a script sends `WM_ENTERSIZEMOVE`, a `SetWindowPos`, then
+  `WM_EXITSIZEMOVE`: `OnResizeEnd` runs as after a drag, the mouse untouched.
 
 ## Shortcut
 
