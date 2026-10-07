@@ -38,6 +38,9 @@ Backlog: this covers the whole **Keyboard navigation** row of
 | `MainForm.InsertEmoji(Emoji)` does the whole click path (previous window back to the front, hide, `SendInput`, tray icon updated) | `UI/MainForm.cs` |
 | A tab click scrolls its section's header to the top (`EmojiGrid.ScrollToCategory`) | `UI/MainForm.cs` |
 | No test project — every earlier workfile checked by hand | [20261007-category-tabs.md](20261007-category-tabs.md) Q&A #13 |
+| *(2026-10-08)* The **search box is delivered** (merge `e288bb9`): a `TextBox` above the tabs, cleared and focused on every show (`OnVisibleChanged` → `ClearSearch`); `OnSearchBoxKeyDown` handles Enter (inserts `searchResults[0]`) and Esc (clears, or hides) | `UI/MainForm.cs` |
+| *(2026-10-08)* Search mode swaps the grid's sections: `EmojiGrid.ShowSearchResults` (one `Search results` section, scrolled to the top, the category offset kept in `categoriesOffset`) / `ShowCategories` (that offset restored) | `UI/EmojiGrid.cs` |
+| *(2026-10-08)* The borderless window and the fast emoji display are merged too: the tab strip carries a close cross and a settings button; cells not rendered yet are filled with a placeholder colour | `UI/CategoryTabStrip.cs`, `UI/EmojiGrid.cs` |
 
 ---
 
@@ -62,9 +65,10 @@ Backlog: this covers the whole **Keyboard navigation** row of
 
 ## Keys
 
-Handled by `MainForm` (no control takes the focus), forwarded to `EmojiGrid`. The target cell is
-computed from `EmojiGridLayout`'s geometry, in **grid order**: sections one after the other, each
-read row by row.
+Handled by `MainForm` and forwarded to `EmojiGrid` while the **grid has the keyboard** (see *With
+the search box* for the two focus places). The target cell is computed from `EmojiGridLayout`'s
+geometry, in **grid order**: sections one after the other, each read row by row — the category
+sections, or the single `Search results` section in search mode.
 
 | Key | Does |
 |---|---|
@@ -85,13 +89,17 @@ read row by row.
 
 ### With the search box
 
-Once [20261007-search-box.md](20261007-search-box.md) is in, the keyboard has **two places**: the
-search box (focused on every show) and the grid.
+The search box ([20261007-search-box.md](20261007-search-box.md)) is delivered: this workfile is
+implemented on top of it, and the keyboard has **two places** — the search box (focused on every
+show) and the grid.
 
 | Focus | Key | Does |
 |---|---|---|
 | Search box | ← / →, Home / End, Ctrl+Home / Ctrl+End | The text caret, as in any text box |
 | Search box | ↓ | The **grid** takes the keyboard; the selection goes to the **first emoji** (the first result in search mode) |
+| Search box | Enter | Inserts the **selection** — the first emoji of the grid when the box is blank, the first result in search mode unless the arrows moved it. Replaces the search box's *nothing when the box is blank* |
+| Search box | Esc | Unchanged: clears the box, or hides the window when it is empty |
+| Search box | Page Up / Page Down, Tab / Shift+Tab | **Ignored** — only ↓ leaves the box |
 | Grid | ↑ on the grid's **first row** | Back to the **search box** — instead of staying put (*Grid edges*) |
 | Grid | A character typed | Back to the **search box**, the character typed into it |
 | Grid | Every other key of the table above | As described there |
@@ -99,9 +107,9 @@ search box (focused on every show) and the grid.
 - **Search mode**: on every change of the text, the selection goes to the **first result**; Enter
   inserts the **selection** — the search box's *first result* unless the arrows moved it.
 - **Tab / Shift+Tab in search mode** are **ignored**, like clicks on the greyed tabs.
-- **Window shown**: back to the top, first emoji selected (this workfile's rule wins over the search
-  box's *scroll position before the search*, which is aligned — see Open Questions). Emptying the
-  box while the window stays open still brings the pre-search position back.
+- **Window shown**: back to the top, first emoji selected — this workfile's rule wins over the search
+  box's *scroll position before the search*, and its workfile is aligned (its Iteration 5). Emptying
+  the box while the window stays open still brings the pre-search position back.
 - The selection frame stays drawn while the box has the focus: it shows what Enter inserts.
 
 ---
@@ -109,7 +117,8 @@ search box (focused on every show) and the grid.
 ## Documentation
 
 - `RULES.md` gains a **Keyboard** table next to *Window and Tray Icon*, and the click row's
-  insertion line mentions Enter.
+  insertion line mentions Enter; its § Search Box follows the new rules (Enter on the selection,
+  ↓ / ↑ / typed character, back to the top on show).
 - `README.md` / `README.fr.md`: the keys in the usage section, both languages in the same commit.
 - `GLOSSARY.md` / `GLOSSARY.fr.md`: **Selection** (*sélection*) — the highlighted emoji the keyboard
   and the mouse move, the one Enter inserts.
@@ -159,17 +168,15 @@ the earlier workfiles (Q&A #14).
 - [x] ~~15. **Tab / Shift+Tab in search mode**~~ → Ignored
 - [x] ~~16. **Window shown**: back to the top, or the search box's pre-search position?~~ → Back to
   the top; the search box workfile is aligned
-- [ ] 17. **Enter in an empty search box, right after a show**: the search box workfile says
-  *nothing when the box is blank*; this workfile says the first emoji is selected so that Enter
-  inserts at once. Which one?
-- [ ] 18. **Page Up / Page Down and Tab while the box has the focus**: Page Down enters the grid
-  like ↓ (and pages), Tab changes category as from the grid — or only ↓ leaves the box?
-- [ ] 19. **Implementation order**: this workfile after the search box (its focus model is built
-  in from the start), or before it (grid keys only, the *With the search box* part implemented by
-  whichever lands second)?
-- [ ] 20. **Aligning [20261007-search-box.md](20261007-search-box.md)** (show rule, Enter on the
-  selection, ↓ / ↑ / typed character): this session adds the iteration entry to it now, or its own
-  session does?
+- [x] ~~17. **Enter in an empty search box, right after a show**: insert the first emoji, or
+  nothing?~~ → Inserts the first emoji (the selection)
+- [x] ~~18. **Page Up / Page Down and Tab while the box has the focus**~~ → Ignored: only ↓ leaves
+  the box
+- [x] ~~19. **Implementation order**: after or before the search box?~~ → After — and the search box
+  turned out to be delivered already (merge `e288bb9`): the focus model is built in from the start
+- [x] ~~20. **Aligning the search box workfile**: this session, its own, or later?~~ → This session:
+  [20261007-search-box.md](20261007-search-box.md) Iteration 5, its code changed by this
+  workfile's run
 
 ---
 
@@ -214,6 +221,18 @@ mode keeps the selection on the first result, Enter inserts the selection, Tab i
 show, this workfile's *back to the top* wins over the search box's restored position. New section
 *With the search box*; the follow-ups are Open Questions 17–20.
 
+### Iteration 4 — 2026-10-08
+
+Open Questions 17–20 answered (Q&A 21–24): Enter in the blank box inserts the selection (the first
+emoji); only ↓ leaves the box, Page Up / Down and Tab are ignored there; implemented after the search
+box; this session aligns the search box workfile.
+
+Checking the order showed the search box already **delivered and merged** (`e288bb9`), with the
+borderless window and the fast emoji display: *Starting point* refreshed, the keys now hand over from
+the box's `OnSearchBoxKeyDown`. [20261007-search-box.md](20261007-search-box.md) gets its
+`⚙️ Post-implementation` entry (Iteration 5) for the show rule and Enter; its code is changed by this
+workfile's run. No Open Question left.
+
 ---
 
 ## Implementation Log
@@ -256,10 +275,10 @@ Questions asked by the agent during design, with user responses.
 | 18 | Search mode: selection on the first result after every text change, Enter inserts the selection? (Open Question 14) | Yes, first result | 2026-10-08 |
 | 19 | Tab / Shift+Tab in search mode: ignored, or leave search mode? (Open Question 15) | Ignored | 2026-10-08 |
 | 20 | Window shown: back to the top, or the search box's pre-search position? (Open Question 16) | Back to the top | 2026-10-08 |
-| 21 | Enter in an empty search box right after a show: insert the first emoji, or nothing? (Open Question 17) | | |
-| 22 | Page Up / Down and Tab while the box has the focus (Open Question 18) | | |
-| 23 | Implementation order: after or before the search box? (Open Question 19) | | |
-| 24 | Who aligns the search box workfile? (Open Question 20) | | |
+| 21 | Enter in an empty search box right after a show: insert the first emoji, or nothing? (Open Question 17) | Inserts the first emoji | 2026-10-08 |
+| 22 | Page Up / Down and Tab while the box has the focus (Open Question 18) | Only ↓ leaves the box | 2026-10-08 |
+| 23 | Implementation order: after or before the search box? (Open Question 19) | After the search box | 2026-10-08 |
+| 24 | Who aligns the search box workfile? (Open Question 20) | This session | 2026-10-08 |
 
 ---
 
