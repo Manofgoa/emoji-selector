@@ -15,5 +15,5 @@ each.
 | Shortcut (*raccourci*) | Win+;, the global keyboard shortcut showing the window from any app — in place of Windows' own emoji panel while the app runs |
 | Text cursor (*curseur de texte*) | The blinking insertion point of the previous window, where typed text goes — Win+; shows the window just under it |
 | Favorite (*favori*) | An emoji the user marked to keep it at hand, shown before the others |
-| Recent (*récent*) | An emoji the user picked lately, kept in a short list for quick reuse |
+| Frequent (*fréquent*) | An emoji counted by its uses — each use adds 1 to its counter, kept in `usage.json` next to the exe; the most used are shown in the first tab, *Frequently used* |
 | Tray icon (*icône de notification*) | The app's icon in the notification area, shown as long as the app runs; it shows the last emoji used |
