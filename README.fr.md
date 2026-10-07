@@ -13,11 +13,11 @@ Chaque mot employé ici a un seul sens, donné dans le [glossaire](GLOSSARY.fr.m
 - **Icône de notification** : tant qu'elle tourne, l'application vit dans la zone de notification, avec pour icône un smiley 😊 en couleur. Un clic gauche affiche la fenêtre, la ramène devant si d'autres fenêtres la recouvrent, ou la masque si elle est déjà devant ; un clic droit ouvre un menu dont **Exit** quitte l'application. Les boutons fermer (✕, Alt+F4) et réduire de la fenêtre la masquent dans la zone de notification : l'application continue de tourner.
 - **Catégories** : la fenêtre montre tous les émojis, en couleur, dans une seule grille qui défile en continu — une section par catégorie, sous une rangée d'onglets dans l'ordre du panneau Win+; : Smileys & People, Animals & Nature, Food & Drink, Activities, Travel & Places, Objects, Symbols. Un clic sur un onglet saute à sa section ; le défilement fait suivre l'onglet actif. Survoler un émoji affiche son nom. Pas de drapeaux (la police d'émojis de Windows n'en a pas) ni encore de teintes de peau ; un émoji plus récent que la police de Windows s'affiche en carré.
 - **Insertion** : un clic sur un émoji le tape dans la fenêtre où vous étiez avant, puis la fenêtre se masque dans la zone de notification, dont l'icône montre désormais cet émoji — de nouveau le smiley au lancement suivant. Windows l'empêche dans une application lancée en administrateur.
+- **Zone de recherche** : en haut de la fenêtre, vide et prête à la frappe à chaque ouverture de la fenêtre. Taper un mot-clé — le nom d'un émoji ou l'une de ses étiquettes, en anglais ou en français, sans tenir compte de la casse ni des accents — grise les onglets et n'affiche que les émojis trouvés, les plus pertinents d'abord : le mot entier avant son début, avant un mot qui ne fait que le contenir, la plus grande part du mot couverte d'abord, un nom avant une étiquette (`caca` trouve 💩 avant 🥜 *cacahuète*). **Entrée** insère le premier ; **Échap** vide la zone, ou masque la fenêtre si elle est déjà vide. Vider la zone ramène les catégories là où elles étaient.
 
 ## Prévu
 
 - Un raccourci clavier global qui ouvre la fenêtre depuis n'importe quelle application.
-- Une zone de recherche qui trouve les émojis par mot-clé, au fil de la frappe.
 - Les favoris et les émojis récents affichés en premier.
 - Les teintes de peau, les drapeaux, la copie d'un émoji en texte ou en image, la navigation au clavier dans la grille.
 
@@ -27,7 +27,7 @@ Voir [CONTRIBUTING.md § Build](CONTRIBUTING.md#build) (en anglais).
 
 ## Technique
 
-C# / WinForms sur .NET 10, n'utilisant que les composants propres à Windows, aucune bibliothèque tierce. La liste des émojis vient des données d'[Emojibase](https://emojibase.dev) (MIT), embarquées dans l'exe : voir [CONTRIBUTING.md § Emoji data](CONTRIBUTING.md#emoji-data) (en anglais).
+C# / WinForms sur .NET 10, n'utilisant que les composants propres à Windows, aucune bibliothèque tierce. La liste des émojis et leurs mots-clés, en anglais et en français, viennent des données d'[Emojibase](https://emojibase.dev) (MIT), embarquées dans l'exe : voir [CONTRIBUTING.md § Emoji data](CONTRIBUTING.md#emoji-data) (en anglais).
 
 ## Licence
 
