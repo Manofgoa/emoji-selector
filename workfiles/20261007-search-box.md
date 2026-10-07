@@ -115,14 +115,17 @@ Examples: `caca` → 💩 (*caca*, tag, exact) before 🥜 (*cacahuete*, tag, st
 ### Show behaviour
 
 - Every time the window becomes visible (`OnVisibleChanged`, whatever the show path), the search
-  box is **cleared** — which restores the category view — and **gets the focus**.
+  box is **cleared** — which restores the category view — and **gets the focus**. The category view
+  is then scrolled back to the **top**, its first emoji selected
+  ([20261007-keyboard-navigation.md](20261007-keyboard-navigation.md), see Iteration 5).
 
 ### Keys in the box
 
 | Key | Does |
 |---|---|
-| Enter | Inserts the **first result** into the previous window, like a click on it (the window hides). Nothing when the box is blank or there is no result |
+| Enter | Inserts the grid's **selection** into the previous window, like a click on it (the window hides): the **first result**, unless the arrows moved the selection; the **first emoji** of the grid when the box is blank. Nothing when there is no result (see Iteration 5) |
 | Esc | Box holds text → **clears** it. Box empty → **hides the window** to the tray, like the close button |
+| ↓ | Hands the keyboard to the grid, on the first emoji — the rest of the keyboard navigation: [20261007-keyboard-navigation.md](20261007-keyboard-navigation.md) |
 
 ### Search mode (the box holds non-blank text)
 
@@ -138,7 +141,7 @@ Examples: `caca` → 💩 (*caca*, tag, exact) before 🥜 (*cacahuete*, tag, st
   `ActiveCategoryChanged` is not raised while searching.
 - **Leaving search mode** (box emptied, by typing, ✕ or Esc): tabs enabled again, category view
   back **at the scroll position it had before the search** (the active tab follows). On a show,
-  the box is cleared too, so the view also returns there.
+  the box is cleared too, but the view goes back to the **top** instead (see *Show behaviour*).
 
 ---
 
@@ -168,10 +171,10 @@ Examples: `caca` → 💩 (*caca*, tag, exact) before 🥜 (*cacahuete*, tag, st
 
 - [x] ~~1. Matching rule: start of a word, or a substring anywhere?~~ → Substring anywhere (*contains*), ranked: start of a word is worth more, and the share of the word covered counts (`caca` exact beats *cacahuète*)
 - [x] ~~2. Result order: catalog or relevance?~~ → Relevance, name matches before tag matches
-- [x] ~~3. Keyboard in the box?~~ → Enter inserts the first result; Esc clears the box, or hides the window when it is empty
+- [x] ~~3. Keyboard in the box?~~ → Enter inserts the first result; Esc clears the box, or hides the window when it is empty *(revised 2026-10-08, see Iteration 5: Enter inserts the selection, the first emoji when the box is blank)*
 - [x] ~~4. Look of the box?~~ → Native `TextBox`, placeholder, ✕ button next to it
 - [x] ~~5. UI texts?~~ → `Search emojis`, `Search results`, `No emoji found`
-- [x] ~~6. Leaving search mode?~~ → Back where the grid was before the search
+- [x] ~~6. Leaving search mode?~~ → Back where the grid was before the search *(revised 2026-10-08, see Iteration 5: on a show, back to the top)*
 - [x] ~~7. Greyed tab clicked?~~ → Ignored
 - [x] ~~8. Unit tests?~~ → By hand, no test project
 - [x] ~~9. Backlog row?~~ → Marked with this workfile
@@ -244,6 +247,22 @@ No rule broken. Choices the frozen design did not state:
 - **Incident**: a first scripted check sent `caca` with `SendKeys` while the window was not in
   front — the keys may have landed in another app. Rule added to `RULES.md § Search Box`: scripts
   send `WM_SETTEXT` / `WM_KEYDOWN` to the box itself.
+
+### Iteration 5 — 2026-10-08 — ⚙️ Post-implementation — Aligned on keyboard navigation
+
+Decided in [20261007-keyboard-navigation.md](20261007-keyboard-navigation.md) (its Q&A 17–24),
+logged here by that workfile's session; the **code is changed by that workfile's run**, not here:
+
+- **Enter** inserts the grid's **selection** rather than `searchResults[0]`: in search mode the
+  selection sits on the first result after every change of the text, so Enter still inserts it
+  unless the arrows moved it. In a **blank** box, Enter inserts the grid's first emoji (it did
+  nothing).
+- **On a show**, the category view goes back to the **top**, first emoji selected, instead of the
+  scroll position it had before the search. Emptying the box while the window stays open still
+  restores that position.
+- **↓** in the box hands the keyboard to the grid; ↑ on the grid's first row or a typed character
+  brings it back. Page Up / Down and Tab are ignored while the box has the focus; Tab is ignored in
+  search mode.
 
 ---
 
