@@ -94,7 +94,9 @@ The same logic applied to the custom groups of the custom tab (Q&A #10), shaped 
 - A hidden group **stays in the right-click *Add to…* menu** (Q&A #13): it keeps receiving emojis,
   as the hidden frequent tab keeps counting.
 - After a toggle with the window open: back to the top, on the first emoji, as for the frequent tab.
-- Where the hidden flag is saved: see *Open Questions*.
+- The **hidden flag is saved with the group** (Q&A #14), a field of the group in the custom groups'
+  own file: a renamed group keeps it, a deleted one takes it along. `settings.json` holds only the
+  frequent tab's setting.
 
 ---
 
@@ -154,7 +156,7 @@ harness in the session's scratchpad, as `EmojiUsage` was.
 - [x] ~~Custom groups: what is hidden — each group on its own, or the custom tab as a whole?~~ → Each group; the custom tab leaves once every group is hidden
 - [x] ~~Custom groups: where is a hidden one shown again from?~~ → A *Show groups* submenu in ⚙, one checkable item per group
 - [x] ~~Does a hidden custom group still receive emojis from the right-click *Add to…* menu?~~ → Yes
-- [ ] Where is a custom group's hidden flag saved: in the custom groups' own file, with the group (a renamed or deleted group carries it along), or in `settings.json` (keyed by the group's name, lost on a rename)?
+- [x] ~~Where is a custom group's hidden flag saved: with the group, or in `settings.json`?~~ → With the group, in the custom groups' own file
 
 ---
 
@@ -199,6 +201,11 @@ Q&A #11-13: each custom group is hidden on its own from its "…" menu (*Hide gr
 leaving once every group is hidden; shown again from a *Show groups* submenu in ⚙; a hidden group
 still receives emojis from *Add to…*. New open question: where the hidden flag is saved.
 
+### Iteration 5 — 2026-10-08
+
+Q&A #14: a custom group's hidden flag is saved with the group, in the custom groups' own file. No
+open question remains; the implementation waits for the custom tabs to be delivered (Q&A #10).
+
 ---
 
 ## Implementation Log
@@ -233,7 +240,7 @@ Questions asked by the agent during design, with user responses.
 | 11 | Custom groups: hide each group, or the custom tab as a whole? | Each group | 2026-10-08 |
 | 12 | Custom groups: where is a hidden one shown again from? | A *Show groups* submenu in ⚙ | 2026-10-08 |
 | 13 | Does a hidden custom group still receive emojis from *Add to…*? | Yes |
-| 14 | Where is a custom group's hidden flag saved? | | 2026-10-08 | 2026-10-08 |
+| 14 | Where is a custom group's hidden flag saved? | With the group, in the custom groups' file | 2026-10-08 | 2026-10-08 |
 
 ---
 
