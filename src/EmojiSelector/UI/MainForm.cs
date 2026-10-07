@@ -19,6 +19,9 @@ internal sealed class MainForm : Form
     // In logical pixels (96 DPI), scaled to the form's DPI.
     private const int LogicalSearchPadding = 8;
 
+    // A side resize border at 96 DPI, its invisible part included: SM_CXSIZEFRAME + SM_CXPADDEDBORDER.
+    private const int LogicalSideBorder = 8;
+
     private readonly TrayIcon trayIcon;
     private readonly IReadOnlyList<EmojiCategory> categories;
     private readonly TextBox searchBox;
@@ -46,8 +49,7 @@ internal sealed class MainForm : Form
         this.SecondTitle = secondTitle;
         this.Text = secondTitle is null ? AppTitle : $"{AppTitle} — {secondTitle}";
         this.StartPosition = FormStartPosition.CenterScreen;
-        this.ClientSize = new Size(400, 450);
-        this.MinimumSize = new Size(320, 240);
+        this.ClientSize = new Size(440, 450);
 
         // No caption (see WndProc): nothing to minimize or maximize from, and Windows refuses Win+Up, Win+Down and
         // the double-click on the drag area.
@@ -59,6 +61,9 @@ internal sealed class MainForm : Form
         this.categories = EmojiCatalog.Load();
         this.grid = new EmojiGrid(this.categories) { Dock = DockStyle.Fill };
         this.tabStrip = new CategoryTabStrip(this.categories) { Dock = DockStyle.Top };
+
+        // Never narrower than the tab strip needs, its side resize borders added.
+        this.MinimumSize = new Size(this.tabStrip.LogicalMinimumWidth + 2 * LogicalSideBorder, 240);
         this.searchBox = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right };
         this.clearButton = new Button { Text = "✕", Visible = false, TabStop = false, FlatStyle = FlatStyle.Flat };
         this.clearButton.FlatAppearance.BorderSize = 0;
@@ -75,6 +80,7 @@ internal sealed class MainForm : Form
         this.searchBox.KeyDown += this.OnSearchBoxKeyDown;
         this.clearButton.Click += (_, _) => this.ClearSearch();
         this.tabStrip.TabClicked += (_, category) => this.grid.ScrollToCategory(category);
+        this.tabStrip.CloseClicked += (_, _) => this.Close();
         this.grid.ActiveCategoryChanged += (_, _) => this.tabStrip.ActiveTab = this.grid.ActiveCategory;
         this.grid.EmojiClicked += (_, emoji) => this.InsertEmoji(emoji);
         ResumeLayout(performLayout: false);
@@ -90,7 +96,7 @@ internal sealed class MainForm : Form
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
-        // A user close (✕, Alt+F4) hides the window to the tray. Any other reason — Exit in the tray icon's menu,
+        // A user close (the close cross, Alt+F4) hides the window to the tray. Any other reason — Exit in the tray icon's menu,
         // Windows shutting down, the Task Manager — lets the app end.
         if (e.CloseReason == CloseReason.UserClosing)
         {
@@ -156,14 +162,16 @@ internal sealed class MainForm : Form
     }
 
     // The caption took the top resize border with it: the top band of the client area answers for it, as thick as
-    // the side borders.
+    // the side borders. The tab strip's drag area answers as the caption: Windows moves the window, snaps it to the
+    // sides of the screen and opens its system menu on a right click.
     private int HitTestClient(Point screenPoint)
     {
         Point point = this.PointToClient(screenPoint);
         int border = WindowFrame.ResizeBorder(this.DeviceDpi);
         if (point.Y >= border)
         {
-            return WindowFrame.HtClient;
+            return this.tabStrip.IsDragArea(this.tabStrip.PointToClient(screenPoint)) ? WindowFrame.HtCaption
+                : WindowFrame.HtClient;
         }
 
         return point.X < border ? WindowFrame.HtTopLeft

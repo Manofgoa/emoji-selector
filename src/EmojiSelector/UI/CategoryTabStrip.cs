@@ -8,6 +8,11 @@ namespace EmojiSelector.UI;
 /// glyph per category, grey, the active one in the accent colour and underlined, the category's name as a tooltip.
 /// A click raises <see cref="TabClicked"/>. Drawn with GDI: a monochrome icon font needs no Direct2D.
 /// While the search box holds text the strip is <see cref="Greyed"/>.
+/// <para>
+/// The window has no caption: right of the tabs, the strip holds the <b>drag area</b>, an empty band moving the window
+/// (<see cref="IsDragArea"/>), then the <b>close cross</b> raising <see cref="CloseClicked"/>. The cross is never
+/// greyed.
+/// </para>
 /// </summary>
 internal sealed class CategoryTabStrip : Control
 {
@@ -21,12 +26,25 @@ internal sealed class CategoryTabStrip : Control
     private const int LogicalUnderlineWidth = 16;
     private const int LogicalUnderlineHeight = 3;
     private const int LogicalPadding = 4;
+    private const int LogicalButtonWidth = 46;
+    private const int LogicalCloseIconSize = 10;
+    private const int LogicalMinimumDragWidth = 24;
+
+    private const char CloseGlyph = '\uE8BB';
+    public const string CloseText = "Close";
+
+    // Windows' own close button: red on hover, a lighter red pressed, the glyph white on both.
+    private static readonly Color CloseHoverColor = Color.FromArgb(0xC4, 0x2B, 0x1C);
+    private static readonly Color ClosePressedColor = Color.FromArgb(0xC7, 0x49, 0x3C);
 
     private readonly IReadOnlyList<EmojiCategory> categories;
     private readonly ToolTip toolTip = new();
     private Font iconFont;
+    private Font closeFont;
     private int activeTab;
     private int hoveredTab = -1;
+    private StripButton hoveredButton;
+    private StripButton pressedButton;
     private bool greyed;
 
     public CategoryTabStrip(IReadOnlyList<EmojiCategory> categories)
@@ -36,11 +54,25 @@ internal sealed class CategoryTabStrip : Control
         this.SetStyle(ControlStyles.Selectable, false);
         this.BackColor = SystemColors.Window;
         this.Height = this.LogicalToDeviceUnits(LogicalHeight);
-        this.iconFont = this.CreateIconFont();
+        this.iconFont = this.CreateIconFont(LogicalIconSize);
+        this.closeFont = this.CreateIconFont(LogicalCloseIconSize);
+    }
+
+    private enum StripButton
+    {
+        None,
+        Close,
     }
 
     /// <summary>A tab was clicked: its index, the category's.</summary>
     public event EventHandler<int>? TabClicked;
+
+    /// <summary>The close cross was clicked: pressed and released over it.</summary>
+    public event EventHandler? CloseClicked;
+
+    /// <summary>The narrowest the strip can be with every tab, a drag area and the cross, in logical pixels.</summary>
+    public int LogicalMinimumWidth =>
+        LogicalPadding + this.categories.Count * LogicalTabWidth + LogicalMinimumDragWidth + LogicalButtonWidth;
 
     /// <summary>The active tab: the category at the top of the grid.</summary>
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -70,7 +102,7 @@ internal sealed class CategoryTabStrip : Control
             if (value != this.greyed)
             {
                 this.greyed = value;
-                this.SetHovered(-1);
+                this.SetHovered(-1, this.hoveredButton);
                 this.Invalidate();
             }
         }
@@ -79,6 +111,18 @@ internal sealed class CategoryTabStrip : Control
     private int TabWidth => this.LogicalToDeviceUnits(LogicalTabWidth);
 
     private int LeftPadding => this.LogicalToDeviceUnits(LogicalPadding);
+
+    private int ButtonWidth => this.LogicalToDeviceUnits(LogicalButtonWidth);
+
+    private Rectangle CloseBounds => new(this.Width - this.ButtonWidth, 0, this.ButtonWidth, this.Height);
+
+    /// <summary>
+    /// Whether <paramref name="location"/>, in the strip's coordinates, lies in the drag area: between the last tab
+    /// and the cross. The window answers it as its caption, so Windows moves the window and opens its system menu.
+    /// </summary>
+    public bool IsDragArea(Point location) =>
+        location.Y >= 0 && location.Y < this.Height
+        && location.X >= this.TabBounds(this.categories.Count - 1).Right && location.X < this.CloseBounds.Left;
 
     protected override void OnPaint(PaintEventArgs e)
     {
@@ -109,6 +153,8 @@ internal sealed class CategoryTabStrip : Control
             }
         }
 
+        this.PaintClose(e.Graphics);
+
         using var separator = new Pen(SystemColors.ControlLight);
         e.Graphics.DrawLine(separator, 0, this.Height - 1, this.Width, this.Height - 1);
     }
@@ -117,22 +163,67 @@ internal sealed class CategoryTabStrip : Control
     {
         base.OnDpiChangedAfterParent(e);
         Font previous = this.iconFont;
-        this.iconFont = this.CreateIconFont();
+        Font previousClose = this.closeFont;
+        this.iconFont = this.CreateIconFont(LogicalIconSize);
+        this.closeFont = this.CreateIconFont(LogicalCloseIconSize);
         previous.Dispose();
+        previousClose.Dispose();
         this.Height = this.LogicalToDeviceUnits(LogicalHeight);
         this.Invalidate();
+    }
+
+    // The drag area and the window's top resize band let the hit test through to the window, which answers them.
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == WindowFrame.WmNcHitTest
+            && (WindowFrame.IsInTopResizeBand(this, m.LParam)
+                || this.IsDragArea(this.PointToClient(WindowFrame.HitTestPoint(m.LParam)))))
+        {
+            m.Result = WindowFrame.HtTransparent;
+            return;
+        }
+
+        base.WndProc(ref m);
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        this.SetHovered(this.greyed ? -1 : this.HitTest(e.Location));
+        this.SetHovered(this.greyed ? -1 : this.HitTest(e.Location), this.ButtonAt(e.Location));
     }
 
     protected override void OnMouseLeave(EventArgs e)
     {
         base.OnMouseLeave(e);
-        this.SetHovered(-1);
+        this.SetHovered(-1, StripButton.None);
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.Button == MouseButtons.Left)
+        {
+            this.pressedButton = this.ButtonAt(e.Location);
+            this.Invalidate();
+        }
+    }
+
+    // A button acts when released over the one pressed, like Windows' caption buttons.
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        base.OnMouseUp(e);
+        StripButton pressed = this.pressedButton;
+        if (e.Button != MouseButtons.Left || pressed == StripButton.None)
+        {
+            return;
+        }
+
+        this.pressedButton = StripButton.None;
+        this.Invalidate();
+        if (this.ButtonAt(e.Location) == pressed)
+        {
+            this.CloseClicked?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     protected override void OnMouseClick(MouseEventArgs e)
@@ -151,6 +242,7 @@ internal sealed class CategoryTabStrip : Control
         {
             this.toolTip.Dispose();
             this.iconFont.Dispose();
+            this.closeFont.Dispose();
         }
 
         base.Dispose(disposing);
@@ -166,19 +258,41 @@ internal sealed class CategoryTabStrip : Control
         }
 
         int tab = (location.X - this.LeftPadding) / this.TabWidth;
-        return tab < this.categories.Count ? tab : -1;
+        return tab < this.categories.Count && location.X < this.CloseBounds.Left ? tab : -1;
     }
 
-    private void SetHovered(int tab)
+    private StripButton ButtonAt(Point location) =>
+        this.CloseBounds.Contains(location) ? StripButton.Close : StripButton.None;
+
+    private void SetHovered(int tab, StripButton button)
     {
-        if (tab == this.hoveredTab)
+        if (tab == this.hoveredTab && button == this.hoveredButton)
         {
             return;
         }
 
         this.hoveredTab = tab;
-        this.toolTip.SetToolTip(this, tab >= 0 ? this.categories[tab].Name : null);
+        this.hoveredButton = button;
+        string? tip = button == StripButton.Close ? CloseText : tab >= 0 ? this.categories[tab].Name : null;
+        this.toolTip.SetToolTip(this, tip);
         this.Invalidate();
+    }
+
+    // Grey like an inactive tab; on hover, Windows' own red with a white glyph.
+    private void PaintClose(Graphics graphics)
+    {
+        Rectangle bounds = this.CloseBounds;
+        Color glyph = SystemColors.GrayText;
+        if (this.hoveredButton == StripButton.Close || this.pressedButton == StripButton.Close)
+        {
+            Color fill = this.pressedButton == StripButton.Close ? ClosePressedColor : CloseHoverColor;
+            using var background = new SolidBrush(fill);
+            graphics.FillRectangle(background, bounds);
+            glyph = Color.White;
+        }
+
+        TextRenderer.DrawText(graphics, CloseGlyph.ToString(), this.closeFont, bounds, glyph,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
     }
 
     // Halfway between two colours: a greyed glyph, between the inactive grey and the background.
@@ -186,10 +300,10 @@ internal sealed class CategoryTabStrip : Control
         (color.R + background.R) / 2, (color.G + background.G) / 2, (color.B + background.B) / 2);
 
     // Pixels, not points: the glyph keeps its size whatever the font settings, scaled to the control's DPI only.
-    private Font CreateIconFont()
+    private Font CreateIconFont(int logicalSize)
     {
         string family = IconFonts.FirstOrDefault(name => FontFamily.Families.Any(installed => installed.Name == name))
             ?? IconFonts[^1];
-        return new Font(family, this.LogicalToDeviceUnits(LogicalIconSize), GraphicsUnit.Pixel);
+        return new Font(family, this.LogicalToDeviceUnits(logicalSize), GraphicsUnit.Pixel);
     }
 }
