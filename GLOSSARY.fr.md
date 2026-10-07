@@ -12,3 +12,4 @@ Les mots utilisés dans le code, la documentation, les workfiles et la conversat
 | Catégorie (*category*) | Un groupe d'émojis par thème (Smileys, People, Animals, Food…), que l'on parcourt sans rien taper |
 | Favori (*favorite*) | Un émoji que l'utilisateur a marqué pour l'avoir sous la main, affiché avant les autres |
 | Récent (*recent*) | Un émoji choisi récemment par l'utilisateur, gardé dans une courte liste pour le réutiliser vite |
+| Icône de notification (*tray icon*) | L'icône de l'application dans la zone de notification, affichée tant que l'application tourne ; elle montre le dernier émoji utilisé |

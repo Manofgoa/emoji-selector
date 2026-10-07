@@ -13,3 +13,4 @@ each.
 | Category (*catégorie*) | A group of emojis by theme (Smileys, People, Animals, Food…), browsed without typing |
 | Favorite (*favori*) | An emoji the user marked to keep it at hand, shown before the others |
 | Recent (*récent*) | An emoji the user picked lately, kept in a short list for quick reuse |
+| Tray icon (*icône de notification*) | The app's icon in the notification area, shown as long as the app runs; it shows the last emoji used |
