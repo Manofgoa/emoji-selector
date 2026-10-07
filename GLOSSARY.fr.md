@@ -15,5 +15,5 @@ Les mots utilisés dans le code, la documentation, les workfiles et la conversat
 | Raccourci (*shortcut*) | Win+;, le raccourci clavier global qui affiche la fenêtre depuis n'importe quelle application — à la place du panneau d'émojis de Windows tant que l'application tourne |
 | Curseur de texte (*text cursor*) | Le point d'insertion clignotant de la fenêtre précédente, là où va le texte tapé — Win+; affiche la fenêtre juste en dessous |
 | Favori (*favorite*) | Un émoji que l'utilisateur a marqué pour l'avoir sous la main, affiché avant les autres |
-| Récent (*recent*) | Un émoji choisi récemment par l'utilisateur, gardé dans une courte liste pour le réutiliser vite |
+| Fréquent (*frequent*) | Un émoji compté selon ses utilisations — chaque utilisation ajoute 1 à son compteur, gardé dans `usage.json` à côté de l'exe ; les plus utilisés sont affichés dans le premier onglet, *Frequently used* |
 | Icône de notification (*tray icon*) | L'icône de l'application dans la zone de notification, affichée tant que l'application tourne ; elle montre le dernier émoji utilisé |

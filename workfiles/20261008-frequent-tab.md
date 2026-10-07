@@ -53,19 +53,23 @@ from `Data/EmojiCatalog.cs`.
 
   ```json
   {
-    "😂": { "count": 12, "lastUsed": "2026-10-08T09:14:03Z" },
-    "👍": { "count": 12, "lastUsed": "2026-10-07T17:40:51Z" }
+    "😂": { "count": 12, "lastUsed": "2026-10-08T09:14:03.4976474Z" },
+    "👍️": { "count": 12, "lastUsed": "2026-10-07T17:40:51.5337522Z" }
   }
   ```
 
+- The emojis are written **as themselves**: System.Text.Json escapes every character beyond the BMP
+  (`😂`) even with the relaxed encoder, so `EmojiUsage` turns the escaped surrogate pairs
+  back after serializing.
 - **Read** once at launch. Missing → no counter yet. Unreadable or invalid → no counter, not an
   error (and overwritten at the next use).
-- **Written** after each use, the whole file, through a temporary file then a replace, so a crash
+- **Written** after each use (on the UI thread: a small file), the whole file, through a temporary file then a replace, so a crash
   never leaves it half-written. A folder that cannot be written is not an error: the counters live
   in memory until the app ends, like the `cache\` folder's rule.
 - An emoji in the file that the catalog no longer has (a data update) is **kept in the file** and
   not shown.
-- Owned by one new class, `Data/EmojiUsage.cs`: load, record a use, the sorted list, save.
+- Owned by one new class, `Data/EmojiUsage.cs`: load, record a use, a count, the sorted list, clear,
+  save.
 
 ---
 
@@ -73,7 +77,15 @@ from `Data/EmojiCatalog.cs`.
 
 - **Position**: the **first tab**, before *Smileys & People*; its section is the **first section** of
   the continuous grid. It is one more `EmojiCategory` at the head of the list given to the tab
-  strip and the grid — built from the counters, not from the catalog.
+  strip and the grid — built from the counters, not from the catalog
+  (`MainForm.CreateFrequentCategory`), rebuilt with `EmojiGrid.ReplaceCategory`.
+- **Generic section options**, on `EmojiCategory`: `MaxRows` (the limit), `EmptyText` (the empty
+  message, one row kept for it — `No emoji found` uses it too now) and `Captions` (the counts, with
+  taller cells). `EmojiGridLayout` takes one `Section(Count, MinRows, MaxRows, RowHeight)` per
+  section.
+- **Pre-rendering**: `EmojiGrid` is given the catalog's emojis to pre-render, apart from its
+  sections: the frequent section reuses their bitmaps, and the disk cache's key never changes with
+  the counters.
 - **Label and glyph**: `Frequently used`, the tab's tooltip and the section header (English, like
   the rest of the UI); glyph **star**, `E734` (FavoriteStar) in Segoe Fluent Icons / Segoe MDL2
   Assets, monochrome like the others.
@@ -81,12 +93,20 @@ from `Data/EmojiCatalog.cs`.
 - **Limit**: as many emojis as **3 rows** of the grid hold — the limit
   follows the number of columns, so resizing the window shows more or fewer. The rows count lives
   in **one constant**.
+- **Use count**: each emoji of the section shows its **number of uses under it**, inside its cell —
+  grey text a little smaller than the grid's font, the emoji at the top of the cell. The section's
+  cells are **rectangles, taller than wide**: as wide as the other sections' (the columns line
+  up), taller to hold the count. Up to 999 as is, beyond that `999+`. Only in this
+  section: the catalog sections and the search results show no count.
+- **Selection** (keyboard navigation, merged from `main`): its frame follows the cell — a rectangle
+  around a frequent emoji and its count. Replacing the section (a use, *Clear*) puts the selection
+  back on the first emoji in view, the cell it was on may be gone.
 - **Empty** (no emoji used yet): the tab is **shown** and the section reads **`No emoji used yet`**,
   painted like `No emoji found`, one cell high under the header.
 - **Refresh**: the section is rebuilt after each use. A use hides the window, so it is never seen
   changing.
-- **Every show** scrolls the grid **to the top**, on the frequent section, like Win+; — after the
-  search is cleared (`ShowCategories` would otherwise bring back the previous scroll position). The
+- **Every show** scrolls the grid **to the top**, on the frequent section, like Win+; — through
+  `main`'s `EmojiGrid.ResetToTop`, which also selects the first emoji — after the search is cleared (`ShowCategories` would otherwise bring back the previous scroll position). The
   scroll position kept while searching is still restored when the box is emptied without hiding.
 - **Search**: the search box searches the **catalog categories only** — the frequent section would
   otherwise give each of its emojis twice in the results.
@@ -109,7 +129,7 @@ tab replaces it (Q&A #7).
 
 | File | Change |
 |---|---|
-| `GLOSSARY.md` / `GLOSSARY.fr.md` | New term **Frequent** (*fréquent*): an emoji counted by its uses, shown in the first tab; *Recent* removed or reworded |
+| `GLOSSARY.md` / `GLOSSARY.fr.md` | New term **Frequent** (*fréquent*): an emoji counted by its uses, shown in the first tab; *Recent* removed (the feature it named is replaced), *Favorite* kept |
 | `RULES.md` | The `usage.json` file (where, format, failure cases), the frequent tab (first, order, limit, empty state, not searched, every show on top), the *Clear frequently used* item |
 | `README.md` / `README.fr.md` | The feature; *Recents* removed from the planned features if listed |
 
@@ -118,7 +138,8 @@ tab replaces it (Q&A #7).
 ## Test Impact
 
 No test project exists, and no earlier workfile created one: the behaviours below are **checked by
-hand** in the running app, not by unit tests.
+hand** in the running app, not by unit tests. `EmojiUsage` was also checked by a throwaway console
+harness (in the session's scratchpad, not committed) compiling `Data/EmojiUsage.cs` alone.
 
 | Behaviour to pin | Test file | Create / Update |
 |---|---|---|
@@ -129,6 +150,7 @@ hand** in the running app, not by unit tests.
 | An invalid `usage.json` or a read-only folder → no error, the app runs | — (manual) | — |
 | A search never returns an emoji twice | — (manual) | — |
 | Every show brings the grid back to the top, on the frequent section | — (manual) | — |
+| Each frequent emoji shows its use count under it; the other sections show none | — (manual) | — |
 | *Clear frequently used* asks, then empties the section and `usage.json`; greyed with no counter | — (manual) | — |
 
 ---
@@ -144,6 +166,7 @@ hand** in the running app, not by unit tests.
 - [x] ~~What happens to the backlog's *Recents tab* row?~~ → Marked entirely with this workfile
 - [x] ~~Two rows or three?~~ → Three rows
 - [x] ~~On each show, does the grid come back where it was (today's behaviour), or scrolled to the top, on the frequent section?~~ → Scrolled to the top, on the frequent section
+- [ ] After a resize, the tab strip may show a stale gear and cross (seen once in a capture): to investigate in its own task?
 - [x] ~~Do any of these join the scope: search results ranking the frequent emojis first; the tray icon starting on the last emoji used (read from `usage.json`) instead of 😊; a *Clear frequently used* item in the settings menu?~~ → Only the *Clear frequently used* item
 
 ---
@@ -172,6 +195,69 @@ frequent section; the *Clear frequently used* settings item joins the scope (wit
 confirmation, greyed with no counter), while the search ranking and the persisted tray icon stay
 out. No open question left.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given for **code, tests and documentation**, in a **worktree**
+(`.claude/worktrees/frequent-tab`, branch `feature/frequent-tab`, from `main` at `a278285`). The
+scope is frozen as the sections above stand. The confirmation of *Clear frequently used* (Yes / No,
+*No* the default) was proposed with the go and is part of it.
+
+### Iteration 4 — 2026-10-08 — ⚙️ Post-implementation — Use count under each emoji
+
+Requested during the run: the frequent section shows each emoji's **number of uses under it**. The
+cell keeps its size; the emoji moves up, the count is drawn below it in small grey text, `999+`
+beyond 999 (the agent's choice, so that the count never overflows the cell). See *Frequent Tab*.
+
+### Iteration 5 — 2026-10-08 — ⚙️ Post-implementation — Three rows at most, following the window
+
+Requested during the run: the frequent emojis always fit in **3 rows at most**, their number
+recomputed from the window's size. This is the design already (*Limit*, Q&A #9) and what the code
+does: `EmojiGridLayout` cuts the section to `3 × Columns`, computed again at every resize — checked
+at two widths. No change.
+
+### Iteration 6 — 2026-10-08 — ⚙️ Post-implementation — Larger count, taller cells
+
+Requested after a look at the running app: the count was hard to read. Its font grows a little
+(6.75 pt → 8.25 pt), and the frequent section's cells no longer need to be the other sections'
+squares: they keep their width, so the columns stay aligned and the limit stays `3 × Columns`, and
+grow taller to hold the emoji and its count. `EmojiGridLayout` gets a row height per section.
+
+### Iteration 7 — 2026-10-08 — 🧭 Implementation choices
+
+No project rule broken. Choices the frozen design did not state:
+
+- **Readable `usage.json`**: System.Text.Json escapes every emoji beyond the BMP even with
+  `UnsafeRelaxedJsonEscaping` (checked); the escaped surrogate pairs are turned back after
+  serializing (`EmojiUsage.ReadableEmojis`). `lastUsed` keeps .NET's sub-second ISO 8601 form.
+- **Saving on the UI thread**, synchronously, after each use: the file is a few kB.
+- **Generic section options** rather than a frequent-only special case: `EmojiCategory` gets
+  `MaxRows`, `EmptyText`, `Captions`; `EmojiGridLayout` a `Section` record (count, min / max rows,
+  row height). `No emoji found` moved onto `EmptyText`.
+- **Pre-rendered list passed apart** to `EmojiGrid` (the catalog's emojis): with the frequent
+  section in the list, the disk cache's key would change with every use.
+- **Clear frequently used**: its *Enabled* state is computed when the menu opens; the question reads
+  *Clear the frequently used emojis? Their counts are deleted and cannot be brought back.*
+- **Glossary**: *Recent* removed — the backlog row it named is replaced by this tab; *Favorite* kept.
+- **Verification**: an insertion from a script types into the foreground window, so none was sent
+  to the user's apps. A throwaway target window was tried; it caught keystrokes typed by the user
+  meanwhile and was closed — no emoji was inserted anywhere. The counting path was checked by a
+  console harness compiling `EmojiUsage.cs` (+1, ties, reload, readable file, no `.tmp` left,
+  clear); the display (order, limit at two widths, counts, `999+`, empty state, search without
+  duplicates, `No emoji found`) by captures of the running app with a seeded `usage.json`.
+- **Merge of `main`** into the branch, at the user's request during the run — no conflict.
+- **Seen, not fixed** (out of scope): in one capture taken right after a resize, the tab strip
+  showed its gear and cross twice — a stale paint of the strip, it seems. Offered as an open question.
+
+### Iteration 8 — 2026-10-08 — ⚙️ Post-implementation — Merge of the keyboard navigation
+
+Requested by the user: bring `main`'s new selection design in, then test it with the taller cells.
+`main` (with `feature/keyboard-navigation` merged) merged into the branch — conflicts in
+`EmojiGridLayout.cs`, `EmojiGrid.cs`, `MainForm.cs`, `RULES.md`, `README.md`, `README.fr.md`, all
+resolved by keeping both sides: the navigation methods next to the row heights; the selection frame
+drawn around the whole cell, captioned or not; `ResetToTop` on show in place of
+`ScrollToCategory(0)` (same top); *Planned* without keyboard navigation nor recents. One addition the
+merge required: `ReplaceCategory` resets the selection to the first emoji in view.
+
 ---
 
 ## Implementation Log
@@ -181,10 +267,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | Not applicable — no test project, checked by hand |
-| README | | | |
-| RULES.md, glossary | | | |
+| Code | 3, 4, 6 | 2026-10-08 | Counters, section options, frequent tab, top on show, clear item, counts, taller cells — 7 commits |
+| Unit tests | 3 | 2026-10-08 | Not applicable — no test project; checked by hand and by a throwaway harness (Iteration 7) |
+| README | 3, 4, 6 | 2026-10-08 | `README.md` / `README.fr.md`: *Frequently used* feature, gear menu item, *Planned* updated |
+| RULES.md, glossary | 3, 4, 6 | 2026-10-08 | RULES § Frequent Tab; glossary (EN/FR) *Frequent* replaces *Recent* |
 
 ---
 

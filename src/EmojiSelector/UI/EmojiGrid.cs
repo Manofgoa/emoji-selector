@@ -27,10 +27,16 @@ internal sealed class EmojiGrid : Control
     private const int LogicalPadding = 8;
     private const int LogicalSelectionWidth = 2;
 
+    // A captioned section's cells: as wide as the others, taller to hold the caption under the emoji. The emoji's
+    // distance from the top of its cell, and the caption's font size in points.
+    private const int LogicalCaptionedCellHeight = 54;
+    private const int LogicalCaptionedEmojiTop = 4;
+    private const float CaptionFontSize = 8.25F;
+
     // One notch of the mouse wheel scrolls this many rows.
     private const int RowsPerWheelNotch = 2;
 
-    private readonly IReadOnlyList<EmojiCategory> categories;
+    private readonly EmojiCategory[] categories;
     private readonly VScrollBar scrollBar = new() { Dock = DockStyle.Right };
     private readonly ToolTip toolTip = new();
     private readonly EmojiBitmapCache bitmaps;
@@ -46,6 +52,7 @@ internal sealed class EmojiGrid : Control
 
     private EmojiGridLayout layout;
     private Font headerFont;
+    private Font captionFont;
     private (int Section, int Index)? hovered;
     private (int Section, int Index)? selection;
 
@@ -53,21 +60,27 @@ internal sealed class EmojiGrid : Control
     private Point cursorPosition;
     private int activeCategory;
 
-    public EmojiGrid(IReadOnlyList<EmojiCategory> categories)
+    /// <param name="categories">The sections, in order.</param>
+    /// <param name="emojis">
+    /// Every emoji the sections can show, each once, in grid order: the ones pre-rendered. A section built from others
+    /// (the frequent emojis) leaves this list — and so the disk cache's key — unchanged.
+    /// </param>
+    public EmojiGrid(IReadOnlyList<EmojiCategory> categories, IEnumerable<Emoji> emojis)
     {
-        this.categories = categories;
-        this.sections = categories;
+        this.categories = [.. categories];
+        this.sections = this.categories;
         this.DoubleBuffered = true;
         this.SetStyle(ControlStyles.Selectable, false);
         this.BackColor = SystemColors.Window;
         this.headerFont = new Font(this.Font, FontStyle.Bold);
+        this.captionFont = new Font(this.Font.FontFamily, CaptionFontSize);
         this.scrollBar.ValueChanged += (_, _) => this.OnScrolled();
         this.Controls.Add(this.scrollBar);
         this.layout = this.CreateLayout();
         this.UpdateScrollBar();
 
         // In grid order: the first screen is ready first.
-        this.bitmaps = new EmojiBitmapCache(categories.SelectMany(category => category.Emojis).Select(emoji => emoji.Text).ToList());
+        this.bitmaps = new EmojiBitmapCache(emojis.Select(emoji => emoji.Text).ToList());
         this.bitmaps.BitmapsReady += (_, _) => this.Invalidate();
         this.EnsureBitmapSize();
     }
@@ -204,10 +217,25 @@ internal sealed class EmojiGrid : Control
     public void ShowSearchResults(IReadOnlyList<Emoji> results)
     {
         this.categoriesOffset ??= this.Offset;
-        this.sections = [new EmojiCategory(SearchResultsHeader, ' ', results)];
+        this.sections = [new EmojiCategory(SearchResultsHeader, ' ', results, EmptyText: NoResultText)];
         this.Relayout();
         this.SetOffset(0);
         this.SetSelection(this.layout.First(), ensureVisible: false);
+    }
+
+    /// <summary>
+    /// Replaces the section of <paramref name="index"/> — its tab stays the same. The sections below it move with
+    /// its height; while searching, the change shows when the categories come back. The selection goes back to the
+    /// first emoji in view: the cell it was on may be gone.
+    /// </summary>
+    public void ReplaceCategory(int index, EmojiCategory category)
+    {
+        this.categories[index] = category;
+        if (!this.IsSearching)
+        {
+            this.Relayout();
+            this.SetSelection(this.FirstVisible(), ensureVisible: false);
+        }
     }
 
     /// <summary>Brings the categories back, at the scroll position they had before the search.</summary>
@@ -241,6 +269,14 @@ internal sealed class EmojiGrid : Control
                 TextRenderer.DrawText(graphics, this.sections[section].Name, this.headerFont, header, SystemColors.ControlText,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
             }
+
+            // An empty section's message fills the row the layout keeps for it, under the header.
+            if (this.sections[section] is { Emojis.Count: 0, EmptyText: string emptyText })
+            {
+                var message = new Rectangle(this.layout.Padding, header.Bottom, width - 2 * this.layout.Padding, this.layout.RowHeight(section));
+                TextRenderer.DrawText(graphics, emptyText, this.Font, message, SystemColors.GrayText,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            }
         }
 
         int emojiSize = this.EmojiSize;
@@ -254,25 +290,27 @@ internal sealed class EmojiGrid : Control
                 using var missingBrush = new SolidBrush(MissingColor);
                 graphics.FillRectangle(missingBrush, Rectangle.Inflate(cell, -1, -1));
             }
+            else if (this.sections[section].Captions is IReadOnlyList<string> captions)
+            {
+                // A captioned emoji sits at the top of its cell, its caption in the band left below it.
+                int emojiY = cell.Y + this.LogicalToDeviceUnits(LogicalCaptionedEmojiTop);
+                graphics.DrawImage(bitmap, cell.X + (cell.Width - emojiSize) / 2, emojiY, emojiSize, emojiSize);
+                var caption = new Rectangle(cell.X, emojiY + emojiSize, cell.Width, cell.Bottom - emojiY - emojiSize);
+                TextRenderer.DrawText(graphics, captions[index], this.captionFont, caption, SystemColors.GrayText,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
+            }
             else
             {
                 graphics.DrawImage(bitmap, cell.X + (cell.Width - emojiSize) / 2, cell.Y + (cell.Height - emojiSize) / 2, emojiSize, emojiSize);
             }
 
+            // The frame follows the cell: a rectangle around a captioned emoji and its count.
             if (this.selection == (section, index))
             {
                 using var pen = new Pen(SystemColors.Highlight, this.LogicalToDeviceUnits(LogicalSelectionWidth)) { Alignment = PenAlignment.Inset };
                 Rectangle frame = Rectangle.Inflate(cell, -1, -1);
                 graphics.DrawRectangle(pen, frame.X, frame.Y, frame.Width - 1, frame.Height - 1);
             }
-        }
-
-        if (this.IsSearching && this.sections[0].Emojis.Count == 0)
-        {
-            var message = new Rectangle(this.layout.Padding, this.layout.HeaderTop(0) + this.layout.HeaderHeight - offset,
-                width - 2 * this.layout.Padding, this.layout.CellSize);
-            TextRenderer.DrawText(graphics, NoResultText, this.Font, message, SystemColors.GrayText,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
         }
     }
 
@@ -303,6 +341,9 @@ internal sealed class EmojiGrid : Control
         Font previous = this.headerFont;
         this.headerFont = new Font(this.Font, FontStyle.Bold);
         previous.Dispose();
+        Font previousCaption = this.captionFont;
+        this.captionFont = new Font(this.Font.FontFamily, CaptionFontSize);
+        previousCaption.Dispose();
         this.Invalidate();
     }
 
@@ -354,13 +395,16 @@ internal sealed class EmojiGrid : Control
             this.bitmaps.Dispose();
             this.toolTip.Dispose();
             this.headerFont.Dispose();
+            this.captionFont.Dispose();
         }
 
         base.Dispose(disposing);
     }
 
     private EmojiGridLayout CreateLayout() => new(
-        this.sections.Select(section => section.Emojis.Count).ToList(),
+        this.sections.Select(section => new EmojiGridLayout.Section(
+            section.Emojis.Count, MinRows: section.EmptyText is null ? 0 : 1, section.MaxRows,
+            section.Captions is null ? null : this.LogicalToDeviceUnits(LogicalCaptionedCellHeight))).ToList(),
         this.ClientSize.Width - this.scrollBar.Width,
         this.ViewportHeight,
         this.LogicalToDeviceUnits(LogicalCellSize),
