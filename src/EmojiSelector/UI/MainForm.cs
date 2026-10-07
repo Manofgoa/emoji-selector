@@ -51,6 +51,42 @@ internal sealed class MainForm : Form
     // A use count beyond this one shows as "999+": it never overflows its cell.
     private const int MaxShownCount = 999;
 
+    public const string CustomHeader = "Custom";
+
+    public const string NoGroupText = "Create a group from ⚙ → New group…";
+
+    public const string EmptyGroupText = "Right-click an emoji to add it here";
+
+    public const string NewGroupText = "New group…";
+
+    public const string NewGroupTitle = "New group";
+
+    public const string RenameGroupText = "Rename…";
+
+    public const string RenameGroupTitle = "Rename group";
+
+    public const string ReorderText = "Reorder";
+
+    public const string MoveUpText = "Move up";
+
+    public const string MoveDownText = "Move down";
+
+    public const string DeleteGroupText = "Delete group";
+
+    public const string DeleteGroupQuestion = "Delete the group \"{0}\"? Its list of emojis cannot be brought back.";
+
+    public const string AddToText = "Add to";
+
+    public const string RemoveText = "Remove";
+
+    // The custom tab's glyph: Heart, in Segoe Fluent Icons and Segoe MDL2 Assets.
+    private const char CustomIcon = '';
+
+    // The tabs: the frequent one, the custom one, then the catalog's. The sections: the frequent one, the custom groups'
+    // — one placeholder section while there is no group — then the catalog's.
+    private const int CustomTab = 1;
+    private const int FirstCustomSection = 1;
+
     private readonly TrayIcon trayIcon;
     private readonly ContextMenuStrip settingsMenu;
     // The catalog's categories, without the frequent tab.
@@ -62,6 +98,10 @@ internal sealed class MainForm : Form
     private readonly CategoryTabStrip tabStrip;
     private readonly EmojiGrid grid;
     private readonly EmojiUsage usage = EmojiUsage.Load();
+    private readonly CustomGroups customGroups = CustomGroups.Load();
+
+    // How many sections the custom tab has in the grid: one per group, the placeholder alone while there is none.
+    private int customSectionCount;
     private readonly ForegroundTracker foregroundTracker = new();
     private readonly ShortcutHook shortcutHook;
 
@@ -93,13 +133,21 @@ internal sealed class MainForm : Form
 
         // The search box on top, the tabs below it, the grid filling the rest. Docking runs from the last control
         // added: the search bar first, then the strip.
-        // The frequent tab first, then the catalog's. The search box searches the catalog's only: the frequent
-        // section would give each of its emojis twice.
+        // The frequent tab first, the custom tab next, then the catalog's. The search box searches the catalog's only:
+        // the frequent section and the custom groups would give their emojis twice.
         this.categories = EmojiCatalog.Load();
         this.emojisByText = this.categories.SelectMany(category => category.Emojis).ToDictionary(emoji => emoji.Text);
-        IReadOnlyList<EmojiCategory> tabs = [this.CreateFrequentCategory(), .. this.categories];
-        this.grid = new EmojiGrid(tabs, this.categories.SelectMany(category => category.Emojis)) { Dock = DockStyle.Fill };
-        this.tabStrip = new CategoryTabStrip(tabs) { Dock = DockStyle.Top };
+        EmojiCategory frequent = this.CreateFrequentCategory();
+        List<EmojiCategory> customSections = this.CreateCustomSections();
+        this.customSectionCount = customSections.Count;
+        this.grid = new EmojiGrid([frequent, .. customSections, .. this.categories], this.categories.SelectMany(category => category.Emojis))
+        {
+            Dock = DockStyle.Fill,
+        };
+        this.tabStrip = new CategoryTabStrip([frequent, new EmojiCategory(CustomHeader, CustomIcon, []), .. this.categories])
+        {
+            Dock = DockStyle.Top,
+        };
 
         // Never narrower than the tab strip needs, its side resize borders added.
         this.MinimumSize = new Size(this.tabStrip.LogicalMinimumWidth + 2 * LogicalSideBorder, 240);
@@ -119,13 +167,16 @@ internal sealed class MainForm : Form
         this.searchBox.TextChanged += (_, _) => this.OnSearchTextChanged();
         this.grid.KeyPress += this.OnGridKeyPress;
         this.clearButton.Click += (_, _) => this.ClearSearch();
-        this.tabStrip.TabClicked += (_, category) => this.grid.SelectCategory(category);
+        this.tabStrip.TabClicked += (_, tab) => this.grid.SelectCategory(this.SectionOf(tab));
         this.tabStrip.CloseClicked += (_, _) => this.Close();
         this.settingsMenu = this.CreateSettingsMenu();
         this.tabStrip.SettingsClicked += (_, bounds) =>
             this.settingsMenu.Show(this.tabStrip, new Point(bounds.Right, bounds.Bottom), ToolStripDropDownDirection.BelowLeft);
-        this.grid.ActiveCategoryChanged += (_, _) => this.tabStrip.ActiveTab = this.grid.ActiveCategory;
+        this.grid.ActiveCategoryChanged += (_, _) => this.tabStrip.ActiveTab = this.TabOf(this.grid.ActiveCategory);
         this.grid.EmojiClicked += (_, emoji) => this.InsertEmoji(emoji);
+        this.grid.EmojiRightClicked += (_, click) => this.ShowEmojiMenu(click);
+        this.grid.SectionMenuClicked += (_, request) => this.ShowGroupMenu(request);
+        this.grid.EmojiMoved += (_, move) => this.MoveEmoji(move);
         ResumeLayout(performLayout: false);
 
         this.trayIcon = new TrayIcon(this.Text);
@@ -159,6 +210,10 @@ internal sealed class MainForm : Form
         {
             this.ClearSearch();
             this.grid.ResetToTop();
+        }
+        else
+        {
+            this.grid.EndReorder();
         }
     }
 
@@ -202,10 +257,11 @@ internal sealed class MainForm : Form
 
         if (this.grid.Focused || this.searchBox.Focused)
         {
-            // Enter inserts the selection: the first result while searching, unless the arrows moved it.
+            // Enter inserts the selection: the first result while searching, unless the arrows moved it. Never an emoji
+            // of the group in reorder mode.
             if (keyData == Keys.Enter)
             {
-                if (this.grid.SelectedEmoji is Emoji emoji)
+                if (this.grid.SelectedEmoji is Emoji emoji && !this.grid.IsSelectionReordered)
                 {
                     this.InsertEmoji(emoji);
                 }
@@ -213,10 +269,14 @@ internal sealed class MainForm : Form
                 return true;
             }
 
-            // Esc clears the box, or hides the window when the box is already empty.
+            // Esc ends the reorder mode; otherwise it clears the box, or hides the window when the box is already empty.
             if (keyData == Keys.Escape)
             {
-                if (this.searchBox.TextLength > 0)
+                if (this.grid.IsReordering)
+                {
+                    this.grid.EndReorder();
+                }
+                else if (this.searchBox.TextLength > 0)
                 {
                     this.ClearSearch();
                 }
@@ -354,6 +414,7 @@ internal sealed class MainForm : Form
     {
         var menu = new ContextMenuStrip();
         menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
+        menu.Items.Add(NewGroupText, image: null, (_, _) => this.NewGroup());
         menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
         ToolStripItem clearFrequent = menu.Items.Add(ClearFrequentText, image: null, (_, _) => this.ClearFrequent());
         menu.Opening += (_, _) => clearFrequent.Enabled = !this.usage.IsEmpty;
@@ -477,6 +538,205 @@ internal sealed class MainForm : Form
             .Select(count => count > MaxShownCount ? $"{MaxShownCount}+" : count.ToString(CultureInfo.InvariantCulture))
             .ToList();
         return new EmojiCategory(FrequentHeader, FrequentIcon, emojis, FrequentRows, NoFrequentText, counts);
+    }
+
+    // The custom tab's sections: one per group, under its name with a "…" button; the placeholder pointing to New
+    // group… while there is none.
+    private List<EmojiCategory> CreateCustomSections()
+    {
+        if (this.customGroups.Groups.Count == 0)
+        {
+            return [new EmojiCategory(CustomHeader, CustomIcon, [], EmptyText: NoGroupText)];
+        }
+
+        return this.customGroups.Groups
+            .Select(group => new EmojiCategory(group.Name, CustomIcon, this.ShownEmojis(group), EmptyText: EmptyGroupText, HasMenu: true))
+            .ToList();
+    }
+
+    // A group's emojis the catalog has, in the group's order: one the catalog no longer has stays in the file only.
+    private List<Emoji> ShownEmojis(CustomGroup group) =>
+        group.Emojis.Select(text => this.emojisByText.GetValueOrDefault(text)).OfType<Emoji>().ToList();
+
+    // The grid's custom sections built again after a change to the groups; the active tab follows the sections' new
+    // indices.
+    private void RefreshCustomSections()
+    {
+        List<EmojiCategory> sections = this.CreateCustomSections();
+        this.grid.ReplaceCategories(FirstCustomSection, this.customSectionCount, sections);
+        this.customSectionCount = sections.Count;
+        this.tabStrip.ActiveTab = this.TabOf(this.grid.ActiveCategory);
+    }
+
+    // The tab of a section: every custom section is under the custom tab.
+    private int TabOf(int section) =>
+        section < FirstCustomSection ? section
+        : section < FirstCustomSection + this.customSectionCount ? CustomTab
+        : section - this.customSectionCount + CustomTab;
+
+    // The first section of a tab.
+    private int SectionOf(int tab) => tab <= CustomTab ? tab : tab - CustomTab + this.customSectionCount;
+
+    // The group shown in a section; null for a section that is not a group's.
+    private int? GroupOf(int section)
+    {
+        int group = section - FirstCustomSection;
+        return group >= 0 && group < this.customGroups.Groups.Count ? group : null;
+    }
+
+    // A group's name in a menu: an & is shown, not taken for a mnemonic.
+    private static string MenuName(string name) => name.Replace("&", "&&");
+
+    // The name typed in the name dialog; null when cancelled.
+    private string? AskGroupName(string title, string name)
+    {
+        using var dialog = new GroupNameDialog(title, name);
+        return dialog.ShowDialog(this) == DialogResult.OK ? dialog.GroupName : null;
+    }
+
+    // A new group, last, then scrolled to — unless a search is shown.
+    private void NewGroup()
+    {
+        if (this.AskGroupName(NewGroupTitle, string.Empty) is not string name)
+        {
+            return;
+        }
+
+        this.customGroups.Add(name);
+        this.RefreshCustomSections();
+        if (string.IsNullOrWhiteSpace(this.searchBox.Text))
+        {
+            this.grid.SelectCategory(FirstCustomSection + this.customGroups.Groups.Count - 1);
+        }
+    }
+
+    // The menu of a right-clicked emoji: Add to ▸ every group, the ones holding it checked — a click on one of those
+    // takes it out; Remove when it was right-clicked in a group.
+    private void ShowEmojiMenu(EmojiGrid.EmojiRightClick click)
+    {
+        var menu = new ContextMenuStrip();
+        var addTo = new ToolStripMenuItem(AddToText) { Enabled = this.customGroups.Groups.Count > 0 };
+        for (int group = 0; group < this.customGroups.Groups.Count; group++)
+        {
+            int target = group;
+            var item = new ToolStripMenuItem(MenuName(this.customGroups.Groups[group].Name))
+            {
+                Checked = this.customGroups.Contains(group, click.Emoji.Text),
+            };
+            item.Click += (_, _) => this.ToggleInGroup(target, click.Emoji.Text);
+            addTo.DropDownItems.Add(item);
+        }
+
+        menu.Items.Add(addTo);
+        if (this.GroupOf(click.Section) is int shownIn)
+        {
+            menu.Items.Add(RemoveText, image: null, (_, _) => this.RemoveFromGroup(shownIn, click.Emoji.Text));
+        }
+
+        ShowOnce(menu, this.grid, click.Location, ToolStripDropDownDirection.Default);
+    }
+
+    // The menu of a group's "…" button, under it, its right edge on the button's.
+    private void ShowGroupMenu(EmojiGrid.SectionMenuRequest request)
+    {
+        if (this.GroupOf(request.Section) is not int group)
+        {
+            return;
+        }
+
+        int count = this.customGroups.Groups.Count;
+        var menu = new ContextMenuStrip();
+        menu.Items.Add(RenameGroupText, image: null, (_, _) => this.RenameGroup(group));
+        ToolStripItem reorder = menu.Items.Add(ReorderText, image: null, (_, _) => this.grid.StartReorder(request.Section));
+        reorder.Enabled = this.ShownEmojis(this.customGroups.Groups[group]).Count > 1;
+        ToolStripItem moveUp = menu.Items.Add(MoveUpText, image: null, (_, _) => this.MoveGroup(group, -1));
+        moveUp.Enabled = group > 0;
+        ToolStripItem moveDown = menu.Items.Add(MoveDownText, image: null, (_, _) => this.MoveGroup(group, 1));
+        moveDown.Enabled = group < count - 1;
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(DeleteGroupText, image: null, (_, _) => this.DeleteGroup(group));
+        Rectangle button = request.ButtonBounds;
+        ShowOnce(menu, this.grid, new Point(button.Right, button.Bottom), ToolStripDropDownDirection.BelowLeft);
+    }
+
+    // A menu built for one show, disposed once closed — after the click on its item is handled.
+    private static void ShowOnce(ContextMenuStrip menu, Control control, Point location, ToolStripDropDownDirection direction)
+    {
+        menu.Closed += (_, _) => control.BeginInvoke(menu.Dispose);
+        menu.Show(control, location, direction);
+    }
+
+    private void ToggleInGroup(int group, string emoji)
+    {
+        if (this.customGroups.Contains(group, emoji))
+        {
+            this.customGroups.RemoveEmoji(group, emoji);
+        }
+        else
+        {
+            this.customGroups.AddEmoji(group, emoji);
+        }
+
+        this.RefreshCustomSections();
+    }
+
+    private void RemoveFromGroup(int group, string emoji)
+    {
+        this.customGroups.RemoveEmoji(group, emoji);
+        this.RefreshCustomSections();
+    }
+
+    private void RenameGroup(int group)
+    {
+        if (this.AskGroupName(RenameGroupTitle, this.customGroups.Groups[group].Name) is string name)
+        {
+            this.customGroups.Rename(group, name);
+            this.RefreshCustomSections();
+        }
+    }
+
+    // Swapped with its neighbour, then kept in view.
+    private void MoveGroup(int group, int step)
+    {
+        this.grid.EndReorder();
+        this.customGroups.Swap(group, group + step);
+        this.RefreshCustomSections();
+        this.grid.SelectCategory(FirstCustomSection + group + step);
+    }
+
+    // A group holding emojis is deleted after a confirmation, No the default button; an empty one right away.
+    private void DeleteGroup(int group)
+    {
+        CustomGroup deleted = this.customGroups.Groups[group];
+        if (deleted.Emojis.Count > 0)
+        {
+            string question = string.Format(CultureInfo.InvariantCulture, DeleteGroupQuestion, deleted.Name);
+            DialogResult answer = MessageBox.Show(this, question, AppTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button2);
+            if (answer != DialogResult.Yes)
+            {
+                return;
+            }
+        }
+
+        this.grid.EndReorder();
+        this.customGroups.Delete(group);
+        this.RefreshCustomSections();
+    }
+
+    // An emoji dragged inside a group in reorder mode: from and to are indices among the emojis shown.
+    private void MoveEmoji(EmojiGrid.EmojiMove move)
+    {
+        if (this.GroupOf(move.Section) is not int group)
+        {
+            return;
+        }
+
+        List<Emoji> shown = this.ShownEmojis(this.customGroups.Groups[group]);
+        Emoji moved = shown[move.From];
+        shown.RemoveAt(move.From);
+        this.customGroups.MoveEmoji(group, moved.Text, move.To < shown.Count ? shown[move.To].Text : null);
+        this.RefreshCustomSections();
     }
 
     // A clicked emoji goes into the window that was in front before this one, then the window hides to the tray,
