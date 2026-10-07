@@ -21,9 +21,10 @@ there is a single highlight on screen.
 | Tab / Shift+Tab to the next / previous category | Recents, skin tones, flags ([TODO-FEATURES.md](TODO-FEATURES.md)) |
 | Enter inserts the selected emoji, Esc hides the window | Keyboard access to the tab strip itself (focusing a tab) |
 | Hover and keyboard share one selection | Persisting the selection between two launches |
+| | Showing the name of a keyboard-selected emoji (the hover tooltip stays for the mouse) |
 
 Backlog: this covers the whole **Keyboard navigation** row of
-[TODO-FEATURES.md](TODO-FEATURES.md) (arrows, Enter, Tab / Shift+Tab) — see Open Questions.
+[TODO-FEATURES.md](TODO-FEATURES.md) (arrows, Enter, Tab / Shift+Tab), marked with this workfile.
 
 ### Starting point
 
@@ -42,12 +43,15 @@ Backlog: this covers the whole **Keyboard navigation** row of
 
 ## Selection
 
-- `EmojiGrid` holds **one selection** `(Section, Index)` — it replaces `hovered`. It is drawn with
-  the highlight the hover has today; its name is the tooltip (see Open Questions for the keyboard
-  case and the highlight's look).
-- **Window shown** → the selection is the **first emoji of the grid**, so Enter inserts at once.
-- **Mouse**: moving over an emoji selects it. Leaving the grid keeps the selection (the keyboard
-  must still have one to act on — see Open Questions).
+- `EmojiGrid` holds **one selection** `(Section, Index)` — it replaces `hovered`. It is drawn as a
+  **frame in the accent colour** (`SystemColors.Highlight`), like Win+; — no grey fill any more.
+- **Name**: the tooltip still shows the name of the emoji under the **mouse**; a keyboard-selected
+  emoji shows no name (out of scope).
+- **Window shown** → the grid is scrolled back to the **top** and the selection is the **first emoji
+  of the grid**, so Enter inserts at once (see Open Questions for the search box's show rule).
+- **Mouse**: moving over an emoji selects it. Leaving the grid **keeps** the selection — the
+  keyboard still has one to act on. A **tab click** selects the first emoji of that category, like
+  Tab.
 - **Kept in view**: every keyboard move scrolls the grid by the least amount that shows the
   selected cell entirely. The active tab follows the scroll, as today.
 - **A scroll does not move the selection**: the re-hit-test of `OnScrolled` stops changing it —
@@ -64,17 +68,20 @@ read row by row.
 
 | Key | Does |
 |---|---|
-| ← / → | Previous / next emoji in grid order (row ends and section ends: see Open Questions) |
-| ↑ / ↓ | The emoji one row above / below, same column (short rows and section boundaries: see Open Questions) |
-| Home / End | First / last emoji (of the grid or of the category: see Open Questions) |
-| Page Up / Page Down | As many rows up / down as the viewport holds, same column |
-| Tab / Shift+Tab | First emoji of the next / previous category, its header scrolled to the top — like a tab click |
+| ← / → | Previous / next emoji in grid order: past a row end onto the next row, past a category's last emoji onto the next category's first, like Win+; |
+| ↑ / ↓ | The emoji one row above / below, same column. The row there is shorter → its **last** emoji. From a category's last row, ↓ enters the next category's first row (↑ likewise the previous one's last row) |
+| Home / End | First / last emoji of the **current category** (the selection's) |
+| Ctrl+Home / Ctrl+End | First / last emoji of the **whole grid** |
+| Page Up / Page Down | As many rows up / down as the viewport holds, same column, the rows counted across categories as ↑ / ↓ do; stops on the first / last row |
+| Tab / Shift+Tab | First emoji of the next / previous category, its header scrolled to the top — like a tab click. **Wraps**: Tab on the last category goes to the first, Shift+Tab on the first to the last |
 | Enter | Inserts the selected emoji: `MainForm.InsertEmoji`, the click path |
-| Esc | Hides the window to the tray, nothing inserted — the same as ✕ |
+| Esc | Hides the window to the tray, nothing inserted — the same as ✕. With the search box, its rule comes first: a box holding text is cleared instead |
 
+- **Grid edges**: ← on the very first emoji, → on the very last, ↑ on the first row, ↓ on the last
+  row → nothing moves (no wrap). Only Tab / Shift+Tab wrap.
 - Holding a key repeats it (Windows auto-repeat), nothing added.
-- Modifiers other than Shift on Tab are not handled: Ctrl, Alt, Win combinations keep their
-  default behaviour (Alt+F4 still hides to the tray).
+- Modifiers other than Shift on Tab and Ctrl on Home / End are not handled: other Ctrl, Alt, Win
+  combinations keep their default behaviour (Alt+F4 still hides to the tray).
 
 ---
 
@@ -90,43 +97,50 @@ read row by row.
 
 ## Test Impact
 
-Pending Open Question 10. If no test project is created, nothing is pinned in a test file and
-everything is checked by hand:
+**No unit test** — deliberately: there is no test project and the user chose to check by hand, like
+the earlier workfiles (Q&A #14).
 
 | Behaviour to pin | Test file | Create / Update |
 |---|---|---|
-| Target cell of each key: row ends, short last rows, section boundaries, grid edges, Page Up / Down | `tests/EmojiSelector.Tests/UI/EmojiGridLayoutTests.cs` (if a test project is created) | Create |
+| — none (checked by hand: row ends and section ends, short last rows, grid edges, Home / End and their Ctrl variants, Page Up / Down, Tab wrap, Enter, Esc, hover vs keyboard scroll, accent frame, first emoji on show) | — | — |
 
 ---
 
 ## Open Questions
 
-- [ ] 1. **← / → at a row end**: → on the last emoji of a row goes to the first of the next row,
-  and across sections (last of a category → first of the next one), like Win+;? Or stops at the
-  row end?
-- [ ] 2. **↑ / ↓ across a short row**: ↓ from a column the row below does not have (the last row of
-  a section is often short) → the last emoji of that row? Or skip to the next row that has the
-  column? And ↓ from the last row of a section goes into the next section's first row, same column?
-- [ ] 3. **Grid edges**: ← on the very first emoji, → on the very last, ↑ on the first row, ↓ on
-  the last — stay put, or wrap to the other end?
-- [ ] 4. **Home / End**: first / last emoji of the **whole grid**, or of the **current category**
-  (the selection's)? (Ctrl+Home / Ctrl+End could carry the other one.)
-- [ ] 5. **Tab past the last category** (Shift+Tab before the first): wrap around, or stay?
-- [ ] 6. **Selection highlight**: keep today's hover fill (`ControlLight`), or make it stronger
-  for the keyboard — an accent frame, like Win+;?
-- [ ] 7. **Name of a keyboard-selected emoji**: shown as a tooltip at the cell (as the hover does),
-  or nothing until the mouse hovers?
-- [ ] 8. **Window shown again**: the selection back on the first emoji means scrolling back to the
-  top every time — or keep the scroll position and select the first **visible** emoji?
-- [ ] 9. **Tab click with the mouse**: also moves the selection to that category's first emoji, like
-  Tab does? And the mouse leaving the grid: the selection stays (proposed) or is cleared?
-- [ ] 10. **Unit tests**: by hand like the earlier workfiles, or create an xUnit test project for
-  the key → target cell logic (a pure function of `EmojiGridLayout`)?
-- [ ] 11. **Search box overlap**: [20261007-search-box.md](20261007-search-box.md) (in design) asks
-  its own Enter / Esc question. This workfile defines Enter / Esc for the grid alone, and the search
-  box adapts when it lands — agreed?
-- [ ] 12. **Backlog**: mark the *Keyboard navigation* row of [TODO-FEATURES.md](TODO-FEATURES.md)
-  with this workfile (the whole row is covered)?
+- [x] ~~1. **← / → at a row end**: continue on the next row and across sections, or stop?~~ →
+  Continue, across rows and categories, like Win+;
+- [x] ~~2. **↑ / ↓ across a short row**: last emoji of that row, or skip it?~~ → The row's last
+  emoji; ↓ from a category's last row enters the next category, same column
+- [x] ~~3. **Grid edges**: stay put, or wrap?~~ → Stay put
+- [x] ~~4. **Home / End**: whole grid or current category?~~ → Current category; Ctrl+Home /
+  Ctrl+End for the whole grid
+- [x] ~~5. **Tab past the last category**: wrap or stay?~~ → Wrap (Shift+Tab likewise)
+- [x] ~~6. **Selection highlight**: hover fill or accent frame?~~ → Accent frame
+- [x] ~~7. **Name of a keyboard-selected emoji**: tooltip or nothing?~~ → Out of scope: no name for
+  the keyboard; the hover tooltip stays for the mouse
+- [x] ~~8. **Window shown again**: back to the top, or first visible emoji?~~ → Back to the top,
+  first emoji selected — but see question 16 (the search box restores another position)
+- [x] ~~9. **Tab click / mouse leaving the grid**~~ → A tab click selects the category's first
+  emoji; leaving the grid keeps the selection
+- [x] ~~10. **Unit tests**: by hand or a test project?~~ → By hand, no test project
+- [x] ~~11. **Search box overlap**: this workfile owns Enter / Esc, the search box adapts?~~ → No:
+  wait for the search box's keys to be settled, then align this workfile on them. They were settled
+  on 2026-10-08 (its Q3: Enter inserts the first result; Esc clears the box, or hides the window when
+  it is empty) — the alignment raises questions 13–16
+- [x] ~~12. **Backlog**: mark the *Keyboard navigation* row?~~ → Yes, marked with this workfile
+- [ ] 13. **Keys while the search box has the focus** (it gets it on every show): ← / → and Home /
+  End also move the text caret. Who gets them — the grid, the caret, or the grid while the box is
+  empty and the caret once it holds text? ↑ / ↓, Page Up / Down, Tab and Enter go to the grid
+  either way.
+- [ ] 14. **Selection in search mode**: on every change of the text, the selection goes to the first
+  result — so Enter inserts the selected emoji, which is the search box's *first result* unless the
+  user moved with the arrows?
+- [ ] 15. **Tab / Shift+Tab in search mode** (every tab greyed, clicks ignored): ignored too, or
+  leave search mode and jump to the category?
+- [ ] 16. **Window shown**: the search box workfile brings the category view back **at the scroll
+  position it had before the search**; this workfile scrolls back **to the top** with the first emoji
+  selected. Which one wins (the other workfile then gets aligned)?
 
 ---
 
@@ -146,6 +160,20 @@ keyboard share one selection; a simple subject, explored in a single pass.
 The code read showed that `EmojiGrid.OnScrolled` re-hit-tests the cursor after every scroll, which
 would let a still mouse steal the selection after a keyboard scroll: the design moves the selection
 on real mouse moves only. Keys go through `MainForm` since no control is focusable.
+
+### Iteration 2 — 2026-10-08
+
+Open Questions 1–12 answered (Q&A 5–16): continuous ← / → across rows and categories; a short row
+takes ↓ to its last emoji; no wrap at the grid edges, only Tab / Shift+Tab wrap; Home / End for the
+category, Ctrl+Home / Ctrl+End for the grid; an accent frame for the selection; no name shown for a
+keyboard selection (out of scope); back to the top on every show; a tab click moves the selection,
+the mouse leaving the grid keeps it; checked by hand; the backlog row marked.
+
+The user chose to wait for the search box's keys before settling the overlap. They were settled in
+[20261007-search-box.md](20261007-search-box.md) (Iteration 2, 2026-10-08): Enter inserts the first
+result, Esc clears the box or hides the window. Aligning on them raises Open Questions 13–16 — the
+caret keys in the focused box, the selection in search mode, Tab in search mode, and a conflict on
+the scroll position when the window is shown.
 
 ---
 
@@ -173,19 +201,23 @@ Questions asked by the agent during design, with user responses.
 | 2 | When the window appears, which emoji is selected? | The first of the grid | 2026-10-07 |
 | 3 | How do the mouse and the keyboard selection coexist? | Hover moves the selection (one shared selection) | 2026-10-07 |
 | 4 | Is the subject straightforward or tricky / long to explore? | Straightforward | 2026-10-07 |
-| 5 | ← / → at a row end: continue on the next row and across sections, or stop? (Open Question 1) | | |
-| 6 | ↑ / ↓ across a short row and a section boundary (Open Question 2) | | |
-| 7 | Grid edges: stay put or wrap? (Open Question 3) | | |
-| 8 | Home / End: whole grid or current category? (Open Question 4) | | |
-| 9 | Tab past the last category: wrap or stay? (Open Question 5) | | |
-| 10 | Selection highlight: hover fill or accent frame? (Open Question 6) | | |
-| 11 | Name of a keyboard-selected emoji: tooltip or nothing? (Open Question 7) | | |
-| 12 | Window shown again: back to the top, or first visible emoji? (Open Question 8) | | |
-| 13 | Tab click moves the selection? Mouse leaving the grid keeps it? (Open Question 9) | | |
-| 14 | Unit tests: by hand or a test project? (Open Question 10) | | |
-| 15 | Search box overlap: this workfile owns Enter / Esc for the grid, the search box adapts? (Open Question 11) | | |
-| 16 | Backlog: mark the *Keyboard navigation* row with this workfile? (Open Question 12) | | |
+| 5 | ← / → at a row end: continue on the next row and across sections, or stop? (Open Question 1) | Continue | 2026-10-08 |
+| 6 | ↑ / ↓ across a short row and a section boundary (Open Question 2) | The short row's last emoji; ↓ enters the next category | 2026-10-08 |
+| 7 | Grid edges: stay put or wrap? (Open Question 3) | Stay put | 2026-10-08 |
+| 8 | Home / End: whole grid or current category? (Open Question 4) | Category; Ctrl+Home / Ctrl+End for the grid | 2026-10-08 |
+| 9 | Tab past the last category: wrap or stay? (Open Question 5) | Wrap | 2026-10-08 |
+| 10 | Selection highlight: hover fill or accent frame? (Open Question 6) | Accent frame | 2026-10-08 |
+| 11 | Name of a keyboard-selected emoji: tooltip or nothing? (Open Question 7) | Out of scope | 2026-10-08 |
+| 12 | Window shown again: back to the top, or first visible emoji? (Open Question 8) | Back to the top | 2026-10-08 |
+| 13 | Tab click moves the selection? Mouse leaving the grid keeps it? (Open Question 9) | Tab click moves it; leaving keeps it | 2026-10-08 |
+| 14 | Unit tests: by hand or a test project? (Open Question 10) | By hand | 2026-10-08 |
+| 15 | Search box overlap: this workfile owns Enter / Esc for the grid, the search box adapts? (Open Question 11) | Wait for the search box, then align on it | 2026-10-08 |
+| 16 | Backlog: mark the *Keyboard navigation* row with this workfile? (Open Question 12) | Yes | 2026-10-08 |
+| 17 | Keys while the search box has the focus: ← / → and Home / End to the grid, the caret, or depending on the text? (Open Question 13) | | |
+| 18 | Search mode: selection on the first result after every text change, Enter inserts the selection? (Open Question 14) | | |
+| 19 | Tab / Shift+Tab in search mode: ignored, or leave search mode? (Open Question 15) | | |
+| 20 | Window shown: back to the top, or the search box's pre-search position? (Open Question 16) | | |
 
 ---
 
-*Last updated: 2026-10-07*
+*Last updated: 2026-10-08*
