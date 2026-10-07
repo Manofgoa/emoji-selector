@@ -20,6 +20,7 @@ Reference: the Windows Win+; panel (and Twitter's emoji picker, whose categories
 | Category tabs, continuous grid, section headers | Recents tab |
 | Color rendering of the emojis | Skin tones — only the default (yellow) variant is shown |
 | Click action | Search box |
+| | Flags tab |
 
 ### Starting point
 
@@ -38,14 +39,13 @@ Reference: the Windows Win+; panel (and Twitter's emoji picker, whose categories
 
 Where the list of emojis, their category and their name come from.
 
-- **Candidate**: [Emojibase](https://emojibase.dev) data (`emojibase-data`, MIT) — `en/compact.json`
+- **Source**: [Emojibase](https://emojibase.dev) data (`emojibase-data`, MIT) — `en/compact.json`
   (or `data.json`) and `meta/groups.json`, **vendored** in the repository and embedded as a resource,
   parsed with `System.Text.Json`. It carries group, subgroup, label, tags (the future search
   keywords) and skin-tone variants.
-- **Runner-up**: Unicode `emoji-test.txt` — authoritative groups, but no keywords (would need CLDR
-  annotations later for the search box).
 - Group `component` (skin-tone and hair swatches) is skipped. Skin-tone variants are skipped
-  (backlog).
+  (backlog). Group `flags` is skipped (no Flags tab, backlog).
+- Every other emoji is kept, **even one newer than the system font** — it then shows as a box.
 
 ### Categories (tabs)
 
@@ -61,9 +61,9 @@ The tabs follow the **Win+; order** — Activities before Travel, unlike Unicode
 | 5 | Travel & Places | Travel & Places |
 | 6 | Objects | Objects |
 | 7 | Symbols | Symbols |
-| 8 | Flags | Flags — see Open Questions |
 
-Labels in English, like the rest of the app's UI.
+Labels in English, like the rest of the app's UI. No Flags tab: Segoe UI Emoji has no flag glyphs
+(backlog, see [TODO-FEATURES.md](TODO-FEATURES.md)).
 
 ---
 
@@ -74,7 +74,7 @@ Labels in English, like the rest of the app's UI.
   draws the bitmaps.
 - Which Direct2D layer: see Open Questions (the tray icon's hand-written interop or the
   `Vortice.Direct2D1` NuGet).
-- Emojis newer than the system font render as boxes: see Open Questions.
+- Emojis newer than the system font are drawn anyway: they render as boxes. No coverage check.
 
 ---
 
@@ -82,7 +82,7 @@ Labels in English, like the rest of the app's UI.
 
 ```
 ┌──────────────────────────────────────┐
-│ 😀  🐻  🍔  ⚽  🚗  💡  🔣  🏳         │  ← tab strip, active tab underlined
+│ 😀  🐻  🍔  ⚽  🚗  💡  🔣             │  ← tab strip, active tab underlined
 ├──────────────────────────────────────┤
 │ Smileys & People                     │  ← section header
 │ 😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇         │
@@ -119,8 +119,8 @@ See Open Questions for whether a test project is created. If it is:
 
 | Behaviour to pin | Test file | Create / Update |
 |---|---|---|
-| The data parses into 8 categories in Win+; order, Smileys & People merging the two Unicode groups | `src/EmojiSelector.Tests/Data/EmojiCatalogTests.cs` | Create |
-| Components and skin-tone variants are excluded | `src/EmojiSelector.Tests/Data/EmojiCatalogTests.cs` | Create |
+| The data parses into 7 categories in Win+; order, Smileys & People merging the two Unicode groups | `src/EmojiSelector.Tests/Data/EmojiCatalogTests.cs` | Create |
+| Components, flags and skin-tone variants are excluded | `src/EmojiSelector.Tests/Data/EmojiCatalogTests.cs` | Create |
 | Layout: each section starts a new row; a section's top offset follows the column count | `src/EmojiSelector.Tests/UI/EmojiGridLayoutTests.cs` | Create |
 | Scroll offset → active category, at and between section boundaries | `src/EmojiSelector.Tests/UI/EmojiGridLayoutTests.cs` | Create |
 
@@ -130,10 +130,10 @@ Rendering and the click action are checked by hand.
 
 ## Open Questions
 
-- [ ] Data source: Emojibase vendored, or Unicode `emoji-test.txt`?
+- [x] ~~Data source: Emojibase vendored, or Unicode `emoji-test.txt`?~~ → Emojibase, vendored
 - [ ] Direct2D layer: reuse the tray icon's hand-written interop (`Drawing/Direct2DInterop.cs`, not committed yet), or the `Vortice.Direct2D1` NuGet?
-- [ ] Flags (no glyphs in Segoe UI Emoji): bundle images for the flags only, keep letter pairs, or drop the Flags tab?
-- [ ] Emojis newer than the system font (boxes): hide them, or show them anyway?
+- [x] ~~Flags (no glyphs in Segoe UI Emoji): bundle images for the flags only, keep letter pairs, or drop the Flags tab?~~ → No Flags tab; logged in TODO-FEATURES.md
+- [x] ~~Emojis newer than the system font (boxes): hide them, or show them anyway?~~ → Shown anyway
 - [ ] Click action: copy to the clipboard, insert into the previously focused window, or both?
 - [ ] After a click: the window stays open, or hides?
 - [ ] Tab icons: color emojis, or monochrome icons like Win+; (Segoe Fluent Icons)?
@@ -155,6 +155,12 @@ Initial design from the scoping batch and a scout pass (codebase + web research 
 libraries): continuous grid with category tabs in Win+; order, Emojibase as the data candidate,
 Direct2D color rendering of the system font, click action in scope, recents / skin tones / search
 moved to [TODO-FEATURES.md](TODO-FEATURES.md).
+
+### Iteration 2 — 2026-10-07
+
+First batch of answers: Emojibase is the data source; the Flags tab is dropped (no flag glyphs in
+Segoe UI Emoji) and logged in the backlog — 7 tabs remain; emojis newer than the system font are
+shown anyway, as boxes. The Direct2D layer stays open: the user asked for the pros and cons first.
 
 ---
 
@@ -181,15 +187,16 @@ Questions asked by the agent during design, with user responses.
 | 2 | Rendering: native Windows font, or bundled images? | No preference — compare during research | 2026-10-07 |
 | 3 | Beyond the tabs, what is in scope: Recents tab, skin tones, click action, search box? | Click action only; log every proposed option in `workfiles/TODO-FEATURES.md` | 2026-10-07 |
 | 4 | Is the subject straightforward or tricky? | Straightforward | 2026-10-07 |
-| 5 | Data source: Emojibase or `emoji-test.txt`? | | |
-| 6 | Direct2D layer: tray icon's interop or Vortice? | | |
-| 7 | Flags: images, letter pairs, or no Flags tab? | | |
-| 8 | Emojis newer than the system font: hide or show? | | |
+| 5 | Data source: Emojibase or `emoji-test.txt`? | Emojibase | 2026-10-07 |
+| 6 | Direct2D layer: tray icon's interop or Vortice? | Explain the pros and cons of each first | 2026-10-07 |
+| 7 | Flags: images, letter pairs, or no Flags tab? | No Flags tab | 2026-10-07 |
+| 8 | Emojis newer than the system font: hide or show? | Show them anyway | 2026-10-07 |
 | 9 | Click action: clipboard, insert, or both? | | |
 | 10 | After a click: window stays or hides? | | |
 | 11 | Tab icons: color emojis or monochrome icons? | | |
 | 12 | Keyboard navigation: in scope or backlog? | | |
 | 13 | Unit tests: xUnit project or by hand? | | |
+| 14 | Direct2D layer, after the pros and cons: tray icon's interop or Vortice? | | |
 
 ---
 
