@@ -277,7 +277,7 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | 5, 6 | 2026-10-08 | Frame (`WindowFrame`, `MainForm`), close cross and drag area, settings button and menu — three commits |
+| Code | 5, 6, 7 | 2026-10-08 | Frame (`WindowFrame`, `MainForm`), close cross and drag area, settings button and menu — three commits; the menu-never-opening fix on `main` (iteration 7) |
 | Unit tests | 5 | 2026-10-08 | None, as designed (Q&A 7): no test project |
 | README | 5 | 2026-10-08 | `README.md` + `README.fr.md`: second title, tray icon, a *Window* feature line |
 | RULES | 5 | 2026-10-08 | § Command-Line Arguments, § Window and Tray Icon (table + new § Frame), § Shortcut |
