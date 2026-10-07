@@ -36,8 +36,10 @@ internal sealed class EmojiRenderer : IDisposable
     {
         Marshal.ThrowExceptionForHR(D2D1CreateFactory(
             D2D1FactoryTypeSingleThreaded, typeof(ID2D1Factory).GUID, IntPtr.Zero, out this.direct2DFactory));
+        // Isolated, not shared: the shared factory is one COM object per process, and its wrapper, created on the
+        // thread of the first renderer, cannot be used from another thread's renderer (E_NOINTERFACE).
         Marshal.ThrowExceptionForHR(DWriteCreateFactory(
-            DWriteFactoryTypeShared, typeof(IDWriteFactory).GUID, out this.directWriteFactory));
+            DWriteFactoryTypeIsolated, typeof(IDWriteFactory).GUID, out this.directWriteFactory));
         this.wicFactory = (IWICImagingFactory)Activator.CreateInstance(Type.GetTypeFromCLSID(WicImagingFactoryClsid, throwOnError: true)!)!;
     }
 
