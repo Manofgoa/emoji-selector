@@ -30,7 +30,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Tray icon, left click | Hidden → shown; covered by another window → brought to the front; already in front → hidden |
 | Tray icon, right click → `Exit` | Ends the app |
 | Win+; | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
-| Emoji clicked in the grid | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below) |
+| Emoji clicked in the grid | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below); its use counted (see *Frequent Tab* below) |
 | Enter, in the search box or the grid | Inserts the **selection**, like a click on it (see *Keyboard* below) |
 | Esc, in the search box or the grid | Clears the box; already empty → hides the window to the tray |
 | Any other close reason — Windows shutting down, the Task Manager, a `WM_CLOSE` sent by another process | Ends the app, never blocked |
@@ -90,7 +90,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 
 ## Categories and Insertion
 
-- **Categories** come from `Data/EmojiCatalog.cs` only: seven tabs in the Win+; order, the Emojibase
+- **Categories** come from `Data/EmojiCatalog.cs` only — the frequent tab aside (see *Frequent Tab*): seven tabs in the Win+; order, the Emojibase
   data embedded in the exe ([CONTRIBUTING.md § Emoji data](CONTRIBUTING.md#emoji-data)). Left out:
   components, flags, skin-tone variants. An emoji newer than the system font is kept (a box).
 - The grid and the tab strip are **custom-drawn** (`UI/EmojiGrid.cs`, `UI/CategoryTabStrip.cs`);
@@ -111,6 +111,44 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   the notification area are skipped, since a click on the tray icon goes through them. It is brought
   back to the foreground **before** the window hides (only the foreground app may hand it over),
   then the emoji is typed with `SendInput` / `KEYEVENTF_UNICODE` — never through the clipboard.
+
+## Frequent Tab
+
+The first tab, **Frequently used** (a star, `E734`), lists the emojis used most. It is one more
+`EmojiCategory` at the head of the list `MainForm` gives the tab strip and the grid, built from the
+counters (`MainForm.CreateFrequentCategory`), not from the catalog.
+
+- **Counters**: `Data/EmojiUsage.cs` alone. Every call of `MainForm.OnEmojiUsed` adds 1 to the
+  emoji's count and sets its last use — every way of inserting goes through it.
+- **`usage.json`**, next to the exe (`AppContext.BaseDirectory`), **not** in `cache\`: that folder is
+  disposable, the counters are not. A JSON object keyed by the emoji's text, `{ "count", "lastUsed" }`
+  (UTC) each. Read once at launch — missing or invalid → no counter, not an error. Written after
+  each change, through `usage.json.tmp` then a replace. A folder that cannot be written is not an
+  error: the counters live in memory until the app ends.
+- The emojis are written **as themselves**, not as `\uXXXX` escapes: System.Text.Json escapes every
+  character beyond the BMP even with the relaxed encoder, so the escaped surrogate pairs are turned
+  back after serializing (`EmojiUsage.ReadableEmojis`).
+- An emoji of the file the catalog no longer has stays in the file and is not shown.
+- **Order**: the most used first; equal counts → the most recently used first.
+- **Limit**: **3 rows** (`MainForm.FrequentRows`), however many emojis they hold at the current
+  width — `EmojiGridLayout` cuts a section to `MaxRows × Columns`, computed again at every resize.
+- **Use count** under each emoji of the section, in its cell (`EmojiCategory.Captions`): grey text,
+  the emoji at the top of the cell; `999+` beyond 999. The other sections show none.
+- **Taller cells**: a captioned section's cells are rectangles — as wide as the others, so the
+  columns line up and the limit stays `3 × Columns`, taller to hold the count
+  (`EmojiGridLayout.Section.RowHeight`).
+- **Selection** (see *Keyboard*): its frame follows the cell — a rectangle around the emoji and its
+  count. Replacing the section (`EmojiGrid.ReplaceCategory`, after a use or *Clear*) puts it back on
+  the first emoji in view: the cell it was on may be gone.
+- **Empty**: the tab stays, the section reads `No emoji used yet` (`EmojiCategory.EmptyText`, one row
+  kept for it — the mechanism `No emoji found` uses too).
+- **Every show** scrolls the grid to the top, on this section (`OnVisibleChanged`).
+- The **search box** searches the catalog's categories only: the frequent section would give each of
+  its emojis twice.
+- The grid pre-renders the catalog's emojis only (`EmojiGrid`'s `emojis` argument): the frequent
+  section reuses their bitmaps, and the disk cache's key never changes with the counters.
+- **Clear frequently used**, in the settings menu: a Yes / No confirmation, *No* the default, then
+  every counter reset and `usage.json` rewritten empty. Greyed while there is no counter.
 
 ## Search Box
 

@@ -3,24 +3,30 @@ namespace EmojiSelector.UI;
 /// <summary>
 /// Where everything sits in the <see cref="EmojiGrid"/>, in content coordinates (y = 0 at the top of the first
 /// section, before scrolling): one section per category — its header, then its emojis in fixed-size cells, as many
-/// columns as the width holds. Each section starts on a new row.
+/// columns as the width holds. Every cell has the same width, so the columns line up; a section may have taller
+/// cells (<see cref="Section.RowHeight"/>). Each section starts on a new row.
 /// </summary>
 internal sealed class EmojiGridLayout
 {
+    private readonly Section[] sections;
     private readonly int[] counts;
     private readonly int[] headerTops;
     private readonly int[] cellsTops;
 
-    /// <param name="counts">The number of emojis of each section, in order.</param>
+    /// <param name="sections">Each section's emoji count and row bounds, in order.</param>
     /// <param name="width">The width the cells fit in, padding included.</param>
     /// <param name="viewportHeight">The visible height: the content is tall enough to bring the last header to the top.</param>
-    public EmojiGridLayout(IReadOnlyList<int> counts, int width, int viewportHeight, int cellSize, int headerHeight, int padding)
+    public EmojiGridLayout(IReadOnlyList<Section> sections, int width, int viewportHeight, int cellSize, int headerHeight, int padding)
     {
-        this.counts = [.. counts];
+        this.sections = [.. sections];
         this.CellSize = cellSize;
         this.HeaderHeight = headerHeight;
         this.Padding = padding;
         this.Columns = Math.Max(1, (width - 2 * padding) / cellSize);
+
+        // A section with a row limit shows only the emojis its rows hold: more or fewer as the columns change.
+        this.counts = [.. sections.Select(section =>
+            section.MaxRows is int maxRows ? Math.Min(section.Count, maxRows * this.Columns) : section.Count)];
         this.headerTops = new int[this.counts.Length];
         this.cellsTops = new int[this.counts.Length];
 
@@ -30,7 +36,7 @@ internal sealed class EmojiGridLayout
             this.headerTops[section] = y;
             y += headerHeight;
             this.cellsTops[section] = y;
-            y += this.RowCount(section) * cellSize;
+            y += this.RowCount(section) * this.RowHeight(section);
         }
 
         // Without the room below the last section, a short last section could never scroll its header to the top:
@@ -57,9 +63,9 @@ internal sealed class EmojiGridLayout
     /// <summary>The cell of an emoji, in content coordinates.</summary>
     public Rectangle CellBounds(int section, int index) => new(
         this.Padding + index % this.Columns * this.CellSize,
-        this.cellsTops[section] + index / this.Columns * this.CellSize,
+        this.cellsTops[section] + index / this.Columns * this.RowHeight(section),
         this.CellSize,
-        this.CellSize);
+        this.RowHeight(section));
 
     /// <summary>
     /// The section whose tab is active at scroll offset <paramref name="offset"/>: the last one whose header is at
@@ -88,10 +94,10 @@ internal sealed class EmojiGridLayout
         for (int section = 0; section < this.counts.Length; section++)
         {
             int top = this.cellsTops[section];
-            int bottom = top + this.RowCount(section) * this.CellSize;
+            int bottom = top + this.RowCount(section) * this.RowHeight(section);
             if (point.Y >= top && point.Y < bottom)
             {
-                int index = (point.Y - top) / this.CellSize * this.Columns + column;
+                int index = (point.Y - top) / this.RowHeight(section) * this.Columns + column;
                 return index < this.counts[section] ? (section, index) : null;
             }
         }
@@ -110,8 +116,9 @@ internal sealed class EmojiGridLayout
                 continue;
             }
 
-            int firstRow = Math.Max(0, (top - cellsTop) / this.CellSize);
-            int lastRow = Math.Min(this.RowCount(section) - 1, (bottom - 1 - cellsTop) / this.CellSize);
+            int rowHeight = this.RowHeight(section);
+            int firstRow = Math.Max(0, (top - cellsTop) / rowHeight);
+            int lastRow = Math.Min(this.RowCount(section) - 1, (bottom - 1 - cellsTop) / rowHeight);
 
             for (int row = firstRow; row <= lastRow; row++)
             {
@@ -213,5 +220,15 @@ internal sealed class EmojiGridLayout
         return section;
     }
 
-    private int RowCount(int section) => (this.counts[section] + this.Columns - 1) / this.Columns;
+    /// <summary>The height of <paramref name="section"/>'s cells: <see cref="CellSize"/> unless it has its own.</summary>
+    public int RowHeight(int section) => this.sections[section].RowHeight ?? this.CellSize;
+
+    private int RowCount(int section) =>
+        Math.Max(this.sections[section].MinRows, (this.counts[section] + this.Columns - 1) / this.Columns);
+
+    /// <summary>
+    /// A section's size: its emoji count, at least <paramref name="MinRows"/> rows (room for a message when it is
+    /// empty), at most <paramref name="MaxRows"/> when set; its cells <paramref name="RowHeight"/> high when set.
+    /// </summary>
+    public readonly record struct Section(int Count, int MinRows = 0, int? MaxRows = null, int? RowHeight = null);
 }
