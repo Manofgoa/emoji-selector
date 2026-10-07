@@ -189,6 +189,13 @@ Requested during the run: the frequent section shows each emoji's **number of us
 cell keeps its size; the emoji moves up, the count is drawn below it in small grey text, `999+`
 beyond 999 (the agent's choice, so that the count never overflows the cell). See *Frequent Tab*.
 
+### Iteration 5 — 2026-10-08 — ⚙️ Post-implementation — Three rows at most, following the window
+
+Requested during the run: the frequent emojis always fit in **3 rows at most**, their number
+recomputed from the window's size. This is the design already (*Limit*, Q&A #9) and what the code
+does: `EmojiGridLayout` cuts the section to `3 × Columns`, computed again at every resize — checked
+at two widths. No change.
+
 ---
 
 ## Implementation Log
