@@ -1,0 +1,31 @@
+<img src="https://flagcdn.com/w20/gb.png" width="20" alt="GB"> English · [<img src="https://flagcdn.com/w20/fr.png" width="20" alt="FR"> Français](README.fr.md)
+
+# Emoji Selector
+
+A tiny, fast-starting Windows desktop app that opens on a global keyboard shortcut, finds an emoji by keyword and pastes it into the app you were typing in.
+
+Each word used here has one meaning, given in the [Glossary](GLOSSARY.md).
+
+## Features
+
+- Fast-starting `.exe` with a GUI, no installer
+- **Second title**: `EmojiSelector.exe --title "Global hotkey"` opens a window titled *Emoji Selector — Global hotkey* — in its title bar, its taskbar button and Alt+Tab — to tell instances running side by side apart (Claude Code passes the name of its session, see `CLAUDE.md`). The value is the argument right after `--title`; missing or blank, it is ignored; given twice, the last one wins. It is never remembered.
+
+## Planned
+
+- A global keyboard shortcut opening the window from any app.
+- A search box finding emojis by keyword, as you type.
+- The picked emoji pasted into the app that was active, the window hidden again.
+- Favorites and recent emojis shown first; categories to browse without typing.
+
+## Build & run
+
+See [CONTRIBUTING.md § Build](CONTRIBUTING.md#build).
+
+## Tech
+
+C# / WinForms on .NET 10, using Windows' own components only, no third-party library.
+
+## License
+
+[MIT](LICENSE) © Manofgoa. Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md); security issues: see [SECURITY.md](SECURITY.md).
