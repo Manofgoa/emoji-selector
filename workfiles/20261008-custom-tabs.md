@@ -67,7 +67,10 @@ are moved by drag and drop — and *Delete group*.
 - Glossary term: **Custom group** (*groupe personnalisé*) (Q&A #21).
 - **Several**, created, named, renamed and deleted by the user (Q&A #1, #10).
 - **Created** from the **settings menu** ⚙ — a *New group…* item next to *Open app folder* — which
-  asks for the group's name (Q&A #6).
+  asks for the group's name (Q&A #6). A new group comes **last**.
+- **Name** (*New group…* and *Rename…*): trimmed, **non-blank** — *OK* greyed while blank; duplicates
+  allowed, no length limit — a long one ends with an ellipsis in the header (Q&A #20).
+- **Order** of the groups: the user's, changed by *Move up* / *Move down* (Q&A #19).
 - Each group has a **name**, its section header, and its own **ordered list of emojis**; no icon
   (Q&A #10).
 - **Empty** group: its section shows **`Right-click an emoji to add it here`**, one cell high under
@@ -91,7 +94,9 @@ are moved by drag and drop — and *Delete group*.
 
 - A group's section header carries a **"…" button** on its right; the header text is shortened so
   its ellipsis does not run under the button. Catalog and frequent sections have none.
-- Its menu: **Rename…**, **Reorder**, **Delete group** (Q&A #8) — the only place offering them.
+- Its menu: **Rename…**, **Reorder**, **Move up**, **Move down**, **Delete group** (Q&A #8, #19) —
+  the only place offering them. *Move up* / *Move down* swap the group with its neighbour, greyed on
+  the first / last group.
 - **Reorder** turns on a **drag-and-drop mode inside that group only** (Q&A #2) — custom groups only.
 - **While it is on** (Q&A #13): the group's header shows a **`Done`** button in place of "…"; a click
   on an emoji of the group **inserts nothing** — the mouse only drags; each drop is **saved at once**.
@@ -156,7 +161,8 @@ below are **checked by hand** in the running app, not by unit tests.
 | Right click → `Add to ▸` puts the emoji in the group, checked afterwards; a click on a checked group or *Remove* takes it out | — (manual) | — |
 | *Reorder* moves emojis by drag and drop inside its group only; a click does not insert meanwhile; *Done*, Esc and hiding end it | — (manual) | — |
 | A search never returns an emoji twice (custom groups not searched) | — (manual) | — |
-| *Rename…* changes the header; *Delete group* asks when the group holds emojis, not when empty | — (manual) | — |
+| *Rename…* changes the header (blank name refused); *Delete group* asks when the group holds emojis, not when empty | — (manual) | — |
+| *Move up* / *Move down* swap the group with its neighbour, greyed at the ends | — (manual) | — |
 | The groups come back after a restart; a missing or invalid file, or a read-only folder → no error | — (manual) | — |
 
 ---
@@ -182,8 +188,8 @@ below are **checked by hand** in the running app, not by unit tests.
 - [x] ~~Where is the file saved?~~ → `custom-groups.json` next to the exe
 - [x] ~~Is this implemented after the frequent tab is merged?~~ → Yes, after the merge
 - [x] ~~Are the custom groups searched?~~ → No, the catalog only
-- [ ] Can the groups themselves be reordered?
-- [ ] Which constraints on a group's name?
+- [x] ~~Can the groups themselves be reordered?~~ → *Move up* / *Move down* in the "…" menu; a new group comes last
+- [x] ~~Which constraints on a group's name?~~ → Trimmed and non-blank only: duplicates allowed, no length limit
 - [x] ~~How does a colour icon show the active and the greyed (search) states?~~ → Moot: a fixed monochrome glyph
 
 ---
@@ -229,6 +235,12 @@ holding the emoji checked; `custom-groups.json` next to the exe; the custom grou
 search; the implementation waiting for the frequent tab to be merged. Two questions left: reordering
 the groups, the constraints on a name.
 
+### Iteration 5 — 2026-10-08
+
+Q&A #19–20 answered: the groups are reordered by *Move up* / *Move down* in their "…" menu, a new
+group coming last; a group's name is only trimmed and non-blank — duplicates allowed, no length
+limit. No open question left.
+
 ---
 
 ## Implementation Log
@@ -269,8 +281,8 @@ Questions asked by the agent during design, with user responses.
 | 16 | Implemented after the frequent tab is merged? | Yes, after the merge | 2026-10-08 |
 | 17 | Are the custom groups searched? | No, the catalog only | 2026-10-08 |
 | 18 | ~~How does a colour icon show the active and greyed states?~~ | Not asked — moot after #10 | 2026-10-08 |
-| 19 | Can the groups be reordered? | | |
-| 20 | Which constraints on a group's name? | | |
+| 19 | Can the groups be reordered? | *Move up* / *Move down* in the "…" menu | 2026-10-08 |
+| 20 | Which constraints on a group's name? | Non-blank only (trimmed; duplicates allowed, no length limit) | 2026-10-08 |
 | 21 | Which term for a group? | *Custom group* (*groupe personnalisé*) | 2026-10-08 |
 | 22 | Which glyph for the custom tab? | The heart | 2026-10-08 |
 | 23 | What does the custom tab show while no group exists? | Shown, with a message pointing to ⚙ → *New group…* | 2026-10-08 |
