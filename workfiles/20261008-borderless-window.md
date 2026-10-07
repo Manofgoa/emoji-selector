@@ -1,0 +1,193 @@
+# Borderless Window
+
+> Working document — the Windows title bar removed, a close cross drawn at the right of the
+> category tabs.
+> This file is the source of truth for the planned work until implemented,
+> then the log of every adjustment made to it afterwards.
+
+---
+
+## Overview
+
+The window loses its Windows **title bar** (caption, icon, minimize / maximize / close buttons), like
+the Win+; panel it replaces. What the title bar gave is redistributed:
+
+| Title bar gave | Becomes |
+|---|---|
+| Close button ✕ | A **close cross** drawn at the right end of the tab strip — hides to the tray, like ✕ today |
+| Moving the window (drag the caption) | Dragging the **empty part of the tab strip**, between the last tab and the cross |
+| Resizing (borders) | Unchanged: the borders stay resizable |
+| Minimize _ | **Removed** |
+| Maximize ☐, double-click on the caption | **Removed** — the window can no longer be maximized |
+| The second title, shown in the caption | No longer shown **in** the window; still in the taskbar, Alt+Tab and the tray icon's tooltip (`Form.Text` unchanged) |
+
+Components: `UI/MainForm.cs` (frame, hit-testing, the minimize / maximize code going away),
+`UI/CategoryTabStrip.cs` (the cross, the drag area), `RULES.md`, `README.md` / `README.fr.md`.
+`UI/WindowPlacement.cs` and `Input/` are not touched.
+
+---
+
+## Window Frame
+
+- **The caption is removed, the frame is kept**: `MainForm` handles `WM_NCCALCSIZE` so the client
+  area covers the caption — the default computation is run, then its top is put back to the window's
+  top. The left, right and bottom resize borders stay Windows' own, and so does the DWM frame:
+  the **shadow**, and the **rounded corners** on Windows 11.
+  - Not `FormBorderStyle.None`: it loses the shadow, the rounded corners and the resize borders, all
+    to be redrawn by hand.
+- **Top edge**: the caption took the top resize border with it — `WM_NCHITTEST` answers `HTTOP`
+  (`HTTOPLEFT` / `HTTOPRIGHT` at the corners) on the top few pixels of the window, the same
+  thickness as the side borders (`SM_CXSIZEFRAME` + `SM_CXPADDEDBORDER`, DPI-scaled).
+- **No minimize, no maximize**: `MinimizeBox = false`, `MaximizeBox = false`. Windows then refuses
+  Win+Up, Win+Down to minimize, the drag-to-top snap and the double-click on the drag area.
+- **Size**: `ClientSize` keeps 400 × 450 — the window gets shorter by the caption's height.
+  `MinimumSize` grows so the tabs, a minimal drag area and the cross always fit (see
+  *Tab Strip Layout*).
+- **Alt+F4** still closes (`CloseReason.UserClosing` → hidden to the tray), unchanged.
+
+### Code Going Away
+
+The window can be neither minimized nor maximized any more:
+
+- `restoreState` and the `OnResize` override (minimized → hidden) are removed.
+- `OnTrayIconClicked` loses its "restore if minimized" step.
+- `OnShortcutPressed` loses its maximized branch and its minimized handling: the window is always
+  placed, shown, placed again.
+
+### Placement
+
+Unchanged. `PlaceAt` reads the visible frame with `DWMWA_EXTENDED_FRAME_BOUNDS` and keeps the
+invisible borders out of the placement: with no caption, the frame simply starts higher. `IsCovered`
+reads the same bounds.
+
+---
+
+## Tab Strip Layout
+
+From left to right:
+
+| Zone | Width (logical px) | Does |
+|---|---|---|
+| Left padding | 4 | Nothing (as today) |
+| Tabs | 44 each, 7 | Click → scrolls the grid to the category (as today) |
+| **Drag area** | The rest, at least 24 | Moves the window |
+| **Close cross** | 46, the full height of the strip | Hides the window to the tray |
+
+- **Minimum width**: 4 + 7 × 44 + 24 + 46 = **382** logical pixels of client area — `MinimumSize`
+  follows (the borders added), DPI-scaled as today.
+- The separator line under the strip runs under the cross and the drag area too.
+
+### Close Cross
+
+- Glyph **ChromeClose** (`U+E8BB`) of the tab icon font (Segoe Fluent Icons, Segoe MDL2 Assets on
+  Windows 10), 10 logical pixels, grey (`SystemColors.GrayText`) like the inactive tabs.
+- Hover look: see Open Question 2.
+- **Tooltip** `Close`, like the tabs' category names.
+- **Click** (left button, released over the cross): the strip raises a new `CloseClicked` event;
+  `MainForm` answers with `this.Close()` — `CloseReason.UserClosing`, so the existing
+  `OnFormClosing` hides it to the tray. One path for the cross, Alt+F4 and a scripted `SC_CLOSE`.
+- Not selectable, no keyboard focus, like the tabs.
+
+### Drag Area
+
+- The strip answers `WM_NCHITTEST` with `HTTRANSPARENT` over the drag area; `MainForm` answers
+  `HTCAPTION` for those points. Windows then moves the window itself: a native drag, Aero snap to the
+  sides of the screen (left / right halves — the top snap needs maximize, refused).
+- Right click on the drag area: see Open Question 4.
+- No visual mark: an empty band, like the caption it replaces.
+
+---
+
+## Documentation
+
+| File | Change |
+|---|---|
+| `RULES.md` § Command-Line Arguments | The second title is shown in the taskbar, Alt+Tab and the tooltip — no longer "in the window title bar" |
+| `RULES.md` § Window and Tray Icon | Table: *Close cross* (and Alt+F4) hide to the tray; the *Minimize* row removed; a *drag area* row. The note on scripted checks: `SC_CLOSE` still works. A paragraph on the frame (no caption, resizable, never minimized nor maximized) |
+| `RULES.md` § Shortcut | "A window last maximized comes back maximized" removed |
+| `README.md` + `README.fr.md` | Second title: no longer "in its title bar". Tray icon: the window's **close cross** (and Alt+F4) hide it; the minimize button gone. A line: no title bar, moved by dragging the empty part of the tab strip |
+| `GLOSSARY.md` + `GLOSSARY.fr.md` | Nothing — unless Open Question 1 adds a term (*drag area*) |
+
+---
+
+## Test Impact
+
+**No unit test** — there is no test project (CONTRIBUTING § Build), and the earlier workfiles check
+by hand (global hotkey, Q&A 8). See Open Question 3.
+
+| Behaviour to pin | Test file | Create / Update |
+|---|---|---|
+| — none (checked by hand) | — | — |
+
+Checked by hand in the launched app: no caption; the four borders and corners resize; dragging the
+empty band moves the window, snaps left / right; the cross hides to the tray, its tooltip; Alt+F4
+hides; Win+Up / Win+Down do nothing; Win+; still places the window under the text cursor; the
+taskbar and the tray tooltip still show the second title; Windows 11 rounded corners and shadow.
+
+---
+
+## Open Questions
+
+- [ ] 1. The search box (`20261007-search-box.md`, being implemented in its worktree) goes **above**
+  the tab strip: the window's top edge will then be the box, and the drag area and the cross sit on
+  the second row. Keep them on the tab row anyway, or move them to a top row shared with the box?
+- [ ] 2. The cross's hover look: Windows' own (red `#C42B1C` background, white glyph), or the tabs'
+  (light grey background, grey glyph)?
+- [ ] 3. Unit tests: none and checked by hand, as before — or create a test project now, for the
+  strip's zones (tab / drag area / cross)?
+- [ ] 4. Right click on the drag area: Windows' system menu (Move, Size, Close — minimize and
+  maximize greyed), or nothing?
+
+---
+
+## Design Iterations
+
+Chronological log of design refinements, of the choices the implementation run
+took on its own — flagged `🧭 Implementation choices` — and of every adjustment
+requested afterwards — flagged `⚙️ Post-implementation`. One entry per request,
+in the order the requests were made.
+
+### Iteration 1 — 2026-10-08
+
+Initial design, from the user's request and the scoping answers (Q&A 1–4): the cross hides to the
+tray like ✕; the borders stay resizable and the empty part of the tab strip moves the window;
+minimize and maximize removed, the second title kept out of the window (taskbar, Alt+Tab, tooltip).
+The user rated the subject straightforward: a single scout pass, done directly (the questions
+chained: frame → tab strip → placement).
+
+Proposed: caption removed through `WM_NCCALCSIZE` (shadow, rounded corners and resize borders kept),
+top border re-created by `WM_NCHITTEST`; the drag area answered `HTCAPTION`; the cross a new zone of
+`CategoryTabStrip` raising `CloseClicked` → `Close()`; the minimize / maximize code removed;
+minimum width 382 logical pixels. No backlog row matches the request.
+
+---
+
+## Implementation Log
+
+Which delivery steps are done, and in which iteration. A step that does not apply
+says so rather than staying blank.
+
+| Step | Iteration | Date | Notes |
+|---|---|---|---|
+| Code | | | |
+| Unit tests | | | |
+| README | | | |
+| RULES | | | |
+
+---
+
+## Q&A Log
+
+Questions asked by the agent during design, with user responses.
+
+| # | Question | Answer | Date |
+|---|---|---|---|
+| 1 | What does the cross at the right of the tabs do? | Hides the window to the tray, like ✕ today | 2026-10-08 |
+| 2 | Without a title bar, how is the window moved and resized? | Resizable borders + dragging the empty part of the tab strip | 2026-10-08 |
+| 3 | What becomes of minimize, maximize and the second title? | Minimize and maximize removed; the second title only in the taskbar, Alt+Tab and the tooltip | 2026-10-08 |
+| 4 | Exploration depth? | Straightforward | 2026-10-08 |
+| 5 | Open Questions 1–4 | | |
+
+---
+
+*Last updated: 2026-10-08*
