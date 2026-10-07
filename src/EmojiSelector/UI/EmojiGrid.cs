@@ -13,12 +13,25 @@ namespace EmojiSelector.UI;
 /// <see cref="EmojiClicked"/>.
 /// While the search box holds text, the sections give way to one <c>Search results</c> section
 /// (<see cref="ShowSearchResults"/>), until <see cref="ShowCategories"/> brings them back where they were.
+/// <para>
+/// A right click on an emoji raises <see cref="EmojiRightClicked"/>. A section with a menu — a <b>custom group</b>'s —
+/// has a "…" button at the right end of its header, raising <see cref="SectionMenuClicked"/>. Its <b>reorder mode</b>
+/// (<see cref="StartReorder"/>) turns the button into <see cref="DoneText"/>: its emojis are dragged and dropped inside
+/// it (<see cref="EmojiMoved"/>), and neither a click nor Enter inserts them, until <see cref="EndReorder"/>.
+/// </para>
 /// </summary>
 internal sealed class EmojiGrid : Control
 {
     public const string SearchResultsHeader = "Search results";
 
     public const string NoResultText = "No emoji found";
+
+    public const string DoneText = "Done";
+
+    private const string MenuText = "…";
+
+    // The insertion marker shown while an emoji is dragged, in logical pixels.
+    private const int LogicalInsertionWidth = 3;
 
     // In logical pixels (96 DPI), scaled to the control's DPI.
     private const int LogicalCellSize = 40;
@@ -36,7 +49,7 @@ internal sealed class EmojiGrid : Control
     // One notch of the mouse wheel scrolls this many rows.
     private const int RowsPerWheelNotch = 2;
 
-    private readonly EmojiCategory[] categories;
+    private readonly List<EmojiCategory> categories;
     private readonly VScrollBar scrollBar = new() { Dock = DockStyle.Right };
     private readonly ToolTip toolTip = new();
     private readonly EmojiBitmapCache bitmaps;
@@ -59,6 +72,21 @@ internal sealed class EmojiGrid : Control
     // Where the cursor was last seen, on the screen: a mouse message at the same place is not a move.
     private Point cursorPosition;
     private int activeCategory;
+
+    // The section in reorder mode, null when none. While the left button is down on one of its emojis: that emoji's
+    // index and where it was pressed; once the mouse moved far enough to drag it, where it would be dropped.
+    private int? reorderSection;
+    private int? dragFrom;
+    private Point dragStart;
+    private (int Index, Point Gap)? insertion;
+
+    // The section whose header button is under the mouse, and the one pressed: -1 when none.
+    private int hoveredHeaderButton = -1;
+    private int pressedHeaderButton = -1;
+
+    // The left button was released after pressing a header button or an emoji being dragged: the click following it
+    // inserts nothing.
+    private bool ignoreClick;
 
     /// <param name="categories">The sections, in order.</param>
     /// <param name="emojis">
@@ -85,8 +113,17 @@ internal sealed class EmojiGrid : Control
         this.EnsureBitmapSize();
     }
 
-    /// <summary>An emoji was clicked.</summary>
+    /// <summary>An emoji was clicked — not one of the section in reorder mode.</summary>
     public event EventHandler<Emoji>? EmojiClicked;
+
+    /// <summary>An emoji was right-clicked.</summary>
+    public event EventHandler<EmojiRightClick>? EmojiRightClicked;
+
+    /// <summary>A section's "…" button was clicked.</summary>
+    public event EventHandler<SectionMenuRequest>? SectionMenuClicked;
+
+    /// <summary>An emoji of the section in reorder mode was dragged to another place in it.</summary>
+    public event EventHandler<EmojiMove>? EmojiMoved;
 
     /// <summary>
     /// The scroll brought another category's section to the top: see <see cref="ActiveCategory"/>. Not raised while
@@ -100,7 +137,15 @@ internal sealed class EmojiGrid : Control
     /// <summary>The selected emoji — the one Enter inserts; null when the grid shows no emoji.</summary>
     public Emoji? SelectedEmoji => this.selection is (int section, int index) ? this.sections[section].Emojis[index] : null;
 
+    /// <summary>Whether a section is in reorder mode.</summary>
+    public bool IsReordering => this.reorderSection is not null;
+
+    /// <summary>Whether the selected emoji belongs to the section in reorder mode: Enter does not insert it.</summary>
+    public bool IsSelectionReordered => this.reorderSection is int section && this.selection?.Section == section;
+
     private bool IsSearching => this.categoriesOffset is not null;
+
+    private bool IsDragging => this.insertion is not null;
 
     private int Offset => this.scrollBar.Value;
 
@@ -228,6 +273,7 @@ internal sealed class EmojiGrid : Control
     /// </summary>
     public void ShowSearchResults(IReadOnlyList<Emoji> results)
     {
+        this.EndReorder();
         this.categoriesOffset ??= this.Offset;
         this.sections = [new EmojiCategory(SearchResultsHeader, ' ', results, EmptyText: NoResultText)];
         this.Relayout();
@@ -247,6 +293,73 @@ internal sealed class EmojiGrid : Control
         {
             this.Relayout();
             this.SetSelection(this.FirstVisible(), ensureVisible: false);
+        }
+    }
+
+    /// <summary>
+    /// Replaces the <paramref name="count"/> sections from <paramref name="index"/> with <paramref name="replacement"/>
+    /// — the custom groups' sections, all under one tab. The view stays on what it showed: when it was below the
+    /// replaced sections, it moves with their change of height. The selection goes back to the first emoji in view;
+    /// the reorder mode stays on its section while that one still has a menu.
+    /// </summary>
+    public void ReplaceCategories(int index, int count, IReadOnlyList<EmojiCategory> replacement)
+    {
+        EmojiGridLayout before = this.IsSearching ? this.CreateLayout(this.categories) : this.layout;
+        int below = index + count;
+        int? anchor = below < before.SectionCount ? before.HeaderTop(below) : null;
+        this.categories.RemoveRange(index, count);
+        this.categories.InsertRange(index, replacement);
+        if (this.reorderSection is int reordered && (reordered >= this.categories.Count || !this.categories[reordered].HasMenu))
+        {
+            this.EndReorder();
+        }
+
+        EmojiGridLayout after = this.CreateLayout(this.categories);
+        int shift = anchor is int top && index + replacement.Count < after.SectionCount
+            ? after.HeaderTop(index + replacement.Count) - top
+            : 0;
+        if (this.IsSearching)
+        {
+            if (this.categoriesOffset >= anchor)
+            {
+                this.categoriesOffset += shift;
+            }
+
+            return;
+        }
+
+        int offset = this.Offset;
+        this.Relayout();
+        if (offset >= anchor)
+        {
+            this.SetOffset(offset + shift);
+        }
+
+        this.SetSelection(this.FirstVisible(), ensureVisible: false);
+    }
+
+    /// <summary>
+    /// Turns the reorder mode on for <paramref name="section"/>, a section with a menu: its "…" button becomes
+    /// <see cref="DoneText"/>, its emojis are dragged and dropped instead of inserted.
+    /// </summary>
+    public void StartReorder(int section)
+    {
+        if (!this.IsSearching && this.sections[section].HasMenu)
+        {
+            this.EndDrag();
+            this.reorderSection = section;
+            this.Invalidate();
+        }
+    }
+
+    /// <summary>Turns the reorder mode off — <see cref="DoneText"/>, Esc, the window hiding; nothing when it is off.</summary>
+    public void EndReorder()
+    {
+        if (this.reorderSection is not null)
+        {
+            this.EndDrag();
+            this.reorderSection = null;
+            this.Invalidate();
         }
     }
 
@@ -278,7 +391,15 @@ internal sealed class EmojiGrid : Control
                 width - 2 * this.layout.Padding, this.layout.HeaderHeight);
             if (header.IntersectsWith(e.ClipRectangle))
             {
-                TextRenderer.DrawText(graphics, this.sections[section].Name, this.headerFont, header, SystemColors.ControlText,
+                // The name ends before the header's button: its ellipsis never runs under it.
+                Rectangle name = header;
+                if (this.HeaderButtonBounds(section) is Rectangle button)
+                {
+                    name.Width = Math.Max(0, button.Left - header.Left);
+                    this.PaintHeaderButton(graphics, section, button);
+                }
+
+                TextRenderer.DrawText(graphics, this.sections[section].Name, this.headerFont, name, SystemColors.ControlText,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
             }
 
@@ -324,6 +445,14 @@ internal sealed class EmojiGrid : Control
                 graphics.DrawRectangle(pen, frame.X, frame.Y, frame.Width - 1, frame.Height - 1);
             }
         }
+
+        // Where the dragged emoji would be dropped: a bar in the gap between two cells.
+        if (this.insertion is (_, Point gap) && this.reorderSection is int reordered)
+        {
+            int barWidth = this.LogicalToDeviceUnits(LogicalInsertionWidth);
+            using var bar = new SolidBrush(SystemColors.Highlight);
+            graphics.FillRectangle(bar, gap.X - barWidth / 2, gap.Y - offset, barWidth, this.layout.RowHeight(reordered));
+        }
     }
 
     protected override void OnResize(EventArgs e)
@@ -367,9 +496,22 @@ internal sealed class EmojiGrid : Control
 
     // Only a real move selects: Windows also sends a mouse move when the content scrolls or the window appears under a
     // still mouse, and neither may hand the selection to the emoji under it.
+    // While an emoji is dragged, the mouse only moves the insertion marker: no hover, no selection.
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
+        if (this.dragFrom is not null && this.reorderSection is int reordered)
+        {
+            Size dragSize = SystemInformation.DragSize;
+            if (this.IsDragging || Math.Abs(e.X - this.dragStart.X) > dragSize.Width / 2
+                || Math.Abs(e.Y - this.dragStart.Y) > dragSize.Height / 2)
+            {
+                this.insertion = this.layout.Insertion(reordered, new Point(e.X, e.Y + this.Offset));
+                this.Invalidate();
+                return;
+            }
+        }
+
         Point position = this.PointToScreen(e.Location);
         if (position == this.cursorPosition)
         {
@@ -391,10 +533,86 @@ internal sealed class EmojiGrid : Control
         this.SetHovered(null);
     }
 
+    // A press on a header button, or on an emoji of the section in reorder mode: the start of a drag.
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.Button != MouseButtons.Left)
+        {
+            return;
+        }
+
+        this.pressedHeaderButton = this.HeaderButtonAt(e.Location);
+        if (this.pressedHeaderButton >= 0)
+        {
+            this.Invalidate();
+        }
+        else if (this.reorderSection is int reordered && this.HitTest(e.Location) is (int section, int index) && section == reordered)
+        {
+            this.dragFrom = index;
+            this.dragStart = e.Location;
+            this.Capture = true;
+        }
+    }
+
+    // A header button acts when released over the one pressed; a drag drops its emoji. The right button asks for the
+    // emoji's menu.
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        base.OnMouseUp(e);
+        if (e.Button == MouseButtons.Right)
+        {
+            if (this.HitTest(e.Location) is (int section, int index))
+            {
+                this.EmojiRightClicked?.Invoke(this, new EmojiRightClick(section, this.sections[section].Emojis[index], e.Location));
+            }
+
+            return;
+        }
+
+        if (e.Button != MouseButtons.Left)
+        {
+            return;
+        }
+
+        // A press that began on a header button or a dragged emoji is no click, wherever it is released.
+        this.ignoreClick = this.pressedHeaderButton >= 0 || this.dragFrom is not null;
+        int pressed = this.pressedHeaderButton;
+        if (pressed >= 0)
+        {
+            this.pressedHeaderButton = -1;
+            this.Invalidate();
+            if (this.HeaderButtonAt(e.Location) == pressed)
+            {
+                this.OnHeaderButtonClicked(pressed);
+            }
+
+            return;
+        }
+
+        if (this.dragFrom is int from && this.insertion is (int at, _) && this.reorderSection is int reordered)
+        {
+            // Dropped before itself or just after itself: it stays where it is.
+            int to = at > from ? at - 1 : at;
+            this.EndDrag();
+            if (to != from)
+            {
+                this.EmojiMoved?.Invoke(this, new EmojiMove(reordered, from, to));
+            }
+
+            return;
+        }
+
+        this.EndDrag();
+    }
+
+    // The emojis of the section in reorder mode are dragged, never inserted.
     protected override void OnMouseClick(MouseEventArgs e)
     {
         base.OnMouseClick(e);
-        if (e.Button == MouseButtons.Left && this.HitTest(e.Location) is (int section, int index))
+        bool ignore = this.ignoreClick;
+        this.ignoreClick = false;
+        if (e.Button == MouseButtons.Left && !ignore && this.HitTest(e.Location) is (int section, int index) && section != this.reorderSection)
         {
             this.EmojiClicked?.Invoke(this, this.sections[section].Emojis[index]);
         }
@@ -413,8 +631,10 @@ internal sealed class EmojiGrid : Control
         base.Dispose(disposing);
     }
 
-    private EmojiGridLayout CreateLayout() => new(
-        this.sections.Select(section => new EmojiGridLayout.Section(
+    private EmojiGridLayout CreateLayout() => this.CreateLayout(this.sections);
+
+    private EmojiGridLayout CreateLayout(IReadOnlyList<EmojiCategory> sections) => new(
+        sections.Select(section => new EmojiGridLayout.Section(
             section.Emojis.Count, MinRows: section.EmptyText is null ? 0 : 1, section.MaxRows,
             section.Captions is null ? null : this.LogicalToDeviceUnits(LogicalCaptionedCellHeight))).ToList(),
         this.ClientSize.Width - this.scrollBar.Width,
@@ -529,6 +749,13 @@ internal sealed class EmojiGrid : Control
 
     private void SetHovered(Point? location)
     {
+        int headerButton = location is Point buttonPoint ? this.HeaderButtonAt(buttonPoint) : -1;
+        if (headerButton != this.hoveredHeaderButton)
+        {
+            this.hoveredHeaderButton = headerButton;
+            this.Invalidate();
+        }
+
         (int Section, int Index)? hit = location is Point point ? this.HitTest(point) : null;
         if (hit == this.hovered)
         {
@@ -540,6 +767,82 @@ internal sealed class EmojiGrid : Control
         this.Invalidate();
     }
 
+    // The button at the right end of a section's header, client coordinates: "…" as wide as the header is high,
+    // Done as wide as its text. Null for a section without a menu.
+    private Rectangle? HeaderButtonBounds(int section)
+    {
+        if (!this.sections[section].HasMenu)
+        {
+            return null;
+        }
+
+        int width = section == this.reorderSection
+            ? TextRenderer.MeasureText(DoneText, this.headerFont).Width + 2 * this.layout.Padding
+            : this.layout.HeaderHeight;
+        Rectangle bounds = this.layout.HeaderButton(section, width);
+        bounds.Offset(0, -this.Offset);
+        return bounds;
+    }
+
+    // The section whose header button is under location, client coordinates; -1 when none.
+    private int HeaderButtonAt(Point location)
+    {
+        if (location.X >= this.ClientSize.Width - this.scrollBar.Width)
+        {
+            return -1;
+        }
+
+        for (int section = 0; section < this.layout.SectionCount; section++)
+        {
+            if (this.HeaderButtonBounds(section) is Rectangle bounds && bounds.Contains(location))
+            {
+                return section;
+            }
+        }
+
+        return -1;
+    }
+
+    // "…" grey like the tab glyphs, Done in the accent colour; the tab strip's hover behind either.
+    private void PaintHeaderButton(Graphics graphics, int section, Rectangle bounds)
+    {
+        if (section == this.hoveredHeaderButton || section == this.pressedHeaderButton)
+        {
+            using var hover = new SolidBrush(SystemColors.ControlLight);
+            graphics.FillRectangle(hover, Rectangle.Inflate(bounds, 0, -2));
+        }
+
+        bool done = section == this.reorderSection;
+        TextRenderer.DrawText(graphics, done ? DoneText : MenuText, this.headerFont, bounds,
+            done ? SystemColors.Highlight : SystemColors.GrayText,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+    }
+
+    // Done ends the reorder mode; "…" asks for the section's menu, shown under the button.
+    private void OnHeaderButtonClicked(int section)
+    {
+        if (section == this.reorderSection)
+        {
+            this.EndReorder();
+        }
+        else if (this.HeaderButtonBounds(section) is Rectangle bounds)
+        {
+            this.SectionMenuClicked?.Invoke(this, new SectionMenuRequest(section, bounds));
+        }
+    }
+
+    private void EndDrag()
+    {
+        this.dragFrom = null;
+        if (this.insertion is not null)
+        {
+            this.insertion = null;
+            this.Invalidate();
+        }
+
+        this.Capture = false;
+    }
+
     // Pre-renders the emojis at the current DPI's size, unless that is already the size being pre-rendered.
     private void EnsureBitmapSize()
     {
@@ -549,4 +852,15 @@ internal sealed class EmojiGrid : Control
             this.Invalidate();
         }
     }
+
+    /// <summary>An emoji right-clicked: its section, the emoji, and where, in the grid's coordinates.</summary>
+    public readonly record struct EmojiRightClick(int Section, Emoji Emoji, Point Location);
+
+    /// <summary>A section's "…" button clicked: the section, and the button's bounds in the grid's coordinates.</summary>
+    public readonly record struct SectionMenuRequest(int Section, Rectangle ButtonBounds);
+
+    /// <summary>
+    /// An emoji dragged inside the section in reorder mode: its index before the move, and its index after it.
+    /// </summary>
+    public readonly record struct EmojiMove(int Section, int From, int To);
 }

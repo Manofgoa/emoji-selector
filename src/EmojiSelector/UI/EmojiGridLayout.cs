@@ -12,6 +12,7 @@ internal sealed class EmojiGridLayout
     private readonly int[] counts;
     private readonly int[] headerTops;
     private readonly int[] cellsTops;
+    private readonly int width;
 
     /// <param name="sections">Each section's emoji count and row bounds, in order.</param>
     /// <param name="width">The width the cells fit in, padding included.</param>
@@ -22,6 +23,7 @@ internal sealed class EmojiGridLayout
         this.CellSize = cellSize;
         this.HeaderHeight = headerHeight;
         this.Padding = padding;
+        this.width = width;
         this.Columns = Math.Max(1, (width - 2 * padding) / cellSize);
 
         // A section with a row limit shows only the emojis its rows hold: more or fewer as the columns change.
@@ -103,6 +105,37 @@ internal sealed class EmojiGridLayout
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// The button at the right end of <paramref name="section"/>'s header — a custom group's "…" — in content
+    /// coordinates: <paramref name="buttonWidth"/> wide, as high as the header.
+    /// </summary>
+    public Rectangle HeaderButton(int section, int buttonWidth) =>
+        new(this.width - this.Padding - buttonWidth, this.headerTops[section], buttonWidth, this.HeaderHeight);
+
+    /// <summary>
+    /// Where an emoji dragged inside <paramref name="section"/> would be dropped for <paramref name="point"/> (content
+    /// coordinates): the index of the emoji it would go before — the section's count for its end — and the top of the
+    /// gap between two cells it goes in, the gap nearest the point on the point's row. A point out of the section
+    /// counts as on its nearest row.
+    /// </summary>
+    public (int Index, Point Gap) Insertion(int section, Point point)
+    {
+        int count = this.counts[section];
+        int rowHeight = this.RowHeight(section);
+        int row = Math.Clamp((point.Y - this.cellsTops[section]) / rowHeight, 0, Math.Max(0, this.RowCount(section) - 1));
+        int column = Math.Clamp((point.X - this.Padding + this.CellSize / 2) / this.CellSize, 0, this.Columns);
+        int index = row * this.Columns + column;
+        if (index > count)
+        {
+            // Past the last emoji: the gap right after it.
+            index = count;
+            row = Math.Max(0, count - 1) / this.Columns;
+            column = count - row * this.Columns;
+        }
+
+        return (index, new Point(this.Padding + column * this.CellSize, this.cellsTops[section] + row * rowHeight));
     }
 
     /// <summary>The sections' cells overlapping the band [top, bottom), for painting the visible ones only.</summary>
