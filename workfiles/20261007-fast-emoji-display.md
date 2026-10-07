@@ -10,10 +10,11 @@
 
 The grid is slow **the first time** it scrolls over emojis not seen yet; once seen, they are in memory and
 scrolling is fast (user's observation). Goal: **instant display** — the window and the whole grid ready as soon as
-they appear. The app's own start may take longer for that: the emojis are **pre-rendered in the background**.
+they appear. The app's own start may take longer for that: the emojis are **pre-rendered in the background**, and
+**kept on disk** next to the exe so the next launches reload them instead of rendering them again.
 
 Components: `Drawing/EmojiRenderer.cs` (colour rendering through Direct2D + DirectWrite), `UI/EmojiGrid.cs`
-(paint, bitmap cache), `UI/MainForm.cs` (where the grid is created at launch).
+(paint, bitmap cache), `UI/MainForm.cs` (where the grid is created at launch), a new `Drawing/EmojiBitmapCache.cs`.
 
 ---
 
@@ -159,7 +160,7 @@ Documentation section is added (RULES, README in both languages).
 |---|---|---|---|
 | Code | | | |
 | Unit tests | | | |
-| README | | | |
+| Documentation (RULES, README × 2) | | | |
 
 ---
 
