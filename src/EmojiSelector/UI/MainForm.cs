@@ -31,9 +31,6 @@ internal sealed class MainForm : Form
     private readonly ForegroundTracker foregroundTracker = new();
     private readonly ShortcutHook shortcutHook;
 
-    // The state the window comes back in from the tray: its last one, never minimized.
-    private FormWindowState restoreState = FormWindowState.Normal;
-
     // The invisible resize borders around the visible frame, read the last time the window was shown: a hidden
     // window has no frame to read them from.
     private Padding frameMargins;
@@ -51,6 +48,11 @@ internal sealed class MainForm : Form
         this.StartPosition = FormStartPosition.CenterScreen;
         this.ClientSize = new Size(400, 450);
         this.MinimumSize = new Size(320, 240);
+
+        // No caption (see WndProc): nothing to minimize or maximize from, and Windows refuses Win+Up, Win+Down and
+        // the double-click on the drag area.
+        this.MinimizeBox = false;
+        this.MaximizeBox = false;
 
         // The search box on top, the tabs below it, the grid filling the rest. Docking runs from the last control
         // added: the search bar first, then the strip.
@@ -109,19 +111,36 @@ internal sealed class MainForm : Form
         }
     }
 
-    protected override void OnResize(EventArgs e)
+    // The window frame is computed again, now that WndProc answers WM_NCCALCSIZE.
+    protected override void OnHandleCreated(EventArgs e)
     {
-        base.OnResize(e);
+        base.OnHandleCreated(e);
+        SetWindowPos(this.Handle, IntPtr.Zero, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
+    }
 
-        // Minimized, the window goes to the tray rather than the taskbar.
-        if (this.WindowState == FormWindowState.Minimized)
+    protected override void WndProc(ref Message m)
+    {
+        switch (m.Msg)
         {
-            this.Hide();
+            // The caption becomes client area: the default computation, its top put back to the window's top. The
+            // left, right and bottom resize borders, the shadow and the rounded corners stay Windows' own.
+            case WindowFrame.WmNcCalcSize when m.WParam != IntPtr.Zero:
+                int top = Marshal.ReadInt32(m.LParam, sizeof(int));
+                base.WndProc(ref m);
+                Marshal.WriteInt32(m.LParam, sizeof(int), top);
+                return;
+
+            case WindowFrame.WmNcHitTest:
+                base.WndProc(ref m);
+                if ((int)m.Result == WindowFrame.HtClient)
+                {
+                    m.Result = this.HitTestClient(WindowFrame.HitTestPoint(m.LParam));
+                }
+
+                return;
         }
-        else
-        {
-            this.restoreState = this.WindowState;
-        }
+
+        base.WndProc(ref m);
     }
 
     protected override void Dispose(bool disposing)
@@ -136,11 +155,27 @@ internal sealed class MainForm : Form
         base.Dispose(disposing);
     }
 
+    // The caption took the top resize border with it: the top band of the client area answers for it, as thick as
+    // the side borders.
+    private int HitTestClient(Point screenPoint)
+    {
+        Point point = this.PointToClient(screenPoint);
+        int border = WindowFrame.ResizeBorder(this.DeviceDpi);
+        if (point.Y >= border)
+        {
+            return WindowFrame.HtClient;
+        }
+
+        return point.X < border ? WindowFrame.HtTopLeft
+            : point.X >= this.ClientSize.Width - border ? WindowFrame.HtTopRight
+            : WindowFrame.HtTop;
+    }
+
     // The search box, and the ✕ next to it while it holds text.
     private TableLayoutPanel CreateSearchBar()
     {
         int padding = this.LogicalToDeviceUnits(LogicalSearchPadding);
-        var bar = new TableLayoutPanel
+        var bar = new SearchBar
         {
             Dock = DockStyle.Top,
             AutoSize = true,
@@ -242,17 +277,11 @@ internal sealed class MainForm : Form
         }
 
         this.Show();
-        if (this.WindowState == FormWindowState.Minimized)
-        {
-            this.WindowState = this.restoreState;
-        }
-
         this.Activate();
     }
 
     // Win+;. Shown in front → hidden, the previous window getting the foreground back so typing resumes there. Hidden,
-    // or shown but covered → placed under the text cursor of the previous window and brought to the foreground. A
-    // window last maximized comes back maximized, not placed.
+    // or shown but covered → placed under the text cursor of the previous window and brought to the foreground.
     private void OnShortcutPressed(object? sender, EventArgs e)
     {
         IntPtr previous = this.foregroundTracker.PreviousWindow;
@@ -267,31 +296,12 @@ internal sealed class MainForm : Form
             return;
         }
 
-        if (this.restoreState == FormWindowState.Maximized)
-        {
-            this.Show();
-            this.WindowState = FormWindowState.Maximized;
-        }
-        else
-        {
-            // Placed before being shown, so it does not appear at its old place first; placed again once shown, when
-            // its frame can be read and a move to a monitor of another DPI has resized it.
-            Rectangle anchor = CaretLocator.Locate(previous);
-            bool minimized = this.WindowState == FormWindowState.Minimized;
-            if (!minimized)
-            {
-                this.PlaceAt(anchor);
-            }
-
-            this.Show();
-            if (minimized)
-            {
-                this.WindowState = FormWindowState.Normal;
-            }
-
-            this.PlaceAt(anchor);
-        }
-
+        // Placed before being shown, so it does not appear at its old place first; placed again once shown, when its
+        // frame can be read and a move to a monitor of another DPI has resized it.
+        Rectangle anchor = CaretLocator.Locate(previous);
+        this.PlaceAt(anchor);
+        this.Show();
+        this.PlaceAt(anchor);
         this.TakeForeground();
     }
 
@@ -373,6 +383,27 @@ internal sealed class MainForm : Form
     private const int DwmwaExtendedFrameBounds = 9;
     private const int DwmwaCloaked = 14;
     private const int EmSetCueBanner = 0x1501;
+    private const uint SwpNoSize = 0x1;
+    private const uint SwpNoMove = 0x2;
+    private const uint SwpNoZOrder = 0x4;
+    private const uint SwpNoActivate = 0x10;
+    private const uint SwpFrameChanged = 0x20;
+
+    // The search bar sits at the window's top: its top band lets the hit test through to the window, which answers it
+    // as the top resize border.
+    private sealed class SearchBar : TableLayoutPanel
+    {
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WindowFrame.WmNcHitTest && WindowFrame.IsInTopResizeBand(this, m.LParam))
+            {
+                m.Result = WindowFrame.HtTransparent;
+                return;
+            }
+
+            base.WndProc(ref m);
+        }
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct Rect
@@ -382,6 +413,9 @@ internal sealed class MainForm : Form
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern IntPtr SendMessageW(IntPtr window, int message, nint wParam, string lParam);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern bool SetWindowPos(IntPtr window, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern IntPtr GetWindow(IntPtr window, uint command);
