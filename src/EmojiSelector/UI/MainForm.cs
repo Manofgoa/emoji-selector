@@ -25,9 +25,21 @@ internal sealed class MainForm : Form
 
     public const string OpenAppFolderText = "Open app folder";
 
+    public const string FrequentHeader = "Frequently used";
+
+    public const string NoFrequentText = "No emoji used yet";
+
+    // The frequent tab's glyph: FavoriteStar, in Segoe Fluent Icons and Segoe MDL2 Assets.
+    private const char FrequentIcon = '';
+
+    // The frequent section shows as many emojis as this many rows of the grid hold.
+    private const int FrequentRows = 3;
+
     private readonly TrayIcon trayIcon;
     private readonly ContextMenuStrip settingsMenu;
+    // The catalog's categories, without the frequent tab.
     private readonly IReadOnlyList<EmojiCategory> categories;
+    private readonly Dictionary<string, Emoji> emojisByText;
     private readonly TextBox searchBox;
     private readonly Button clearButton;
     private readonly CategoryTabStrip tabStrip;
@@ -63,9 +75,13 @@ internal sealed class MainForm : Form
 
         // The search box on top, the tabs below it, the grid filling the rest. Docking runs from the last control
         // added: the search bar first, then the strip.
+        // The frequent tab first, then the catalog's. The search box searches the catalog's only: the frequent
+        // section would give each of its emojis twice.
         this.categories = EmojiCatalog.Load();
-        this.grid = new EmojiGrid(this.categories) { Dock = DockStyle.Fill };
-        this.tabStrip = new CategoryTabStrip(this.categories) { Dock = DockStyle.Top };
+        this.emojisByText = this.categories.SelectMany(category => category.Emojis).ToDictionary(emoji => emoji.Text);
+        IReadOnlyList<EmojiCategory> tabs = [this.CreateFrequentCategory(), .. this.categories];
+        this.grid = new EmojiGrid(tabs, this.categories.SelectMany(category => category.Emojis)) { Dock = DockStyle.Fill };
+        this.tabStrip = new CategoryTabStrip(tabs) { Dock = DockStyle.Top };
 
         // Never narrower than the tab strip needs, its side resize borders added.
         this.MinimumSize = new Size(this.tabStrip.LogicalMinimumWidth + 2 * LogicalSideBorder, 240);
@@ -286,7 +302,16 @@ internal sealed class MainForm : Form
     {
         this.trayIcon.ShowEmoji(emoji);
         this.usage.Record(emoji);
+        this.grid.ReplaceCategory(0, this.CreateFrequentCategory());
     }
+
+    // The frequent tab: the emojis used most, from the counters. One the catalog no longer has is left out.
+    private EmojiCategory CreateFrequentCategory() => new(
+        FrequentHeader,
+        FrequentIcon,
+        this.usage.MostUsed().Select(text => this.emojisByText.GetValueOrDefault(text)).OfType<Emoji>().ToList(),
+        FrequentRows,
+        NoFrequentText);
 
     // A clicked emoji goes into the window that was in front before this one, then the window hides to the tray,
     // like Win+;. The previous window is brought back while this app is still in front: only the foreground app may

@@ -26,7 +26,7 @@ internal sealed class EmojiGrid : Control
     // One notch of the mouse wheel scrolls this many rows.
     private const int RowsPerWheelNotch = 2;
 
-    private readonly IReadOnlyList<EmojiCategory> categories;
+    private readonly EmojiCategory[] categories;
     private readonly VScrollBar scrollBar = new() { Dock = DockStyle.Right };
     private readonly ToolTip toolTip = new();
     private readonly EmojiBitmapCache bitmaps;
@@ -45,10 +45,15 @@ internal sealed class EmojiGrid : Control
     private (int Section, int Index)? hovered;
     private int activeCategory;
 
-    public EmojiGrid(IReadOnlyList<EmojiCategory> categories)
+    /// <param name="categories">The sections, in order.</param>
+    /// <param name="emojis">
+    /// Every emoji the sections can show, each once, in grid order: the ones pre-rendered. A section built from others
+    /// (the frequent emojis) leaves this list — and so the disk cache's key — unchanged.
+    /// </param>
+    public EmojiGrid(IReadOnlyList<EmojiCategory> categories, IEnumerable<Emoji> emojis)
     {
-        this.categories = categories;
-        this.sections = categories;
+        this.categories = [.. categories];
+        this.sections = this.categories;
         this.DoubleBuffered = true;
         this.SetStyle(ControlStyles.Selectable, false);
         this.BackColor = SystemColors.Window;
@@ -59,7 +64,7 @@ internal sealed class EmojiGrid : Control
         this.UpdateScrollBar();
 
         // In grid order: the first screen is ready first.
-        this.bitmaps = new EmojiBitmapCache(categories.SelectMany(category => category.Emojis).Select(emoji => emoji.Text).ToList());
+        this.bitmaps = new EmojiBitmapCache(emojis.Select(emoji => emoji.Text).ToList());
         this.bitmaps.BitmapsReady += (_, _) => this.Invalidate();
         this.EnsureBitmapSize();
     }
@@ -102,6 +107,19 @@ internal sealed class EmojiGrid : Control
         this.sections = [new EmojiCategory(SearchResultsHeader, ' ', results, EmptyText: NoResultText)];
         this.Relayout();
         this.SetOffset(0);
+    }
+
+    /// <summary>
+    /// Replaces the section of <paramref name="index"/> — its tab stays the same. The sections below it move with
+    /// its height; while searching, the change shows when the categories come back.
+    /// </summary>
+    public void ReplaceCategory(int index, EmojiCategory category)
+    {
+        this.categories[index] = category;
+        if (!this.IsSearching)
+        {
+            this.Relayout();
+        }
     }
 
     /// <summary>Brings the categories back, at the scroll position they had before the search.</summary>
