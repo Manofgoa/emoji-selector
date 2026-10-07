@@ -132,8 +132,11 @@ counters (`MainForm.CreateFrequentCategory`), not from the catalog.
 - **Order**: the most used first; equal counts → the most recently used first.
 - **Limit**: **3 rows** (`MainForm.FrequentRows`), however many emojis they hold at the current
   width — `EmojiGridLayout` cuts a section to `MaxRows × Columns`, computed again at every resize.
-- **Use count** under each emoji of the section, in its cell (`EmojiCategory.Captions`): small grey
-  text, the emoji moved up; `999+` beyond 999. The other sections show none.
+- **Use count** under each emoji of the section, in its cell (`EmojiCategory.Captions`): grey text,
+  the emoji at the top of the cell; `999+` beyond 999. The other sections show none.
+- **Taller cells**: a captioned section's cells are rectangles — as wide as the others, so the
+  columns line up and the limit stays `3 × Columns`, taller to hold the count
+  (`EmojiGridLayout.Section.RowHeight`).
 - **Empty**: the tab stays, the section reads `No emoji used yet` (`EmojiCategory.EmptyText`, one row
   kept for it — the mechanism `No emoji found` uses too).
 - **Every show** scrolls the grid to the top, on this section (`OnVisibleChanged`).
