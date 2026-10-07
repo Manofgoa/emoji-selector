@@ -152,6 +152,11 @@ rendered on the UI thread**: its cell is filled with fluorescent green so a miss
 once the pre-render publishes it. No test project: the verification is manual, timings recorded here. A
 Documentation section is added (RULES, README in both languages).
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code, tests (manual verification) and documentation, in a worktree
+(`.claude/worktrees/fast-emoji-display`, branch `feature/fast-emoji-display`).
+
 ---
 
 ## Implementation Log
@@ -175,8 +180,8 @@ Documentation section is added (RULES, README in both languages).
 | 5 | Disk cache next to the exe: now or later? | In this workfile | 2026-10-07 |
 | 6 | Emoji painted before the pre-render reached it: synchronous render or blank cell? | Blank cell with a fluorescent green background, so it is clear the emoji is missing | 2026-10-07 |
 | 7 | Create a test project, or manual verification? | Manual verification | 2026-10-07 |
-| 8 | Go for implementation? (scope, where) | | |
+| 8 | Go for implementation? (scope, where) | Code, tests and docs — in a worktree | 2026-10-08 |
 
 ---
 
-*Last updated: 2026-10-07*
+*Last updated: 2026-10-08*
