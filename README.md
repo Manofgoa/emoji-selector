@@ -18,11 +18,12 @@ Each word used here has one meaning, given in the [Glossary](GLOSSARY.md).
 - **Frequently used**: the first tab, a star, shows the emojis you use most — the most used first, the most recent first between equals, with each one's number of uses under it. It holds three rows, however many emojis they hold at the window's width, and the window always opens on it. Every use adds 1 to the emoji's counter, kept in a `usage.json` file next to the exe; **Clear frequently used**, in the gear's menu, resets them after a confirmation. Before any use, the tab reads *No emoji used yet*.
 - **Insertion**: clicking an emoji types it into the window you were in before, then the window hides to the tray, whose icon now shows that emoji — back to the smiley at the next launch. Windows blocks it into an app run as administrator.
 - **Search box**: at the top of the window, empty and ready for typing every time the window opens. Typing a keyword — an emoji's name or one of its tags, in English or in French, case and accents ignored — greys the tabs and shows the matching emojis alone, the most relevant first: the whole word before its start, before a word that only contains it, the most of the word covered first, a name before a tag (`caca` finds 💩 before 🥜 *cacahuète*). **Enter** inserts the first one; **Esc** clears the box, or hides the window when it is already empty. Emptying the box brings the categories back where they were.
+- **Keyboard**: one emoji is always selected, framed in the accent colour — the first one when the window opens, the first result while searching, the one under the mouse when it moves. **Enter** inserts it. In the search box, **↓** moves into the grid (it stays in the box when nothing is found); there, the **arrows** move the selection across rows and categories, **Home** / **End** go to the first / last emoji of the category (**Ctrl+Home** / **Ctrl+End**: of the grid), **Page Up** / **Page Down** move a screen, **Tab** / **Shift+Tab** jump to the next / previous category. **↑** on the first row, or typing a letter, goes back to the search box.
 
 ## Planned
 
 - Favorites shown first.
-- Skin tones, flags, copying an emoji as text or as an image, keyboard navigation in the grid.
+- Skin tones, flags, copying an emoji as text or as an image.
 
 ## Build & run
 

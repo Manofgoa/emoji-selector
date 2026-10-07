@@ -53,9 +53,6 @@ internal sealed class MainForm : Form
     private readonly Button clearButton;
     private readonly CategoryTabStrip tabStrip;
     private readonly EmojiGrid grid;
-
-    // The emojis matching the search box, most relevant first; null while it is blank.
-    private IReadOnlyList<Emoji>? searchResults;
     private readonly EmojiUsage usage = EmojiUsage.Load();
     private readonly ForegroundTracker foregroundTracker = new();
     private readonly ShortcutHook shortcutHook;
@@ -107,9 +104,9 @@ internal sealed class MainForm : Form
         this.FitClearButton();
         this.searchBox.SizeChanged += (_, _) => this.FitClearButton();
         this.searchBox.TextChanged += (_, _) => this.OnSearchTextChanged();
-        this.searchBox.KeyDown += this.OnSearchBoxKeyDown;
+        this.grid.KeyPress += this.OnGridKeyPress;
         this.clearButton.Click += (_, _) => this.ClearSearch();
-        this.tabStrip.TabClicked += (_, category) => this.grid.ScrollToCategory(category);
+        this.tabStrip.TabClicked += (_, category) => this.grid.SelectCategory(category);
         this.tabStrip.CloseClicked += (_, _) => this.Close();
         this.settingsMenu = this.CreateSettingsMenu();
         this.tabStrip.SettingsClicked += (_, bounds) =>
@@ -140,15 +137,86 @@ internal sealed class MainForm : Form
         base.OnFormClosing(e);
     }
 
-    // Every show, whatever its path: the search starts over, the box ready for typing, the grid on the frequent tab.
+    // Every show, whatever its path: the search starts over, the box ready for typing, the grid back at the top — on
+    // the frequent tab — on its first emoji, the one Enter inserts.
     protected override void OnVisibleChanged(EventArgs e)
     {
         base.OnVisibleChanged(e);
         if (this.Visible)
         {
             this.ClearSearch();
-            this.grid.ScrollToCategory(0);
+            this.grid.ResetToTop();
         }
+    }
+
+    // The keyboard has two places: the search box, and the grid once ↓ hands it over. The grid only takes the focus
+    // that way — it is not selectable, a click never focuses it.
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (this.grid.Focused)
+        {
+            if (this.grid.MoveSelection(keyData))
+            {
+                return true;
+            }
+
+            // ↑ on the grid's first row: back to the box.
+            if (keyData == Keys.Up)
+            {
+                this.FocusSearchBox();
+                return true;
+            }
+        }
+        else if (this.searchBox.Focused)
+        {
+            switch (keyData)
+            {
+                // No result: nothing to select, the keyboard stays in the box.
+                case Keys.Down:
+                    this.grid.ResetToTop();
+                    if (this.grid.SelectedEmoji is not null)
+                    {
+                        this.grid.Focus();
+                    }
+
+                    return true;
+
+                // Only ↓ leaves the box.
+                case Keys.PageUp or Keys.PageDown or Keys.Tab or (Keys.Shift | Keys.Tab):
+                    return true;
+            }
+        }
+
+        if (this.grid.Focused || this.searchBox.Focused)
+        {
+            // Enter inserts the selection: the first result while searching, unless the arrows moved it.
+            if (keyData == Keys.Enter)
+            {
+                if (this.grid.SelectedEmoji is Emoji emoji)
+                {
+                    this.InsertEmoji(emoji);
+                }
+
+                return true;
+            }
+
+            // Esc clears the box, or hides the window when the box is already empty.
+            if (keyData == Keys.Escape)
+            {
+                if (this.searchBox.TextLength > 0)
+                {
+                    this.ClearSearch();
+                }
+                else
+                {
+                    this.Hide();
+                }
+
+                return true;
+            }
+        }
+
+        return base.ProcessCmdKey(ref msg, keyData);
     }
 
     // The window frame is computed again, now that WndProc answers WM_NCCALCSIZE.
@@ -276,41 +344,36 @@ internal sealed class MainForm : Form
         this.clearButton.Visible = text.Length > 0;
         if (string.IsNullOrWhiteSpace(text))
         {
-            this.searchResults = null;
             this.grid.ShowCategories();
             this.tabStrip.Greyed = false;
         }
         else
         {
-            this.searchResults = EmojiSearch.Find(this.categories, text);
-            this.grid.ShowSearchResults(this.searchResults);
+            this.grid.ShowSearchResults(EmojiSearch.Find(this.categories, text));
             this.tabStrip.Greyed = true;
         }
     }
 
-    // Enter inserts the first result. Esc clears the box, or hides the window when the box is already empty.
-    private void OnSearchBoxKeyDown(object? sender, KeyEventArgs e)
+    // A character typed while the grid has the keyboard goes back to the box, typed at the end of its text. Backspace
+    // too: it edits the search.
+    private void OnGridKeyPress(object? sender, KeyPressEventArgs e)
     {
-        if (e.KeyCode == Keys.Enter)
+        if (char.IsControl(e.KeyChar) && e.KeyChar != '\b')
         {
-            e.SuppressKeyPress = true;
-            if (this.searchResults is [Emoji first, ..])
-            {
-                this.InsertEmoji(first);
-            }
+            return;
         }
-        else if (e.KeyCode == Keys.Escape)
-        {
-            e.SuppressKeyPress = true;
-            if (this.searchBox.TextLength > 0)
-            {
-                this.ClearSearch();
-            }
-            else
-            {
-                this.Hide();
-            }
-        }
+
+        e.Handled = true;
+        this.FocusSearchBox();
+        this.searchBox.Select(this.searchBox.TextLength, 0);
+        SendMessageW(this.searchBox.Handle, WmChar, e.KeyChar, 0);
+    }
+
+    // The grid may hold the focus without being selectable: the box is focused directly, not only made active.
+    private void FocusSearchBox()
+    {
+        this.ActiveControl = this.searchBox;
+        this.searchBox.Focus();
     }
 
     private void FitClearButton() => this.clearButton.Size = new Size(this.searchBox.Height, this.searchBox.Height);
@@ -318,7 +381,7 @@ internal sealed class MainForm : Form
     private void ClearSearch()
     {
         this.searchBox.Clear();
-        this.ActiveControl = this.searchBox;
+        this.FocusSearchBox();
     }
 
     // The one place told an emoji was used: the tray icon shows it, its counter goes up.
@@ -476,6 +539,7 @@ internal sealed class MainForm : Form
     private const int DwmwaExtendedFrameBounds = 9;
     private const int DwmwaCloaked = 14;
     private const int EmSetCueBanner = 0x1501;
+    private const int WmChar = 0x0102;
     private const uint SwpNoSize = 0x1;
     private const uint SwpNoMove = 0x2;
     private const uint SwpNoZOrder = 0x4;
@@ -506,6 +570,9 @@ internal sealed class MainForm : Form
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern IntPtr SendMessageW(IntPtr window, int message, nint wParam, string lParam);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern IntPtr SendMessageW(IntPtr window, int message, nint wParam, nint lParam);
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern bool SetWindowPos(IntPtr window, IntPtr insertAfter, int x, int y, int width, int height, uint flags);

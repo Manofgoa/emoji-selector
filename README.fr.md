@@ -18,11 +18,12 @@ Chaque mot employé ici a un seul sens, donné dans le [glossaire](GLOSSARY.fr.m
 - **Fréquents** : le premier onglet, une étoile, montre les émojis que vous utilisez le plus — les plus utilisés d'abord, le plus récent d'abord à égalité, chacun avec son nombre d'utilisations en dessous. Il tient sur trois lignes, quel que soit le nombre d'émojis qu'elles contiennent à la largeur de la fenêtre, et la fenêtre s'ouvre toujours dessus. Chaque utilisation ajoute 1 au compteur de l'émoji, gardé dans un fichier `usage.json` à côté de l'exe ; **Clear frequently used**, dans le menu de la roue dentée, les remet à zéro après confirmation. Avant toute utilisation, l'onglet affiche *No emoji used yet*.
 - **Insertion** : un clic sur un émoji le tape dans la fenêtre où vous étiez avant, puis la fenêtre se masque dans la zone de notification, dont l'icône montre désormais cet émoji — de nouveau le smiley au lancement suivant. Windows l'empêche dans une application lancée en administrateur.
 - **Zone de recherche** : en haut de la fenêtre, vide et prête à la frappe à chaque ouverture de la fenêtre. Taper un mot-clé — le nom d'un émoji ou l'une de ses étiquettes, en anglais ou en français, sans tenir compte de la casse ni des accents — grise les onglets et n'affiche que les émojis trouvés, les plus pertinents d'abord : le mot entier avant son début, avant un mot qui ne fait que le contenir, la plus grande part du mot couverte d'abord, un nom avant une étiquette (`caca` trouve 💩 avant 🥜 *cacahuète*). **Entrée** insère le premier ; **Échap** vide la zone, ou masque la fenêtre si elle est déjà vide. Vider la zone ramène les catégories là où elles étaient.
+- **Clavier** : un émoji est toujours sélectionné, encadré dans la couleur d'accentuation — le premier à l'ouverture de la fenêtre, le premier résultat pendant une recherche, celui sous la souris quand elle bouge. **Entrée** l'insère. Dans la zone de recherche, **↓** passe dans la grille (on reste dans la zone quand rien n'est trouvé) ; là, les **flèches** déplacent la sélection d'une ligne et d'une catégorie à l'autre, **Début** / **Fin** vont au premier / dernier émoji de la catégorie (**Ctrl+Début** / **Ctrl+Fin** : de la grille), **Page préc.** / **Page suiv.** avancent d'un écran, **Tab** / **Maj+Tab** sautent à la catégorie suivante / précédente. **↑** sur la première ligne, ou la frappe d'une lettre, ramène dans la zone de recherche.
 
 ## Prévu
 
 - Les favoris affichés en premier.
-- Les teintes de peau, les drapeaux, la copie d'un émoji en texte ou en image, la navigation au clavier dans la grille.
+- Les teintes de peau, les drapeaux, la copie d'un émoji en texte ou en image.
 
 ## Compilation et exécution
 

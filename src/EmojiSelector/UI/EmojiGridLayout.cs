@@ -136,6 +136,90 @@ internal sealed class EmojiGridLayout
         }
     }
 
+    /// <summary>The first emoji of the grid, null when every section is empty.</summary>
+    public (int Section, int Index)? First() => this.FirstOf(this.NextNonEmpty(-1));
+
+    /// <summary>The last emoji of the grid, null when every section is empty.</summary>
+    public (int Section, int Index)? Last() => this.LastOf(this.PreviousNonEmpty(this.counts.Length));
+
+    /// <summary>The first emoji of <paramref name="section"/>, null when it is empty.</summary>
+    public (int Section, int Index)? FirstOf(int section) =>
+        section >= 0 && section < this.counts.Length && this.counts[section] > 0 ? (section, 0) : null;
+
+    /// <summary>The last emoji of <paramref name="section"/>, null when it is empty.</summary>
+    public (int Section, int Index)? LastOf(int section) =>
+        section >= 0 && section < this.counts.Length && this.counts[section] > 0 ? (section, this.counts[section] - 1) : null;
+
+    /// <summary>The emoji after <paramref name="cell"/> in grid order — across rows and sections; null after the last.</summary>
+    public (int Section, int Index)? Next((int Section, int Index) cell) =>
+        cell.Index + 1 < this.counts[cell.Section] ? (cell.Section, cell.Index + 1) : this.FirstOf(this.NextNonEmpty(cell.Section));
+
+    /// <summary>The emoji before <paramref name="cell"/> in grid order — across rows and sections; null before the first.</summary>
+    public (int Section, int Index)? Previous((int Section, int Index) cell) =>
+        cell.Index > 0 ? (cell.Section, cell.Index - 1) : this.LastOf(this.PreviousNonEmpty(cell.Section));
+
+    /// <summary>
+    /// The emoji one row below <paramref name="cell"/>, same column: the next section's first row after a section's
+    /// last row; a shorter row gives its last emoji. Null on the grid's last row.
+    /// </summary>
+    public (int Section, int Index)? Below((int Section, int Index) cell)
+    {
+        int row = cell.Index / this.Columns;
+        int column = cell.Index % this.Columns;
+        if (row + 1 < this.RowCount(cell.Section))
+        {
+            return (cell.Section, Math.Min((row + 1) * this.Columns + column, this.counts[cell.Section] - 1));
+        }
+
+        int next = this.NextNonEmpty(cell.Section);
+        return next < this.counts.Length ? (next, Math.Min(column, this.counts[next] - 1)) : null;
+    }
+
+    /// <summary>
+    /// The emoji one row above <paramref name="cell"/>, same column: the previous section's last row above a
+    /// section's first row; a shorter row gives its last emoji. Null on the grid's first row.
+    /// </summary>
+    public (int Section, int Index)? Above((int Section, int Index) cell)
+    {
+        int row = cell.Index / this.Columns;
+        int column = cell.Index % this.Columns;
+        if (row > 0)
+        {
+            return (cell.Section, (row - 1) * this.Columns + column);
+        }
+
+        int previous = this.PreviousNonEmpty(cell.Section);
+        if (previous < 0)
+        {
+            return null;
+        }
+
+        int lastRowStart = (this.RowCount(previous) - 1) * this.Columns;
+        return (previous, Math.Min(lastRowStart + column, this.counts[previous] - 1));
+    }
+
+    private int NextNonEmpty(int section)
+    {
+        do
+        {
+            section++;
+        }
+        while (section < this.counts.Length && this.counts[section] == 0);
+
+        return section;
+    }
+
+    private int PreviousNonEmpty(int section)
+    {
+        do
+        {
+            section--;
+        }
+        while (section >= 0 && this.counts[section] == 0);
+
+        return section;
+    }
+
     /// <summary>The height of <paramref name="section"/>'s cells: <see cref="CellSize"/> unless it has its own.</summary>
     public int RowHeight(int section) => this.sections[section].RowHeight ?? this.CellSize;
 
