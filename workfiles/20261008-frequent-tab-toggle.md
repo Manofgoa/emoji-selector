@@ -206,6 +206,13 @@ still receives emojis from *Add to…*. New open question: where the hidden flag
 Q&A #14: a custom group's hidden flag is saved with the group, in the custom groups' own file. No
 open question remains; the implementation waits for the custom tabs to be delivered (Q&A #10).
 
+### Iteration 6 — 2026-10-08
+
+Go given: *Code, unit tests and documentation*, in a **worktree**. Asked how to square it with the
+wait of Q&A #10, the user chose to **wait** (Q&A #15): nothing is written until
+[20261008-custom-tabs.md](20261008-custom-tabs.md) is delivered; the run starts then, on the user's
+signal, with the go already given. The *✅ Implemented* pivot entry is written when the run starts.
+
 ---
 
 ## Implementation Log
@@ -240,7 +247,8 @@ Questions asked by the agent during design, with user responses.
 | 11 | Custom groups: hide each group, or the custom tab as a whole? | Each group | 2026-10-08 |
 | 12 | Custom groups: where is a hidden one shown again from? | A *Show groups* submenu in ⚙ | 2026-10-08 |
 | 13 | Does a hidden custom group still receive emojis from *Add to…*? | Yes |
-| 14 | Where is a custom group's hidden flag saved? | With the group, in the custom groups' file | 2026-10-08 | 2026-10-08 |
+| 14 | Where is a custom group's hidden flag saved? | With the group, in the custom groups' file | 2026-10-08 |
+| 15 | Go given while the custom tabs are not delivered: frequent part now, with or without "…", or wait? | Wait: the run starts once the custom tabs are delivered | 2026-10-08 | 2026-10-08 |
 
 ---
 
