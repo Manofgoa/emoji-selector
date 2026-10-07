@@ -45,6 +45,10 @@ internal sealed class MainForm : Form
     // window has no frame to read them from.
     private Padding frameMargins;
 
+    // The client size when the user started a resize, logical pixels: a resize leaving it unchanged — a move, a drag to
+    // a monitor of another DPI — saves nothing.
+    private Size sizeBeforeResize;
+
     /// <summary>The second title given with <see cref="TitleArgument"/>, null without one.</summary>
     public string? SecondTitle { get; }
 
@@ -201,11 +205,29 @@ internal sealed class MainForm : Form
     }
 
     // Sized before base.OnLoad centres the window: the handle exists, at the DPI of its monitor, and the bars can be
-    // measured.
+    // measured. The size the user last resized to wins over the default one.
     protected override void OnLoad(EventArgs e)
     {
-        this.SetClientArea(this.DefaultClientSize());
+        this.SetClientArea(SettingsFile.ReadWindowSize() is Size saved ? this.LogicalToDeviceUnits(saved) : this.DefaultClientSize());
         base.OnLoad(e);
+    }
+
+    protected override void OnResizeBegin(EventArgs e)
+    {
+        base.OnResizeBegin(e);
+        this.sizeBeforeResize = this.LogicalClientSize();
+    }
+
+    // Saved when the user finishes a resize, not at exit: Windows shutting down or the Task Manager may end the app
+    // without running its code.
+    protected override void OnResizeEnd(EventArgs e)
+    {
+        base.OnResizeEnd(e);
+        Size size = this.LogicalClientSize();
+        if (size != this.sizeBeforeResize)
+        {
+            SettingsFile.WriteWindowSize(size);
+        }
     }
 
     // The window frame is computed again, now that WndProc answers WM_NCCALCSIZE.
@@ -280,6 +302,11 @@ internal sealed class MainForm : Form
         int searchBarHeight = this.searchBar.GetPreferredSize(new Size(grid.Width, 0)).Height;
         return new Size(grid.Width, searchBarHeight + this.tabStrip.Height + grid.Height);
     }
+
+    // The client size in logical pixels (96 DPI): reloaded on a monitor of another scale, it holds as many emojis.
+    private Size LogicalClientSize() => new(
+        (int)Math.Round(this.ClientSize.Width * 96.0 / this.DeviceDpi),
+        (int)Math.Round(this.ClientSize.Height * 96.0 / this.DeviceDpi));
 
     // Sizes the window for a client area of clientSize, reduced if needed so the whole window — its invisible resize
     // borders included — fits the working area of its monitor; MinimumSize still wins. The borders are the ones Windows
