@@ -39,10 +39,13 @@ Reference: the Windows Win+; panel (and Twitter's emoji picker, whose categories
 
 Where the list of emojis, their category and their name come from.
 
-- **Source**: [Emojibase](https://emojibase.dev) data (`emojibase-data`, MIT) — `en/compact.json`
-  (or `data.json`) and `meta/groups.json`, **vendored** in the repository and embedded as a resource,
-  parsed with `System.Text.Json`. It carries group, subgroup, label, tags (the future search
-  keywords) and skin-tone variants.
+- **Source**: [Emojibase](https://emojibase.dev) data (`emojibase-data` **17.0.0**, MIT) —
+  `en/compact.json` kept as published, with Emojibase's `LICENSE`, in
+  `src/EmojiSelector/Data/Emojibase/`, embedded as a resource and parsed with `System.Text.Json` by
+  `Data/EmojiCatalog.cs`. The group numbers are constants in the code (`meta/groups.json` not
+  vendored). It carries group, label, tags (the future search keywords) and skin-tone variants;
+  only `unicode`, `label`, `group` and `order` are read. The labels are capitalized
+  (`grinning face` → `Grinning face`). How to update it: `CONTRIBUTING.md § Emoji data`.
 - Group `component` (skin-tone and hair swatches) is skipped. Skin-tone variants are skipped
   (backlog). Group `flags` is skipped (no Flags tab, backlog).
 - Every other emoji is kept, **even one newer than the system font** — it then shows as a box.
@@ -52,15 +55,15 @@ Where the list of emojis, their category and their name come from.
 The tabs follow the **Win+; order** — Activities before Travel, unlike Unicode's order. Unicode's
 *Smileys & Emotion* and *People & Body* are merged into one tab, as Win+; does.
 
-| # | Tab | Unicode groups |
-|---|---|---|
-| 1 | Smileys & People | Smileys & Emotion + People & Body |
-| 2 | Animals & Nature | Animals & Nature |
-| 3 | Food & Drink | Food & Drink |
-| 4 | Activities | Activities |
-| 5 | Travel & Places | Travel & Places |
-| 6 | Objects | Objects |
-| 7 | Symbols | Symbols |
+| # | Tab | Unicode groups | Glyph (Segoe Fluent Icons) |
+|---|---|---|---|
+| 1 | Smileys & People | Smileys & Emotion + People & Body | `E76E` smiley |
+| 2 | Animals & Nature | Animals & Nature | `EC0A` leaf |
+| 3 | Food & Drink | Food & Drink | `ED56` pizza slice |
+| 4 | Activities | Activities | `E7FC` game controller |
+| 5 | Travel & Places | Travel & Places | `E804` car |
+| 6 | Objects | Objects | `EA80` light bulb |
+| 7 | Symbols | Symbols | `ED58` symbols |
 
 Labels in English, like the rest of the app's UI. No Flags tab: Segoe UI Emoji has no flag glyphs
 (backlog, see [TODO-FEATURES.md](TODO-FEATURES.md)).
@@ -100,15 +103,21 @@ Labels in English, like the rest of the app's UI. No Flags tab: Segoe UI Emoji h
   (Windows 11), falling back to Segoe MDL2 Assets (Windows 10) — grey, the active one in the accent
   color and underlined; the category name as a tooltip. Drawn with GDI (a monochrome font needs no
   Direct2D). Custom-drawn, not a `TabControl` (a `TabControl` shows one page at a time).
-- **Grid**: a custom-drawn, double-buffered scrolling panel. Fixed-size cells; the number of
-  columns follows the window width (reflow on resize). Each section starts on a new row under its
-  header.
+- **Grid** (`UI/EmojiGrid.cs`): a custom-drawn, double-buffered control with its own vertical
+  scroll bar. Fixed-size cells — 40 logical pixels, the emoji drawn at 28 — scaled to the DPI; the
+  number of columns follows the window width (reflow on resize). Each section starts on a new row
+  under its bold header. Only the visible cells are drawn; each emoji is rendered on first display,
+  then cached (cache cleared on a DPI change). Where everything sits: `UI/EmojiGridLayout.cs`.
+- **Room below the last section**: the content is tall enough for the last header to reach the top
+  of the viewport — otherwise a short last section could never become the active tab.
+- **Mouse wheel**: one notch scrolls 2 rows.
 - **Tab → grid**: clicking a tab scrolls its section header to the top.
-- **Grid → tab**: the active tab is the section whose header is the last one above the top of the
-  viewport.
-- **Hover**: the cell is highlighted; a tooltip shows the emoji's name (Emojibase label).
-- **Window size**: the default client size grows to fit about 9 columns (≈ 360×450), the minimum
-  size stays.
+- **Grid → tab**: the active tab is the section whose header is the last one at or above the top of
+  the viewport.
+- **Hover**: the cell is highlighted (`SystemColors.ControlLight`); a tooltip shows the emoji's name
+  (Emojibase label). Same highlight and a name tooltip on the tabs.
+- **Window size**: the default client size is 400×450 (9 columns at 96 DPI), the minimum size stays
+  320×240.
 
 ---
 
@@ -117,16 +126,22 @@ Labels in English, like the rest of the app's UI. No Flags tab: Segoe UI Emoji h
 Clicking an emoji **inserts** it into the window that had the focus before the app's window, then
 the app's window **hides** — like Win+;.
 
-1. The app remembers the **previous foreground window** when its own window is activated
-   (`WM_ACTIVATE`, the handle of the window being deactivated).
-2. On click, the window hides; the previous window is brought back to the foreground
-   (`SetForegroundWindow`).
-3. The emoji is typed into it with `SendInput` and `KEYEVENTF_UNICODE`, one event pair per UTF-16
-   code unit of its sequence — no clipboard involved.
+1. The app remembers the **previous foreground window** (`Input/ForegroundTracker.cs`): a
+   `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)` hook, out of context, skipping the app's own
+   windows, records the last window of another app that came to the front. The taskbar and the
+   notification area (`Shell_TrayWnd`, `Shell_SecondaryTrayWnd`, `NotifyIconOverflowWindow`,
+   `TopLevelWindowForOverflowXamlIsland`, `XamlExplorerHostIslandWindow`) are skipped: a click on
+   the tray icon goes through them. At startup, the foreground window of the moment is the first one.
+2. On click, the previous window is brought back to the foreground (`SetForegroundWindow`,
+   restored first if minimized) **while the app is still in front** — only the foreground app may
+   hand the foreground over — then the window hides.
+3. The emoji is typed into it with `SendInput` and `KEYEVENTF_UNICODE`, one key down / key up pair
+   per UTF-16 code unit of its sequence — no clipboard involved (`Input/EmojiInserter.cs`).
+4. The tray icon then shows that emoji (`MainForm.OnEmojiUsed`, the tray icon workfile's pending
+   call site).
 
-- **Hiding** goes through the tray icon's hide path ([20261007-tray-icon.md](20261007-tray-icon.md)):
-  the window goes to the tray. Without the tray icon, a hidden window could not come back: the
-  window minimizes instead.
+- **Hiding** goes to the tray ([20261007-tray-icon.md](20261007-tray-icon.md)), whose left click
+  brings the window back.
 - **Caveat**: Windows blocks `SendInput` into an elevated (administrator) window from a
   non-elevated app (UIPI) — the emoji is then not inserted. Not handled.
 - No previous window (none remembered, or it was closed): the window hides, nothing is typed.
@@ -212,6 +227,35 @@ checked by hand (Test Impact lists the manual checks). No open question remains.
 Go given: code, tests and documentation, in the current checkout, on `main` (deliberate — Branch
 Gate answer). The prerequisite holds: the tray icon's work is committed on `main`.
 
+### Iteration 7 — 2026-10-07 — 🧭 Implementation choices
+
+No project rule broken.
+
+- **Previous window**: tracked by a foreground WinEvent hook instead of `WM_ACTIVATE` — the design's
+  variant could not work: opening the window from the tray icon makes the **taskbar** the window
+  deactivated, so the emoji would have gone nowhere. The shell's taskbar and notification-area
+  windows are skipped.
+- **Order on click**: the previous window is brought back **before** the window hides, not after —
+  once hidden, the app is no longer in front and Windows refuses to hand the foreground over. A
+  minimized previous window is restored first.
+- **Tray icon**: the click calls `MainForm.OnEmojiUsed`, so the tray icon now shows the last emoji
+  inserted — the tray icon workfile's `//TODO:` call site, removed.
+- **Emojibase**: version 17.0.0, `compact.json` kept whole (571 KB, tags and skins unread) with its
+  `LICENSE`; the group numbers are constants, `meta/groups.json` not vendored; labels capitalized.
+- **Tab glyphs**: chosen by rendering candidates of Segoe Fluent Icons — see the table in
+  *Categories (tabs)*. Active tab in `SystemColors.Highlight`, underlined; the others in
+  `SystemColors.GrayText`.
+- **Grid**: own scroll bar; 40-pixel cells, 28-pixel emojis; room below the last section so every
+  header can reach the top; 2 rows per wheel notch; emojis rendered lazily, cached.
+- **Window size**: 400×450 instead of ≈ 360×450, to hold 9 columns with the padding and the scroll
+  bar.
+- **Docs**: README / README.fr (*Categories*, *Insertion*, Planned, Tech), CONTRIBUTING § Emoji data,
+  glossary (*Category* reworded, *Previous window* added, both languages), RULES § Categories and
+  Insertion.
+- **Not checked by the agent**: a click on a tab and the insertion itself — both need the real
+  mouse on a window in front; the scroll → active tab link was checked (the Travel & Places tab
+  lights up on its section).
+
 ---
 
 ## Implementation Log
@@ -221,9 +265,9 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
+| Code | 6, 7 | 2026-10-07 | Catalog, grid and tab strip, insertion, main window wiring — 4 commits |
 | Unit tests | 5 | 2026-10-07 | Not applicable — no test project, checked by hand (Q&A #13) |
-| README | | | |
+| README | 7 | 2026-10-07 | README and README.fr; also CONTRIBUTING, glossary (EN/FR), RULES — 4 commits |
 
 ---
 
