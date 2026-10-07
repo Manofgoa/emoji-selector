@@ -207,6 +207,11 @@ Last answers: the Direct2D layer is the tray icon's hand-written interop — the
 becomes a prerequisite; keyboard navigation goes to the backlog; no test project, everything is
 checked by hand (Test Impact lists the manual checks). No open question remains.
 
+### Iteration 6 — 2026-10-07 — ✅ Implemented
+
+Go given: code, tests and documentation, in the current checkout, on `main` (deliberate — Branch
+Gate answer). The prerequisite holds: the tray icon's work is committed on `main`.
+
 ---
 
 ## Implementation Log
