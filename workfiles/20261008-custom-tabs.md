@@ -104,6 +104,8 @@ are moved by drag and drop — and *Delete group*.
 - **Reorder** turns on a **drag-and-drop mode inside that group only** (Q&A #2) — custom groups only.
 - **While it is on** (Q&A #13): the group's header shows a **`Done`** button in place of "…"; a click
   on an emoji of the group **inserts nothing** — the mouse only drags; each drop is **saved at once**.
+  **Enter** on the group's selected emoji inserts nothing either; the arrows still move the
+  selection, never the emoji (Q&A #24).
 - **It ends** on *Done*, on **Esc**, and when the window **hides**.
 - The drag is hand-rolled inside the grid (mouse down / move / up, an insertion marker painted in
   `OnPaint`), not OLE drag and drop: nothing leaves the section. While dragging, the hover and the
@@ -164,7 +166,7 @@ below are **checked by hand** in the running app, not by unit tests.
 | *New group…* in the settings menu creates a named group, shown as a section with the help message | — (manual) | — |
 | With no group, the custom tab is shown and its section points to *New group…* | — (manual) | — |
 | Right click → `Add to ▸` puts the emoji in the group, checked afterwards; a click on a checked group or *Remove* takes it out | — (manual) | — |
-| *Reorder* moves emojis by drag and drop inside its group only; a click does not insert meanwhile; *Done*, Esc and hiding end it | — (manual) | — |
+| *Reorder* moves emojis by drag and drop inside its group only; neither a click nor Enter inserts meanwhile; *Done*, Esc and hiding end it | — (manual) | — |
 | A search never returns an emoji twice (custom groups not searched) | — (manual) | — |
 | *Rename…* changes the header (blank name refused); *Delete group* asks when the group holds emojis, not when empty | — (manual) | — |
 | *Move up* / *Move down* swap the group with its neighbour, greyed at the ends | — (manual) | — |
@@ -195,7 +197,7 @@ below are **checked by hand** in the running app, not by unit tests.
 - [x] ~~Are the custom groups searched?~~ → No, the catalog only
 - [x] ~~Can the groups themselves be reordered?~~ → *Move up* / *Move down* in the "…" menu; a new group comes last
 - [x] ~~Which constraints on a group's name?~~ → Trimmed and non-blank only: duplicates allowed, no length limit
-- [ ] The keyboard navigation is now merged: in the reorder mode, what does Enter on the selected emoji of the group do?
+- [x] ~~The keyboard navigation is now merged: in the reorder mode, what does Enter on the selected emoji of the group do?~~ → Nothing, like the click; the arrows still move the selection
 - [x] ~~How does a colour icon show the active and the greyed (search) states?~~ → Moot: a fixed monochrome glyph
 
 ---
@@ -255,6 +257,11 @@ the frequent section — so the button is a property of a section, not hard-wire
 delivery order (Q&A #16) is satisfied: the frequent tab is already in `main`. One question emerges
 from the keyboard navigation: what Enter does in the reorder mode.
 
+### Iteration 7 — 2026-10-08
+
+Q&A #24 answered: in the reorder mode, Enter on the group's selected emoji inserts nothing, like the
+click; the arrows still move the selection. No open question left.
+
 ---
 
 ## Implementation Log
@@ -300,7 +307,7 @@ Questions asked by the agent during design, with user responses.
 | 21 | Which term for a group? | *Custom group* (*groupe personnalisé*) | 2026-10-08 |
 | 22 | Which glyph for the custom tab? | The heart | 2026-10-08 |
 | 23 | What does the custom tab show while no group exists? | Shown, with a message pointing to ⚙ → *New group…* | 2026-10-08 |
-| 24 | In the reorder mode, what does Enter on the selected emoji of the group do? | | |
+| 24 | In the reorder mode, what does Enter on the selected emoji of the group do? | Nothing, like the click | 2026-10-08 |
 
 ---
 
