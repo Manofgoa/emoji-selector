@@ -37,7 +37,7 @@ size of the first launch (or of a launch whose saved size cannot be read).
 | Client area, top to bottom: search bar (auto-sized), tab strip, grid (fills the rest) | `UI/MainForm.cs` |
 | Grid metrics, logical pixels: cell **40**, header **32**, side padding **8**; a vertical scroll bar docked right | `UI/EmojiGrid.cs` |
 | Columns = `(grid width − scroll bar − 2 × padding) / cell`; the first header sits at y = 0 (no top padding) | `UI/EmojiGridLayout.cs` |
-| Nothing is persisted about the window; files next to the exe: `cache\` (emoji atlases), soon `usage.json` (frequent tab, being designed) | `Drawing/EmojiBitmapCache.cs`, `workfiles/20261008-frequent-tab.md` |
+| Nothing is persisted about the window; files next to the exe: `cache\` (emoji atlases), `usage.json` (frequent tab, merged during the run) | `Drawing/EmojiBitmapCache.cs`, `workfiles/20261008-frequent-tab.md` |
 | No test project: changes are checked by hand | `CONTRIBUTING.md` |
 
 ---
@@ -49,19 +49,33 @@ Computed, not hard-coded: the numbers follow the grid's metrics and the DPI.
 - **Grid width** = `16 × cell + 2 × padding + scroll bar width` → at 96 DPI: 16 × 40 + 2 × 8 + the
   system scroll bar (~17) ≈ **673** logical pixels.
 - **Grid height** = `header + 8 × cell` → at 96 DPI: 32 + 8 × 40 = **352**.
-- **Client size** = grid width × (search bar height + tab strip height + grid height), the two bars
-  measured once laid out.
-- The column and row counts live in **two named constants** (`DefaultColumns = 16`,
-  `DefaultRows = 8`), next to the computation.
+- **Client size** = grid width × (search bar height + tab strip height + grid height). The grid's
+  part comes from `EmojiGrid.SizeFor(columns, rows)`; the search bar is measured by its **preferred
+  height** — before the first show its AutoSize has not applied yet, and its `Height` still reads 100.
+- The column and row counts live in **two named constants** (`MainForm.DefaultColumns = 16`,
+  `DefaultRows = 8`), next to the computation (`MainForm.DefaultClientSize`).
+- Computed in **`MainForm.OnLoad`**, before `base.OnLoad` centres the window: the handle exists, at
+  the DPI of its monitor.
 - At another DPI, every term is scaled the same way: 16 columns and header + 8 rows at any scale.
-- Larger than the monitor's working area (small screen, high scale) → reduced to fit it.
+  Checked at 125 %: client 841 × 555, grid 841 × 440 — 16 columns, a header and 8 full rows.
+- The rows measured are the **category rows** (cell 40). The frequent section, which the window
+  opens on since the frequent tab was merged, has taller captioned cells (54): at the top of the grid
+  the window shows that section, then the categories, not 8 rows of one section.
+- **Sizing the window**: `MainForm.SetClientArea(clientSize)` sets the window's `Size` from the
+  borders Windows draws (`GetWindowRect` − `GetClientRect`). The `ClientSize` setter is never used:
+  it counts a caption, which is client area here (see `RULES.md` § *Frame*), and the window came out
+  a caption too tall (+38 px at 125 %).
+- Larger than the monitor's working area (small screen, high scale) → reduced so the whole window,
+  its invisible resize borders included, fits it.
 
 ---
 
 ## Remembered Size
 
-- **Saved**: the window's size when the user **finishes a resize** (`ResizeEnd`) — not at exit, since
-  an exit by Windows shutting down or the Task Manager may never run the app's code.
+- **Saved**: the window's client size when the user **finishes a resize** (`OnResizeEnd`) — not at
+  exit, since an exit by Windows shutting down or the Task Manager may never run the app's code.
+  Compared with the size at `OnResizeBegin`, in logical pixels: a move, or a drag to a monitor of
+  another scale, saves nothing.
 - **Stored in logical pixels** (96 DPI): reloaded on a monitor of another scale, the window holds the
   same number of columns and rows.
 - **Reloaded** at launch, in place of the default size.
@@ -78,13 +92,15 @@ Computed, not hard-coded: the numbers follow the grid's metrics and the DPI.
   { "windowWidth": 673, "windowHeight": 520 }
   ```
 
-  Both values in logical pixels. A write keeps the file's other keys, should later settings add some.
+  Both values in logical pixels. A write keeps the file's other keys, should later settings add some,
+  and goes through `settings.json.new` then a replace. Read and written by `Data/SettingsFile.cs`.
 
 ---
 
 ## Reset Window Size
 
-- A **`Reset window size`** item in the settings menu (⚙), after *Open app folder*.
+- A **`Reset window size`** item in the settings menu (⚙), after *Open app folder* and before
+  *Clear frequently used* (merged from `main` during the run).
 - It brings the window back to the **default size** right away — its top-left corner stays, the
   window reduced to fit the working area if needed — and **removes the saved size** from
   `settings.json`: the next launch opens at the default size too.
@@ -153,15 +169,34 @@ joins the settings menu — default size now, saved size removed. No open questi
 Go given: **code, unit tests and documentation**, in a **worktree** (`.claude/worktrees/default-window-size`,
 branch `feature/default-window-size`). Scope frozen on the design sections above.
 
+### Iteration 4 — 2026-10-08 — 🧭 Implementation choices
+
+- **`main` merged mid-run**, at the user's request, to take the frequent tab: one conflict in
+  `UI/MainForm.cs` (two fields added side by side, both kept).
+- **Sizing through `SetClientArea`**, not the `ClientSize` setter, which counts a caption the window
+  does not have: the first check showed a 9th row, the window a caption (38 px) too tall. Closest
+  workable variant of *client size = …*.
+- **Search bar measured by its preferred height**: its `Height` still read the default 100 in
+  `OnLoad`.
+- **Rows measured on category rows** (cell 40): since the frequent tab, the window opens on the
+  frequent section, whose captioned cells are taller (54) — at the top, the window does not show
+  exactly 8 rows of that section.
+- **Working-area clamp counts the invisible resize borders**: conservative, the visible window may
+  stay ~16 px short of the full working area.
+- **Move-only resize saves nothing**: the logical sizes at `OnResizeBegin` and `OnResizeEnd` are
+  compared.
+- **Menu order**: *Open app folder*, *Reset window size*, *Clear frequently used*.
+- No rule broken.
+
 ---
 
 ## Implementation Log
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | No test project — manual checks only |
-| README | | | |
+| Code | 3, 4 | 2026-10-08 | Default size, remembered size, *Reset window size*; checked at 125 % (16 columns × header + 8 rows, resize saved and reloaded, reset) |
+| Unit tests | 3 | 2026-10-08 | No test project — manual checks only |
+| README | 3 | 2026-10-08 | `README.md` / `README.fr.md` *Window* bullet; `RULES.md` § *Size* and the reset row |
 
 ---
 
