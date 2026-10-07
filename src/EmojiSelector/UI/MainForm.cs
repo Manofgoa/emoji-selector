@@ -14,9 +14,20 @@ internal sealed class MainForm : Form
 
     public const string AppTitle = "Emoji Selector";
 
+    public const string SearchPlaceholder = "Search emojis";
+
+    // In logical pixels (96 DPI), scaled to the form's DPI.
+    private const int LogicalSearchPadding = 8;
+
     private readonly TrayIcon trayIcon;
+    private readonly IReadOnlyList<EmojiCategory> categories;
+    private readonly TextBox searchBox;
+    private readonly Button clearButton;
     private readonly CategoryTabStrip tabStrip;
     private readonly EmojiGrid grid;
+
+    // The emojis matching the search box, most relevant first; null while it is blank.
+    private IReadOnlyList<Emoji>? searchResults;
     private readonly ForegroundTracker foregroundTracker = new();
 
     // The state the window comes back in from the tray: its last one, never minimized.
@@ -36,12 +47,22 @@ internal sealed class MainForm : Form
         this.ClientSize = new Size(400, 450);
         this.MinimumSize = new Size(320, 240);
 
-        // The tabs above, the grid filling the rest. Docking runs from the last control added: the strip first.
-        IReadOnlyList<EmojiCategory> categories = EmojiCatalog.Load();
-        this.grid = new EmojiGrid(categories) { Dock = DockStyle.Fill };
-        this.tabStrip = new CategoryTabStrip(categories) { Dock = DockStyle.Top };
+        // The search box on top, the tabs below it, the grid filling the rest. Docking runs from the last control
+        // added: the search bar first, then the strip.
+        this.categories = EmojiCatalog.Load();
+        this.grid = new EmojiGrid(this.categories) { Dock = DockStyle.Fill };
+        this.tabStrip = new CategoryTabStrip(this.categories) { Dock = DockStyle.Top };
+        this.searchBox = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right };
+        this.clearButton = new Button { Text = "✕", AutoSize = true, Visible = false, TabStop = false, FlatStyle = FlatStyle.Flat };
+        this.clearButton.FlatAppearance.BorderSize = 0;
         this.Controls.Add(this.grid);
         this.Controls.Add(this.tabStrip);
+        this.Controls.Add(this.CreateSearchBar());
+        // The placeholder stays while the box has the focus — it always has it, and PlaceholderText hides on focus.
+        this.searchBox.HandleCreated += (_, _) => SendMessageW(this.searchBox.Handle, EmSetCueBanner, 1, SearchPlaceholder);
+        this.searchBox.TextChanged += (_, _) => this.OnSearchTextChanged();
+        this.searchBox.KeyDown += this.OnSearchBoxKeyDown;
+        this.clearButton.Click += (_, _) => this.ClearSearch();
         this.tabStrip.TabClicked += (_, category) => this.grid.ScrollToCategory(category);
         this.grid.ActiveCategoryChanged += (_, _) => this.tabStrip.ActiveTab = this.grid.ActiveCategory;
         this.grid.EmojiClicked += (_, emoji) => this.InsertEmoji(emoji);
@@ -63,6 +84,16 @@ internal sealed class MainForm : Form
         }
 
         base.OnFormClosing(e);
+    }
+
+    // Every show, whatever its path: the search starts over, the box ready for typing.
+    protected override void OnVisibleChanged(EventArgs e)
+    {
+        base.OnVisibleChanged(e);
+        if (this.Visible)
+        {
+            this.ClearSearch();
+        }
     }
 
     protected override void OnResize(EventArgs e)
@@ -89,6 +120,77 @@ internal sealed class MainForm : Form
         }
 
         base.Dispose(disposing);
+    }
+
+    // The search box, and the ✕ next to it while it holds text.
+    private TableLayoutPanel CreateSearchBar()
+    {
+        int padding = this.LogicalToDeviceUnits(LogicalSearchPadding);
+        var bar = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 2,
+            RowCount = 1,
+            BackColor = SystemColors.Window,
+            Padding = new Padding(padding, padding, padding, padding / 2),
+        };
+        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        bar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        bar.Controls.Add(this.searchBox, 0, 0);
+        bar.Controls.Add(this.clearButton, 1, 0);
+        return bar;
+    }
+
+    // Blank → the category view, tabs enabled. Otherwise → the results alone, tabs greyed.
+    private void OnSearchTextChanged()
+    {
+        string text = this.searchBox.Text;
+        this.clearButton.Visible = text.Length > 0;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            this.searchResults = null;
+            this.grid.ShowCategories();
+            this.tabStrip.Greyed = false;
+        }
+        else
+        {
+            this.searchResults = EmojiSearch.Find(this.categories, text);
+            this.grid.ShowSearchResults(this.searchResults);
+            this.tabStrip.Greyed = true;
+        }
+    }
+
+    // Enter inserts the first result. Esc clears the box, or hides the window when the box is already empty.
+    private void OnSearchBoxKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Enter)
+        {
+            e.SuppressKeyPress = true;
+            if (this.searchResults is [Emoji first, ..])
+            {
+                this.InsertEmoji(first);
+            }
+        }
+        else if (e.KeyCode == Keys.Escape)
+        {
+            e.SuppressKeyPress = true;
+            if (this.searchBox.TextLength > 0)
+            {
+                this.ClearSearch();
+            }
+            else
+            {
+                this.Hide();
+            }
+        }
+    }
+
+    private void ClearSearch()
+    {
+        this.searchBox.Clear();
+        this.ActiveControl = this.searchBox;
     }
 
     // The one place telling the tray icon an emoji was used.
@@ -173,12 +275,16 @@ internal sealed class MainForm : Form
     private const int WsExTopmost = 0x8;
     private const int DwmwaExtendedFrameBounds = 9;
     private const int DwmwaCloaked = 14;
+    private const int EmSetCueBanner = 0x1501;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct Rect
     {
         public int Left, Top, Right, Bottom;
     }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern IntPtr SendMessageW(IntPtr window, int message, nint wParam, string lParam);
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern IntPtr GetWindow(IntPtr window, uint command);
