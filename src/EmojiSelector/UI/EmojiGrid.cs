@@ -23,9 +23,11 @@ internal sealed class EmojiGrid : Control
     private const int LogicalHeaderHeight = 32;
     private const int LogicalPadding = 8;
 
-    // A captioned emoji's distance from the top of its cell, and its caption's font size in points.
-    private const int LogicalCaptionedEmojiTop = 1;
-    private const float CaptionFontSize = 6.75F;
+    // A captioned section's cells: as wide as the others, taller to hold the caption under the emoji. The emoji's
+    // distance from the top of its cell, and the caption's font size in points.
+    private const int LogicalCaptionedCellHeight = 54;
+    private const int LogicalCaptionedEmojiTop = 4;
+    private const float CaptionFontSize = 8.25F;
 
     // One notch of the mouse wheel scrolls this many rows.
     private const int RowsPerWheelNotch = 2;
@@ -162,7 +164,7 @@ internal sealed class EmojiGrid : Control
             // An empty section's message fills the row the layout keeps for it, under the header.
             if (this.sections[section] is { Emojis.Count: 0, EmptyText: string emptyText })
             {
-                var message = new Rectangle(this.layout.Padding, header.Bottom, width - 2 * this.layout.Padding, this.layout.CellSize);
+                var message = new Rectangle(this.layout.Padding, header.Bottom, width - 2 * this.layout.Padding, this.layout.RowHeight(section));
                 TextRenderer.DrawText(graphics, emptyText, this.Font, message, SystemColors.GrayText,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
             }
@@ -279,7 +281,8 @@ internal sealed class EmojiGrid : Control
 
     private EmojiGridLayout CreateLayout() => new(
         this.sections.Select(section => new EmojiGridLayout.Section(
-            section.Emojis.Count, MinRows: section.EmptyText is null ? 0 : 1, section.MaxRows)).ToList(),
+            section.Emojis.Count, MinRows: section.EmptyText is null ? 0 : 1, section.MaxRows,
+            section.Captions is null ? null : this.LogicalToDeviceUnits(LogicalCaptionedCellHeight))).ToList(),
         this.ClientSize.Width - this.scrollBar.Width,
         this.ViewportHeight,
         this.LogicalToDeviceUnits(LogicalCellSize),
