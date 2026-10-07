@@ -48,18 +48,23 @@ are moved by drag and drop — and *Delete group*.
 ## Custom Tab
 
 - **One** tab in the strip for every custom group (Q&A #10), with a **fixed monochrome glyph**, drawn
-  like the other tabs (glyph: see *Open Questions*). Its tooltip is its name, `Custom`.
+  like the other tabs: the **heart**, `EB51` (Heart) in Segoe Fluent Icons / Segoe MDL2 Assets
+  (Q&A #22). Its tooltip is its name, `Custom`.
 - **Position**: right **after the frequent tab**, before *Smileys & People*; its groups are the
   sections right after the frequent section in the continuous grid (Q&A #9).
 - **One tab, several sections**: today a tab is one section. The custom tab covers **all** the group
   sections — a click on it scrolls to the first group; it is the active tab while the section at the
   top of the grid is one of the groups. The tab ↔ section mapping, today an identity, becomes a
   lookup.
+- **No group yet**: the tab is **shown** all the same; it stands for one section, `Custom`, reading
+  **`Create a group from ⚙ → New group…`**, painted like `No emoji found` (Q&A #23). It goes away
+  with the first group and comes back with the deletion of the last one.
 - The list of sections becomes **mutable**: the grid gets an entry point to rebuild after a group is
   created, renamed, deleted, or an emoji added, removed or moved.
 
 ## Custom Groups
 
+- Glossary term: **Custom group** (*groupe personnalisé*) (Q&A #21).
 - **Several**, created, named, renamed and deleted by the user (Q&A #1, #10).
 - **Created** from the **settings menu** ⚙ — a *New group…* item next to *Open app folder* — which
   asks for the group's name (Q&A #6).
@@ -72,8 +77,13 @@ are moved by drag and drop — and *Delete group*.
 
 ## Right-Click Menu
 
-- **Add**: right click on an emoji → an item adding it to a custom group (Q&A #2).
-- **Remove**: right click on an emoji **in a custom group** → *Remove* (Q&A #2).
+- **Add**: right click on an emoji — in any section, search results included → **`Add to ▸`**, a
+  submenu listing every group in order; the groups already holding the emoji are **checked**, and a
+  click on a checked group **removes** it from that group (Q&A #14). One group → still a submenu.
+  No group → the item is greyed.
+- **Remove**: right click on an emoji **in a custom group** → *Remove* (Q&A #2), taking it out of
+  that group.
+- An emoji is **at most once** in a group; it may be in several groups.
 - The grid raises a new event for the right click (section, emoji, location); `MainForm` builds and
   shows the menu, like the settings menu.
 
@@ -83,17 +93,43 @@ are moved by drag and drop — and *Delete group*.
   its ellipsis does not run under the button. Catalog and frequent sections have none.
 - Its menu: **Rename…**, **Reorder**, **Delete group** (Q&A #8) — the only place offering them.
 - **Reorder** turns on a **drag-and-drop mode inside that group only** (Q&A #2) — custom groups only.
+- **While it is on** (Q&A #13): the group's header shows a **`Done`** button in place of "…"; a click
+  on an emoji of the group **inserts nothing** — the mouse only drags; each drop is **saved at once**.
+- **It ends** on *Done*, on **Esc**, and when the window **hides**.
 - The drag is hand-rolled inside the grid (mouse down / move / up, an insertion marker painted in
   `OnPaint`), not OLE drag and drop: nothing leaves the section. While dragging, the hover and the
   selection that `OnMouseMove` drives are suspended.
 
 ## Storage
 
-- To decide (see *Open Questions*).
+- **`custom-groups.json`, next to the exe** (`AppContext.BaseDirectory`), like the frequent tab's
+  `usage.json` (Q&A #15). A file, not a folder: the kebab-case folder rule does not apply.
+- **Format**: the groups in order, each with its name and its emojis in order, the emojis as their
+  **text** (readable in the file):
+
+  ```json
+  [
+    { "name": "Work", "emojis": ["👍", "✅", "🚀"] },
+    { "name": "Family", "emojis": ["❤️", "😘"] }
+  ]
+  ```
+
+- **Read** once at launch. Missing → no group. Unreadable or invalid → no group, not an error (and
+  overwritten at the next change).
+- **Written** after each change, the whole file, through a temporary file then a replace. A folder
+  that cannot be written is not an error: the groups live in memory until the app ends.
+- An emoji in the file that the catalog no longer has is **kept in the file** and not shown.
 
 ## Search
 
-- To decide (see *Open Questions*).
+- The search box searches the **catalog categories only**, like the frequent tab: the custom groups
+  would otherwise give their emojis twice in the results (Q&A #17).
+
+## Delivery Order
+
+- Implemented **after the frequent tab is merged** into `main` (Q&A #16): both change the list of
+  tabs, `MainForm` and the settings menu; starting from it puts the custom tab right after the
+  frequent one and avoids the conflicts.
 
 ---
 
@@ -101,7 +137,7 @@ are moved by drag and drop — and *Delete group*.
 
 | File | Change |
 |---|---|
-| `GLOSSARY.md` / `GLOSSARY.fr.md` | New terms **Custom tab** (*onglet personnalisé*) and the group term; **Favorite** removed (Q&A #5) |
+| `GLOSSARY.md` / `GLOSSARY.fr.md` | New terms **Custom tab** (*onglet personnalisé*) and **Custom group** (*groupe personnalisé*); **Favorite** removed (Q&A #5, #21) |
 | `RULES.md` | The custom tab and its groups: creation, the right-click menu, the "…" menu, the reorder mode, the file |
 | `README.md` / `README.fr.md` | The feature |
 
@@ -116,8 +152,10 @@ below are **checked by hand** in the running app, not by unit tests.
 |---|---|---|
 | The custom tab sits after the frequent tab; a click scrolls to the first group; it is active while a group is at the top | — (manual) | — |
 | *New group…* in the settings menu creates a named group, shown as a section with the help message | — (manual) | — |
-| Right click → add puts the emoji in the group; right click → remove takes it out | — (manual) | — |
-| *Reorder* moves emojis by drag and drop inside its group only; a click does not insert meanwhile | — (manual) | — |
+| With no group, the custom tab is shown and its section points to *New group…* | — (manual) | — |
+| Right click → `Add to ▸` puts the emoji in the group, checked afterwards; a click on a checked group or *Remove* takes it out | — (manual) | — |
+| *Reorder* moves emojis by drag and drop inside its group only; a click does not insert meanwhile; *Done*, Esc and hiding end it | — (manual) | — |
+| A search never returns an emoji twice (custom groups not searched) | — (manual) | — |
 | *Rename…* changes the header; *Delete group* asks when the group holds emojis, not when empty | — (manual) | — |
 | The groups come back after a restart; a missing or invalid file, or a read-only folder → no error | — (manual) | — |
 
@@ -136,14 +174,14 @@ below are **checked by hand** in the running app, not by unit tests.
 - [x] ~~What happens when the tabs no longer fit in the strip?~~ → Moot: one custom tab holds every group
 - [x] ~~Does deleting a tab ask for a confirmation?~~ → Yes when the group holds emojis, *No* the default; an empty one without a question
 - [x] ~~What does an empty custom tab show?~~ → A help message in its section
-- [ ] Which term for a group (*Custom group* / *groupe personnalisé*)?
-- [ ] Which glyph for the custom tab?
-- [ ] What does the custom tab show while no group exists?
-- [ ] How does the reorder mode end, and what does a click do while it is on?
-- [ ] What does the right-click "add" item look like with several groups?
-- [ ] Where is the file saved?
-- [ ] Is this implemented after the frequent tab is merged?
-- [ ] Are the custom groups searched?
+- [x] ~~Which term for a group (*Custom group* / *groupe personnalisé*)?~~ → *Custom group* (*groupe personnalisé*)
+- [x] ~~Which glyph for the custom tab?~~ → The heart
+- [x] ~~What does the custom tab show while no group exists?~~ → Shown, with a message pointing to ⚙ → *New group…*
+- [x] ~~How does the reorder mode end, and what does a click do while it is on?~~ → *Done* in the header, Esc, or the window hiding; a click inserts nothing meanwhile, each drop saved at once
+- [x] ~~What does the right-click "add" item look like with several groups?~~ → An `Add to ▸` submenu, the groups holding the emoji checked (a click on one removes it)
+- [x] ~~Where is the file saved?~~ → `custom-groups.json` next to the exe
+- [x] ~~Is this implemented after the frequent tab is merged?~~ → Yes, after the merge
+- [x] ~~Are the custom groups searched?~~ → No, the catalog only
 - [ ] Can the groups themselves be reordered?
 - [ ] Which constraints on a group's name?
 - [x] ~~How does a colour icon show the active and the greyed (search) states?~~ → Moot: a fixed monochrome glyph
@@ -182,6 +220,15 @@ renamed and deleted from its section's "…" menu. Also settled: the custom tab 
 frequent tab; *Delete group* asks only when the group holds emojis; an empty group shows a help
 message. New questions: the group term, the tab's glyph, the tab with no group.
 
+### Iteration 4 — 2026-10-08
+
+Q&A #13–17 and #21–23 answered: the term *Custom group* (*groupe personnalisé*); the heart glyph;
+the tab shown even with no group, with a message pointing to *New group…*; the reorder mode ended by
+*Done*, Esc or hiding, a click inserting nothing meanwhile; an `Add to ▸` submenu with the groups
+holding the emoji checked; `custom-groups.json` next to the exe; the custom groups kept out of the
+search; the implementation waiting for the frequent tab to be merged. Two questions left: reordering
+the groups, the constraints on a name.
+
 ---
 
 ## Implementation Log
@@ -216,17 +263,17 @@ Questions asked by the agent during design, with user responses.
 | 10 | What happens when the tabs no longer fit in the strip? | One single tab stands for the custom ones — no need for several icons; each **group** has its label and its own set of emojis. The icon choice is cancelled: one fixed glyph by default | 2026-10-08 |
 | 11 | Does deleting a tab ask for a confirmation? | Yes when it holds emojis (Yes / No, *No* the default); an empty one without a question | 2026-10-08 |
 | 12 | What does an empty custom tab show? | A help message in its section | 2026-10-08 |
-| 13 | How does the reorder mode end, and what does a click do meanwhile? | | |
-| 14 | What does the right-click "add" item look like? | | |
-| 15 | Where is the file saved? | | |
-| 16 | Implemented after the frequent tab is merged? | | |
-| 17 | Are the custom groups searched? | | |
+| 13 | How does the reorder mode end, and what does a click do meanwhile? | A *Done* button in the header in place of "…", plus Esc and the window hiding; a click inserts nothing, each drop saved at once | 2026-10-08 |
+| 14 | What does the right-click "add" item look like? | An `Add to ▸` submenu, the groups holding the emoji checked (click → removes); greyed with no group | 2026-10-08 |
+| 15 | Where is the file saved? | `custom-groups.json` next to the exe | 2026-10-08 |
+| 16 | Implemented after the frequent tab is merged? | Yes, after the merge | 2026-10-08 |
+| 17 | Are the custom groups searched? | No, the catalog only | 2026-10-08 |
 | 18 | ~~How does a colour icon show the active and greyed states?~~ | Not asked — moot after #10 | 2026-10-08 |
 | 19 | Can the groups be reordered? | | |
 | 20 | Which constraints on a group's name? | | |
-| 21 | Which term for a group? | | |
-| 22 | Which glyph for the custom tab? | | |
-| 23 | What does the custom tab show while no group exists? | | |
+| 21 | Which term for a group? | *Custom group* (*groupe personnalisé*) | 2026-10-08 |
+| 22 | Which glyph for the custom tab? | The heart | 2026-10-08 |
+| 23 | What does the custom tab show while no group exists? | Shown, with a message pointing to ⚙ → *New group…* | 2026-10-08 |
 
 ---
 
