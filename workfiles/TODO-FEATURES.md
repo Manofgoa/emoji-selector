@@ -13,7 +13,9 @@
 | **Keyboard navigation** — arrows to move the selection in the grid, Enter to insert, Tab / Shift+Tab to change category | [20261007-category-tabs.md](20261007-category-tabs.md) | To design |
 | **Copy (UTF-8)** — copy an emoji to the clipboard as text, its Unicode character sequence | User request, 2026-10-07 | To design |
 | **Copy (PNG)** — copy an emoji to the clipboard as a color image | User request, 2026-10-07 | To design |
-| **Show-window shortcut** — a global keyboard shortcut, chosen by the user, that brings the window up | User request, 2026-10-07 | To design |
+| **Show-window shortcut** — a global keyboard shortcut, chosen by the user, that brings the window up | User request, 2026-10-07 | [20261007-global-hotkey.md](20261007-global-hotkey.md) — a fixed Win+;, not chosen by the user |
+| **Turn the Win+; capture off** — an item of the tray icon's right-click menu giving Win+; back to Windows while the app runs | [20261007-global-hotkey.md](20261007-global-hotkey.md) | To design |
+| **Start with Windows** — launch the app at sign-in, since Win+; works only while it runs | [20261007-global-hotkey.md](20261007-global-hotkey.md) | To design |
 
 ---
 
