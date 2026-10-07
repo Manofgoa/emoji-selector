@@ -186,6 +186,11 @@ the *Show-window shortcut* backlog row is marked delivered (no user-chosen short
 Windows* row is added; **no unit test**, checked by hand. Domain sections updated: *Shortcut* (the
 `;` key), *Documentation* (`TODO-FEATURES.md` rows), *Test Impact*.
 
+### Iteration 3 — 2026-10-07 — ✅ Implemented
+
+Go given (Q&A 9): code and documentation — no unit test, as decided (Q&A 8). The run works on
+`main`, a deliberate choice of the user (Q&A 10). Scope frozen: the sections above as they stand.
+
 ---
 
 ## Implementation Log
@@ -215,6 +220,8 @@ Questions asked by the agent during design, with user responses.
 | 6 | A way to give Win+; back to Windows while the app runs? | Not now: add to `TODO-FEATURES.md` a right-click option on the tray icon turning the Win+; capture off | 2026-10-07 |
 | 7 | Backlog: keep a row for choosing another shortcut; add one for starting with Windows? | Start with Windows only | 2026-10-07 |
 | 8 | Unit tests: by hand, or a test project for `WindowPlacement`? | By hand | 2026-10-07 |
+| 9 | Start the implementation? Scope and where | Code, tests and documentation — current checkout | 2026-10-07 |
+| 10 | On `main`: which branch? | Stay on `main` | 2026-10-07 |
 
 ---
 
