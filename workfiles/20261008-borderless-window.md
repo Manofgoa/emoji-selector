@@ -218,6 +218,11 @@ the folder plainly or with the exe selected, and whether the window hides once t
 Open Questions 5–7 answered (Q&A 9–11): the item reads `Open app folder`, opens the folder with the
 exe selected, and the window stays once it is clicked. No open question remains.
 
+### Iteration 5 — 2026-10-08 — ✅ Implemented
+
+Go given: code, unit tests and documentation (no unit test, as designed), in a worktree —
+`.claude/worktrees/borderless-window`, branch `feature/borderless-window`, created from `db6c663`.
+
 ---
 
 ## Implementation Log
