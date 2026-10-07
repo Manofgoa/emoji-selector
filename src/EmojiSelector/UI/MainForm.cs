@@ -25,6 +25,11 @@ internal sealed class MainForm : Form
 
     public const string OpenAppFolderText = "Open app folder";
 
+    public const string ClearFrequentText = "Clear frequently used";
+
+    public const string ClearFrequentQuestion =
+        "Clear the frequently used emojis? Their counts are deleted and cannot be brought back.";
+
     public const string FrequentHeader = "Frequently used";
 
     public const string NoFrequentText = "No emoji used yet";
@@ -210,9 +215,23 @@ internal sealed class MainForm : Form
     {
         var menu = new ContextMenuStrip();
         menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
+        ToolStripItem clearFrequent = menu.Items.Add(ClearFrequentText, image: null, (_, _) => this.ClearFrequent());
+        menu.Opening += (_, _) => clearFrequent.Enabled = !this.usage.IsEmpty;
         menu.Opened += (_, _) => this.tabStrip.SettingsMenuOpen = true;
         menu.Closed += (_, _) => this.tabStrip.SettingsMenuOpen = false;
         return menu;
+    }
+
+    // Every counter reset, after a confirmation: they cannot be brought back. No is the default button.
+    private void ClearFrequent()
+    {
+        DialogResult answer = MessageBox.Show(this, ClearFrequentQuestion, AppTitle, MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
+        if (answer == DialogResult.Yes)
+        {
+            this.usage.Clear();
+            this.grid.ReplaceCategory(0, this.CreateFrequentCategory());
+        }
     }
 
     // The folder holding the exe, in the File Explorer, the exe selected. The window stays as it is: the File Explorer
