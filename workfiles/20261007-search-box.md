@@ -207,6 +207,12 @@ Open Questions answered (Q&A #5–#14):
 - No unit tests: Test Impact emptied, explicitly.
 - *Search box* row of `TODO-FEATURES.md` marked with this workfile.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code and documentation (no unit tests, Q&A #13), in a **worktree**
+(`.claude/worktrees/search-box`, branch `feature/search-box`, from `882c350`) — another session was
+modifying `MainForm.cs` on `main` in the original checkout.
+
 ---
 
 ## Implementation Log
