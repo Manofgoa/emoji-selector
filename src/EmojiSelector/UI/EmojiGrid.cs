@@ -1,3 +1,4 @@
+using System.Drawing.Drawing2D;
 using EmojiSelector.Data;
 using EmojiSelector.Drawing;
 
@@ -6,8 +7,10 @@ namespace EmojiSelector.UI;
 /// <summary>
 /// Every emoji in <b>one continuous scrolling grid</b>, one section per <b>category</b> under its header (see
 /// <see cref="EmojiGridLayout"/>). The emojis' bitmaps come from an <see cref="EmojiBitmapCache"/>, pre-rendered in
-/// the background: a cell whose emoji is not ready yet is filled with <see cref="MissingColor"/>. The hovered cell is
-/// highlighted and the emoji's name shown as a tooltip; a click raises <see cref="EmojiClicked"/>.
+/// the background: a cell whose emoji is not ready yet is filled with <see cref="MissingColor"/>. One emoji is the
+/// <b>selection</b>, framed in the accent colour: the mouse moving over an emoji selects it, the keyboard moves it
+/// (<see cref="MoveSelection"/>). The emoji under the mouse has its name as a tooltip; a click raises
+/// <see cref="EmojiClicked"/>.
 /// While the search box holds text, the sections give way to one <c>Search results</c> section
 /// (<see cref="ShowSearchResults"/>), until <see cref="ShowCategories"/> brings them back where they were.
 /// </summary>
@@ -22,6 +25,7 @@ internal sealed class EmojiGrid : Control
     private const int LogicalEmojiSize = 28;
     private const int LogicalHeaderHeight = 32;
     private const int LogicalPadding = 8;
+    private const int LogicalSelectionWidth = 2;
 
     // One notch of the mouse wheel scrolls this many rows.
     private const int RowsPerWheelNotch = 2;
@@ -43,6 +47,10 @@ internal sealed class EmojiGrid : Control
     private EmojiGridLayout layout;
     private Font headerFont;
     private (int Section, int Index)? hovered;
+    private (int Section, int Index)? selection;
+
+    // Where the cursor was last seen, on the screen: a mouse message at the same place is not a move.
+    private Point cursorPosition;
     private int activeCategory;
 
     public EmojiGrid(IReadOnlyList<EmojiCategory> categories)
@@ -76,6 +84,9 @@ internal sealed class EmojiGrid : Control
     /// <summary>The category whose tab is active: the section at the top of the viewport.</summary>
     public int ActiveCategory => this.activeCategory;
 
+    /// <summary>The selected emoji — the one Enter inserts; null when the grid shows no emoji.</summary>
+    public Emoji? SelectedEmoji => this.selection is (int section, int index) ? this.sections[section].Emojis[index] : null;
+
     private bool IsSearching => this.categoriesOffset is not null;
 
     private int Offset => this.scrollBar.Value;
@@ -86,10 +97,104 @@ internal sealed class EmojiGrid : Control
 
     private int EmojiSize => this.LogicalToDeviceUnits(LogicalEmojiSize);
 
-    /// <summary>Scrolls <paramref name="category"/>'s header to the top of the viewport.</summary>
-    public void ScrollToCategory(int category)
+    /// <summary>Scrolls <paramref name="category"/>'s header to the top of the viewport and selects its first emoji.</summary>
+    public void SelectCategory(int category)
     {
         this.SetOffset(this.layout.HeaderTop(category));
+        this.SetSelection(this.layout.FirstOf(category), ensureVisible: false);
+    }
+
+    /// <summary>Scrolls back to the top and selects the first emoji: the state the window opens in.</summary>
+    public void ResetToTop()
+    {
+        // The window may appear under the cursor: where it stands is no move.
+        this.cursorPosition = Cursor.Position;
+        this.SetOffset(0);
+        this.SetSelection(this.layout.First(), ensureVisible: false);
+    }
+
+    /// <summary>
+    /// Moves the selection for a navigation key — arrows, Home / End and their Ctrl variants, Page Up / Page Down,
+    /// Tab / Shift+Tab — and scrolls it into view. Returns false when the key is not one of them, and for ↑ on the
+    /// grid's first row, which has nothing above it: the caller hands the keyboard back to the search box.
+    /// </summary>
+    public bool MoveSelection(Keys keyData)
+    {
+        if (keyData is Keys.Tab or (Keys.Shift | Keys.Tab))
+        {
+            // The categories are greyed while searching: Tab has none to go to.
+            if (!this.IsSearching && this.sections.Count > 0)
+            {
+                int current = this.selection?.Section ?? this.activeCategory;
+                int step = keyData == Keys.Tab ? 1 : this.sections.Count - 1;
+                this.SelectCategory((current + step) % this.sections.Count);
+            }
+
+            return true;
+        }
+
+        if (this.selection is not (int, int) cell)
+        {
+            bool isNavigation = keyData is Keys.Left or Keys.Right or Keys.Up or Keys.Down or Keys.Home or Keys.End
+                or (Keys.Control | Keys.Home) or (Keys.Control | Keys.End) or Keys.PageUp or Keys.PageDown;
+            if (isNavigation)
+            {
+                this.SetSelection(this.layout.First(), ensureVisible: true);
+            }
+
+            return isNavigation;
+        }
+
+        int pageRows = Math.Max(1, this.ViewportHeight / this.layout.CellSize);
+        (int Section, int Index)? target;
+        switch (keyData)
+        {
+            case Keys.Left:
+                target = this.layout.Previous(cell);
+                break;
+            case Keys.Right:
+                target = this.layout.Next(cell);
+                break;
+            case Keys.Up:
+                target = this.layout.Above(cell);
+                if (target is null)
+                {
+                    return false;
+                }
+
+                break;
+            case Keys.Down:
+                target = this.layout.Below(cell);
+                break;
+            case Keys.Home:
+                target = this.layout.FirstOf(cell.Section);
+                break;
+            case Keys.End:
+                target = this.layout.LastOf(cell.Section);
+                break;
+            case Keys.Control | Keys.Home:
+                target = this.layout.First();
+                break;
+            case Keys.Control | Keys.End:
+                target = this.layout.Last();
+                break;
+            case Keys.PageUp:
+                target = Repeat(cell, pageRows, this.layout.Above);
+                break;
+            case Keys.PageDown:
+                target = Repeat(cell, pageRows, this.layout.Below);
+                break;
+            default:
+                return false;
+        }
+
+        // At a grid edge the target is null: the selection stays where it is.
+        if (target is not null)
+        {
+            this.SetSelection(target, ensureVisible: true);
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -102,6 +207,7 @@ internal sealed class EmojiGrid : Control
         this.sections = [new EmojiCategory(SearchResultsHeader, ' ', results)];
         this.Relayout();
         this.SetOffset(0);
+        this.SetSelection(this.layout.First(), ensureVisible: false);
     }
 
     /// <summary>Brings the categories back, at the scroll position they had before the search.</summary>
@@ -116,6 +222,7 @@ internal sealed class EmojiGrid : Control
         this.sections = this.categories;
         this.Relayout();
         this.SetOffset(offset);
+        this.SetSelection(this.FirstVisible(), ensureVisible: false);
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -146,16 +253,18 @@ internal sealed class EmojiGrid : Control
             {
                 using var missingBrush = new SolidBrush(MissingColor);
                 graphics.FillRectangle(missingBrush, Rectangle.Inflate(cell, -1, -1));
-                continue;
             }
-
-            if (this.hovered == (section, index))
+            else
             {
-                using var brush = new SolidBrush(SystemColors.ControlLight);
-                graphics.FillRectangle(brush, Rectangle.Inflate(cell, -1, -1));
+                graphics.DrawImage(bitmap, cell.X + (cell.Width - emojiSize) / 2, cell.Y + (cell.Height - emojiSize) / 2, emojiSize, emojiSize);
             }
 
-            graphics.DrawImage(bitmap, cell.X + (cell.Width - emojiSize) / 2, cell.Y + (cell.Height - emojiSize) / 2, emojiSize, emojiSize);
+            if (this.selection == (section, index))
+            {
+                using var pen = new Pen(SystemColors.Highlight, this.LogicalToDeviceUnits(LogicalSelectionWidth)) { Alignment = PenAlignment.Inset };
+                Rectangle frame = Rectangle.Inflate(cell, -1, -1);
+                graphics.DrawRectangle(pen, frame.X, frame.Y, frame.Width - 1, frame.Height - 1);
+            }
         }
 
         if (this.IsSearching && this.sections[0].Emojis.Count == 0)
@@ -203,12 +312,26 @@ internal sealed class EmojiGrid : Control
         this.SetOffset(this.Offset - e.Delta * RowsPerWheelNotch * this.layout.CellSize / SystemInformation.MouseWheelScrollDelta);
     }
 
+    // Only a real move selects: Windows also sends a mouse move when the content scrolls or the window appears under a
+    // still mouse, and neither may hand the selection to the emoji under it.
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
+        Point position = this.PointToScreen(e.Location);
+        if (position == this.cursorPosition)
+        {
+            return;
+        }
+
+        this.cursorPosition = position;
         this.SetHovered(e.Location);
+        if (this.hovered is not null)
+        {
+            this.SetSelection(this.hovered, ensureVisible: false);
+        }
     }
 
+    // The selection stays: the keyboard still has one to act on.
     protected override void OnMouseLeave(EventArgs e)
     {
         base.OnMouseLeave(e);
@@ -296,6 +419,56 @@ internal sealed class EmojiGrid : Control
         }
 
         return this.layout.HitTest(new Point(location.X, location.Y + this.Offset));
+    }
+
+    private void SetSelection((int Section, int Index)? cell, bool ensureVisible)
+    {
+        if (ensureVisible && cell is (int section, int index))
+        {
+            Rectangle bounds = this.layout.CellBounds(section, index);
+            if (bounds.Top < this.Offset)
+            {
+                this.SetOffset(bounds.Top);
+            }
+            else if (bounds.Bottom > this.Offset + this.ViewportHeight)
+            {
+                this.SetOffset(bounds.Bottom - this.ViewportHeight);
+            }
+        }
+
+        if (cell != this.selection)
+        {
+            this.selection = cell;
+            this.Invalidate();
+        }
+    }
+
+    // The first emoji whose cell is entirely in view; the first one partly in view otherwise.
+    private (int Section, int Index)? FirstVisible()
+    {
+        (int Section, int Index)? partly = null;
+        foreach ((int section, int index) in this.layout.CellsIn(this.Offset, this.Offset + this.ViewportHeight))
+        {
+            if (this.layout.CellBounds(section, index).Top >= this.Offset)
+            {
+                return (section, index);
+            }
+
+            partly ??= (section, index);
+        }
+
+        return partly ?? this.layout.First();
+    }
+
+    private static (int Section, int Index) Repeat((int Section, int Index) cell, int times,
+        Func<(int Section, int Index), (int Section, int Index)?> step)
+    {
+        for (int i = 0; i < times && step(cell) is (int, int) next; i++)
+        {
+            cell = next;
+        }
+
+        return cell;
     }
 
     private void SetHovered(Point? location)
