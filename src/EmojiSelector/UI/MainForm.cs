@@ -53,13 +53,17 @@ internal sealed class MainForm : Form
         this.grid = new EmojiGrid(this.categories) { Dock = DockStyle.Fill };
         this.tabStrip = new CategoryTabStrip(this.categories) { Dock = DockStyle.Top };
         this.searchBox = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right };
-        this.clearButton = new Button { Text = "✕", AutoSize = true, Visible = false, TabStop = false, FlatStyle = FlatStyle.Flat };
+        this.clearButton = new Button { Text = "✕", Visible = false, TabStop = false, FlatStyle = FlatStyle.Flat };
         this.clearButton.FlatAppearance.BorderSize = 0;
         this.Controls.Add(this.grid);
         this.Controls.Add(this.tabStrip);
         this.Controls.Add(this.CreateSearchBar());
         // The placeholder stays while the box has the focus — it always has it, and PlaceholderText hides on focus.
         this.searchBox.HandleCreated += (_, _) => SendMessageW(this.searchBox.Handle, EmSetCueBanner, 1, SearchPlaceholder);
+        // The ✕ is a square as high as the box, with its margins: showing it never changes the bar's height.
+        this.clearButton.Margin = this.searchBox.Margin;
+        this.FitClearButton();
+        this.searchBox.SizeChanged += (_, _) => this.FitClearButton();
         this.searchBox.TextChanged += (_, _) => this.OnSearchTextChanged();
         this.searchBox.KeyDown += this.OnSearchBoxKeyDown;
         this.clearButton.Click += (_, _) => this.ClearSearch();
@@ -186,6 +190,8 @@ internal sealed class MainForm : Form
             }
         }
     }
+
+    private void FitClearButton() => this.clearButton.Size = new Size(this.searchBox.Height, this.searchBox.Height);
 
     private void ClearSearch()
     {
