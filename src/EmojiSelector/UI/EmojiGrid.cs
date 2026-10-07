@@ -7,9 +7,15 @@ namespace EmojiSelector.UI;
 /// Every emoji in <b>one continuous scrolling grid</b>, one section per <b>category</b> under its header (see
 /// <see cref="EmojiGridLayout"/>). Each emoji is drawn in colour once, at its size, then reused. The hovered cell is
 /// highlighted and the emoji's name shown as a tooltip; a click raises <see cref="EmojiClicked"/>.
+/// While the search box holds text, the sections give way to one <c>Search results</c> section
+/// (<see cref="ShowSearchResults"/>), until <see cref="ShowCategories"/> brings them back where they were.
 /// </summary>
 internal sealed class EmojiGrid : Control
 {
+    public const string SearchResultsHeader = "Search results";
+
+    public const string NoResultText = "No emoji found";
+
     // In logical pixels (96 DPI), scaled to the control's DPI.
     private const int LogicalCellSize = 40;
     private const int LogicalEmojiSize = 28;
@@ -27,6 +33,12 @@ internal sealed class EmojiGrid : Control
     // The emojis drawn so far, at the current emoji size.
     private readonly Dictionary<string, Bitmap> bitmaps = [];
 
+    // The sections shown: the categories, or the search results alone.
+    private IReadOnlyList<EmojiCategory> sections;
+
+    // While searching, the scroll offset the category view comes back to; null in the category view.
+    private int? categoriesOffset;
+
     private EmojiGridLayout layout;
     private Font headerFont;
     private (int Section, int Index)? hovered;
@@ -35,6 +47,7 @@ internal sealed class EmojiGrid : Control
     public EmojiGrid(IReadOnlyList<EmojiCategory> categories)
     {
         this.categories = categories;
+        this.sections = categories;
         this.DoubleBuffered = true;
         this.SetStyle(ControlStyles.Selectable, false);
         this.BackColor = SystemColors.Window;
@@ -48,11 +61,16 @@ internal sealed class EmojiGrid : Control
     /// <summary>An emoji was clicked.</summary>
     public event EventHandler<Emoji>? EmojiClicked;
 
-    /// <summary>The scroll brought another category's section to the top: see <see cref="ActiveCategory"/>.</summary>
+    /// <summary>
+    /// The scroll brought another category's section to the top: see <see cref="ActiveCategory"/>. Not raised while
+    /// the search results are shown.
+    /// </summary>
     public event EventHandler? ActiveCategoryChanged;
 
     /// <summary>The category whose tab is active: the section at the top of the viewport.</summary>
     public int ActiveCategory => this.activeCategory;
+
+    private bool IsSearching => this.categoriesOffset is not null;
 
     private int Offset => this.scrollBar.Value;
 
@@ -68,6 +86,32 @@ internal sealed class EmojiGrid : Control
         this.SetOffset(this.layout.HeaderTop(category));
     }
 
+    /// <summary>
+    /// Shows <paramref name="results"/>, in their order, as one <c>Search results</c> section scrolled to the top;
+    /// the first call keeps the category view's scroll position for <see cref="ShowCategories"/>.
+    /// </summary>
+    public void ShowSearchResults(IReadOnlyList<Emoji> results)
+    {
+        this.categoriesOffset ??= this.Offset;
+        this.sections = [new EmojiCategory(SearchResultsHeader, ' ', results)];
+        this.Relayout();
+        this.SetOffset(0);
+    }
+
+    /// <summary>Brings the categories back, at the scroll position they had before the search.</summary>
+    public void ShowCategories()
+    {
+        if (this.categoriesOffset is not int offset)
+        {
+            return;
+        }
+
+        this.categoriesOffset = null;
+        this.sections = this.categories;
+        this.Relayout();
+        this.SetOffset(offset);
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
@@ -81,7 +125,7 @@ internal sealed class EmojiGrid : Control
                 width - 2 * this.layout.Padding, this.layout.HeaderHeight);
             if (header.IntersectsWith(e.ClipRectangle))
             {
-                TextRenderer.DrawText(graphics, this.categories[section].Name, this.headerFont, header, SystemColors.ControlText,
+                TextRenderer.DrawText(graphics, this.sections[section].Name, this.headerFont, header, SystemColors.ControlText,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
             }
         }
@@ -97,8 +141,16 @@ internal sealed class EmojiGrid : Control
                 graphics.FillRectangle(brush, Rectangle.Inflate(cell, -1, -1));
             }
 
-            Bitmap bitmap = this.GetBitmap(this.categories[section].Emojis[index].Text, emojiSize);
+            Bitmap bitmap = this.GetBitmap(this.sections[section].Emojis[index].Text, emojiSize);
             graphics.DrawImage(bitmap, cell.X + (cell.Width - emojiSize) / 2, cell.Y + (cell.Height - emojiSize) / 2, emojiSize, emojiSize);
+        }
+
+        if (this.IsSearching && this.sections[0].Emojis.Count == 0)
+        {
+            var message = new Rectangle(this.layout.Padding, this.layout.HeaderTop(0) + this.layout.HeaderHeight - offset,
+                width - 2 * this.layout.Padding, this.layout.CellSize);
+            TextRenderer.DrawText(graphics, NoResultText, this.Font, message, SystemColors.GrayText,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
         }
     }
 
@@ -147,7 +199,7 @@ internal sealed class EmojiGrid : Control
         base.OnMouseClick(e);
         if (e.Button == MouseButtons.Left && this.HitTest(e.Location) is (int section, int index))
         {
-            this.EmojiClicked?.Invoke(this, this.categories[section].Emojis[index]);
+            this.EmojiClicked?.Invoke(this, this.sections[section].Emojis[index]);
         }
     }
 
@@ -165,7 +217,7 @@ internal sealed class EmojiGrid : Control
     }
 
     private EmojiGridLayout CreateLayout() => new(
-        this.categories.Select(category => category.Emojis.Count).ToList(),
+        this.sections.Select(section => section.Emojis.Count).ToList(),
         this.ClientSize.Width - this.scrollBar.Width,
         this.ViewportHeight,
         this.LogicalToDeviceUnits(LogicalCellSize),
@@ -209,7 +261,7 @@ internal sealed class EmojiGrid : Control
         this.Invalidate();
 
         int active = this.layout.SectionAt(this.Offset);
-        if (active != this.activeCategory)
+        if (!this.IsSearching && active != this.activeCategory)
         {
             this.activeCategory = active;
             this.ActiveCategoryChanged?.Invoke(this, EventArgs.Empty);
@@ -235,7 +287,7 @@ internal sealed class EmojiGrid : Control
         }
 
         this.hovered = hit;
-        this.toolTip.SetToolTip(this, hit is (int section, int index) ? this.categories[section].Emojis[index].Name : null);
+        this.toolTip.SetToolTip(this, hit is (int section, int index) ? this.sections[section].Emojis[index].Name : null);
         this.Invalidate();
     }
 

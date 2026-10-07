@@ -7,6 +7,7 @@ namespace EmojiSelector.UI;
 /// The strip of <b>category</b> tabs above the <see cref="EmojiGrid"/>, like the Win+; panel's: one monochrome
 /// glyph per category, grey, the active one in the accent colour and underlined, the category's name as a tooltip.
 /// A click raises <see cref="TabClicked"/>. Drawn with GDI: a monochrome icon font needs no Direct2D.
+/// While the search box holds text the strip is <see cref="Greyed"/>.
 /// </summary>
 internal sealed class CategoryTabStrip : Control
 {
@@ -26,6 +27,7 @@ internal sealed class CategoryTabStrip : Control
     private Font iconFont;
     private int activeTab;
     private int hoveredTab = -1;
+    private bool greyed;
 
     public CategoryTabStrip(IReadOnlyList<EmojiCategory> categories)
     {
@@ -55,6 +57,25 @@ internal sealed class CategoryTabStrip : Control
         }
     }
 
+    /// <summary>
+    /// Greyed while searching: every glyph paler than an inactive tab's, no active tab, no hover, no tooltip, clicks
+    /// ignored. The built-in <see cref="Control.Enabled"/> does not grey custom drawing.
+    /// </summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool Greyed
+    {
+        get => this.greyed;
+        set
+        {
+            if (value != this.greyed)
+            {
+                this.greyed = value;
+                this.SetHovered(-1);
+                this.Invalidate();
+            }
+        }
+    }
+
     private int TabWidth => this.LogicalToDeviceUnits(LogicalTabWidth);
 
     private int LeftPadding => this.LogicalToDeviceUnits(LogicalPadding);
@@ -63,6 +84,8 @@ internal sealed class CategoryTabStrip : Control
     {
         base.OnPaint(e);
         Color accent = SystemColors.Highlight;
+        Color greyedColor = Blend(SystemColors.GrayText, this.BackColor);
+        int active = this.greyed ? -1 : this.activeTab;
         for (int tab = 0; tab < this.categories.Count; tab++)
         {
             Rectangle bounds = this.TabBounds(tab);
@@ -72,11 +95,11 @@ internal sealed class CategoryTabStrip : Control
                 e.Graphics.FillRectangle(hover, Rectangle.Inflate(bounds, -2, -4));
             }
 
-            Color color = tab == this.activeTab ? accent : SystemColors.GrayText;
+            Color color = this.greyed ? greyedColor : tab == active ? accent : SystemColors.GrayText;
             TextRenderer.DrawText(e.Graphics, this.categories[tab].Icon.ToString(), this.iconFont, bounds, color,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
 
-            if (tab == this.activeTab)
+            if (tab == active)
             {
                 int underlineWidth = this.LogicalToDeviceUnits(LogicalUnderlineWidth);
                 int underlineHeight = this.LogicalToDeviceUnits(LogicalUnderlineHeight);
@@ -103,7 +126,7 @@ internal sealed class CategoryTabStrip : Control
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        this.SetHovered(this.HitTest(e.Location));
+        this.SetHovered(this.greyed ? -1 : this.HitTest(e.Location));
     }
 
     protected override void OnMouseLeave(EventArgs e)
@@ -116,7 +139,7 @@ internal sealed class CategoryTabStrip : Control
     {
         base.OnMouseClick(e);
         int tab = this.HitTest(e.Location);
-        if (e.Button == MouseButtons.Left && tab >= 0)
+        if (e.Button == MouseButtons.Left && tab >= 0 && !this.greyed)
         {
             this.TabClicked?.Invoke(this, tab);
         }
@@ -157,6 +180,10 @@ internal sealed class CategoryTabStrip : Control
         this.toolTip.SetToolTip(this, tab >= 0 ? this.categories[tab].Name : null);
         this.Invalidate();
     }
+
+    // Halfway between two colours: a greyed glyph, between the inactive grey and the background.
+    private static Color Blend(Color color, Color background) => Color.FromArgb(
+        (color.R + background.R) / 2, (color.G + background.G) / 2, (color.B + background.B) / 2);
 
     // Pixels, not points: the glyph keeps its size whatever the font settings, scaled to the control's DPI only.
     private Font CreateIconFont()

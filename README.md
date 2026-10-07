@@ -14,10 +14,10 @@ Each word used here has one meaning, given in the [Glossary](GLOSSARY.md).
 - **Shortcut**: while the app runs, **Win+;** opens its window just under the text cursor of the app you are typing in — or under the focused field, or at the mouse pointer when that app does not tell where its cursor is — and above it when there is no room below. Pressed again with the window in front, it hides it and you are back where you were typing. It takes the place of Windows' own emoji panel: when the app is not running, Win+; opens Windows' panel as usual, and Win+. always does. On an AZERTY keyboard, Win+; is the `; .` key. In an app run as administrator, Windows' panel opens instead.
 - **Categories**: the window shows every emoji, in colour, in one continuous scrolling grid — one section per category, under a strip of tabs in the Win+; panel's order: Smileys & People, Animals & Nature, Food & Drink, Activities, Travel & Places, Objects, Symbols. Clicking a tab jumps to its section; scrolling moves the active tab along. Hovering an emoji shows its name. No flags (Windows' emoji font has none) and no skin tones yet; an emoji newer than Windows' font shows as a box.
 - **Insertion**: clicking an emoji types it into the window you were in before, then the window hides to the tray, whose icon now shows that emoji — back to the smiley at the next launch. Windows blocks it into an app run as administrator.
+- **Search box**: at the top of the window, empty and ready for typing every time the window opens. Typing a keyword — an emoji's name or one of its tags, in English or in French, case and accents ignored — greys the tabs and shows the matching emojis alone, the most relevant first: the whole word before its start, before a word that only contains it, the most of the word covered first, a name before a tag (`caca` finds 💩 before 🥜 *cacahuète*). **Enter** inserts the first one; **Esc** clears the box, or hides the window when it is already empty. Emptying the box brings the categories back where they were.
 
 ## Planned
 
-- A search box finding emojis by keyword, as you type.
 - Favorites and recent emojis shown first.
 - Skin tones, flags, copying an emoji as text or as an image, keyboard navigation in the grid.
 
@@ -27,7 +27,7 @@ See [CONTRIBUTING.md § Build](CONTRIBUTING.md#build).
 
 ## Tech
 
-C# / WinForms on .NET 10, using Windows' own components only, no third-party library. The emoji list comes from [Emojibase](https://emojibase.dev)'s data (MIT), embedded in the exe: see [CONTRIBUTING.md § Emoji data](CONTRIBUTING.md#emoji-data).
+C# / WinForms on .NET 10, using Windows' own components only, no third-party library. The emoji list and its keywords, in English and French, come from [Emojibase](https://emojibase.dev)'s data (MIT), embedded in the exe: see [CONTRIBUTING.md § Emoji data](CONTRIBUTING.md#emoji-data).
 
 ## License
 

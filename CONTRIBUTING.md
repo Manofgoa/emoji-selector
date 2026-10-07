@@ -15,13 +15,20 @@ There is no test project: check a change by hand in the running app.
 
 ## Emoji data
 
-The emoji list is [Emojibase](https://emojibase.dev)'s data, **version 17.0.0** (MIT, see
-[its LICENSE](src/EmojiSelector/Data/Emojibase/LICENSE)): `en/compact.json`, kept as published in
-`src/EmojiSelector/Data/Emojibase/` and embedded in the exe. `Data/EmojiCatalog` reads it.
+The emoji list and its keywords are [Emojibase](https://emojibase.dev)'s data, **version 17.0.0**
+(MIT, see [its LICENSE](src/EmojiSelector/Data/Emojibase/LICENSE)), in two languages kept as
+published in `src/EmojiSelector/Data/Emojibase/` and embedded in the exe:
 
-To update it, replace `compact.json` and `LICENSE` with those of the new `emojibase-data` version
-(`https://cdn.jsdelivr.net/npm/emojibase-data@<version>/en/compact.json`), then update the version
-above.
+| File | Source | Gives |
+|---|---|---|
+| `compact.en.json` | `en/compact.json` | The list: categories, order, names, English keywords |
+| `compact.fr.json` | `fr/compact.json` | French keywords, joined by hexcode |
+
+`Data/EmojiCatalog` reads them.
+
+To update them, replace both files and `LICENSE` with those of the new `emojibase-data` version
+(`https://cdn.jsdelivr.net/npm/emojibase-data@<version>/<en|fr>/compact.json`), then update the
+version above.
 
 ## Before changing the code
 

@@ -5,17 +5,23 @@ namespace EmojiSelector.Data;
 
 /// <summary>
 /// The emojis the app offers, by <b>category</b>, read from the Emojibase data embedded in the exe
-/// (<c>Data/Emojibase/compact.json</c>, MIT — see the LICENSE next to it).
+/// (<c>Data/Emojibase/compact.en.json</c> and <c>compact.fr.json</c>, MIT — see the LICENSE next to them).
 /// </summary>
 /// <remarks>
 /// The categories follow the Win+; panel: its order (Activities before Travel & Places, unlike Unicode's) and its
 /// Smileys & People, which merges two Unicode groups. Left out: the components (skin-tone and hair swatches), the
 /// flags (Segoe UI Emoji has no flag glyphs), the skin-tone variants and the entries without a group (the regional
 /// indicator letters). An emoji newer than the system font is kept: it shows as a box.
+/// <para>
+/// The English data is the list; the French data, joined by hexcode, only adds <b>keywords</b> — an emoji missing
+/// from it keeps its English ones.
+/// </para>
 /// </remarks>
 internal static class EmojiCatalog
 {
-    public const string ResourceName = "EmojiSelector.Data.Emojibase.compact.json";
+    public const string EnglishResourceName = "EmojiSelector.Data.Emojibase.compact.en.json";
+
+    public const string FrenchResourceName = "EmojiSelector.Data.Emojibase.compact.fr.json";
 
     // Emojibase's group numbers (its meta/groups.json).
     private const int SmileysEmotion = 0;
@@ -42,27 +48,62 @@ internal static class EmojiCatalog
     /// <summary>Reads the embedded data into the categories, in tab order, each one's emojis in Unicode order.</summary>
     public static IReadOnlyList<EmojiCategory> Load()
     {
-        using Stream stream = typeof(EmojiCatalog).Assembly.GetManifestResourceStream(ResourceName)
-            ?? throw new InvalidOperationException($"Missing embedded resource {ResourceName}.");
-        Entry[] entries = JsonSerializer.Deserialize<Entry[]>(stream)
-            ?? throw new InvalidOperationException($"Empty embedded resource {ResourceName}.");
+        Entry[] entries = ReadEntries(EnglishResourceName);
+        Dictionary<string, Entry> french = ReadEntries(FrenchResourceName).ToDictionary(entry => entry.Hexcode);
 
         return Tabs
             .Select(tab => new EmojiCategory(tab.Name, tab.Icon, entries
                 .Where(entry => entry.Group is int group && tab.Groups.Contains(group))
                 .OrderBy(entry => entry.Order)
-                .Select(entry => new Emoji(entry.Unicode, Capitalize(entry.Label)))
+                .Select(entry => new Emoji(entry.Unicode, Capitalize(entry.Label),
+                    Keywords(entry, french.GetValueOrDefault(entry.Hexcode))))
                 .ToList()))
             .ToList();
+    }
+
+    private static Entry[] ReadEntries(string resourceName)
+    {
+        using Stream stream = typeof(EmojiCatalog).Assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Missing embedded resource {resourceName}.");
+        return JsonSerializer.Deserialize<Entry[]>(stream)
+            ?? throw new InvalidOperationException($"Empty embedded resource {resourceName}.");
+    }
+
+    // The words of an emoji's names and tags, in English and in French, each once: a name's when a name has it.
+    private static IReadOnlyList<EmojiKeyword> Keywords(Entry english, Entry? french)
+    {
+        var words = new Dictionary<string, bool>();
+        foreach (Entry? entry in new[] { english, french })
+        {
+            if (entry is null)
+            {
+                continue;
+            }
+
+            foreach (string word in EmojiSearch.Words(entry.Label))
+            {
+                words[word] = true;
+            }
+
+            foreach (string word in (entry.Tags ?? []).SelectMany(EmojiSearch.Words))
+            {
+                words.TryAdd(word, false);
+            }
+        }
+
+        return words.Select(word => new EmojiKeyword(word.Key, word.Value)).ToList();
     }
 
     // Emojibase's labels are lowercase: "grinning face" → "Grinning face".
     private static string Capitalize(string label) =>
         label.Length == 0 ? label : char.ToUpperInvariant(label[0]) + label[1..];
 
-    // One entry of compact.json. Its skin-tone variants ("skins") and tags are not read.
+    // One entry of compact.json. Its skin-tone variants ("skins") are not read.
     private sealed class Entry
     {
+        [JsonPropertyName("hexcode")]
+        public string Hexcode { get; init; } = "";
+
         [JsonPropertyName("unicode")]
         public string Unicode { get; init; } = "";
 
@@ -74,5 +115,8 @@ internal static class EmojiCatalog
 
         [JsonPropertyName("order")]
         public int Order { get; init; }
+
+        [JsonPropertyName("tags")]
+        public string[]? Tags { get; init; }
     }
 }

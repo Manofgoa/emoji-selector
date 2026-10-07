@@ -48,8 +48,10 @@ Reference: Twitter's emoji picker (screenshot shared by the user) — tabs greye
 ## Keyword Data
 
 - **Second data file**: `fr/compact.json` of the same version (17.0.0), kept as published, embedded
-  next to the English one (`Data/Emojibase/`, renamed per locale — e.g. `compact.en.json`,
-  `compact.fr.json`). The exe grows by ≈ 600 KB.
+  next to the English one in `Data/Emojibase/`, both renamed per locale: `compact.en.json`,
+  `compact.fr.json`. Both `EmbeddedResource` items carry `WithCulture="false"` — otherwise MSBuild
+  reads `.en` / `.fr` as cultures and moves the data to satellite assemblies. The exe grows by
+  ≈ 600 KB.
 - **Join**: the French entries are matched to the English ones by `hexcode`. The English file stays
   the master list (categories, order, skipped groups); a French entry with no English match is
   ignored, an English entry with no French match keeps its English keywords only.
@@ -57,7 +59,8 @@ Reference: Twitter's emoji picker (screenshot shared by the user) — tabs greye
   - *name*: the English `label` and the French `label`;
   - *tag*: the English `tags` and the French `tags`.
 
-  `Emoji` gains them, pre-normalized and split into words (see *Matching*). The shown name
+  `Emoji` gains them as `EmojiKeyword(Word, IsName)` records, pre-normalized and split into words,
+  each word once — a name's when a name has it (see *Matching*). The shown name
   (`Emoji.Name`) stays the English label — the app's UI is in English.
 - `CONTRIBUTING.md § Emoji data` describes fetching both files.
 
@@ -65,8 +68,9 @@ Reference: Twitter's emoji picker (screenshot shared by the user) — tabs greye
 
 ## Matching
 
-- **Normalization**, on both the typed text and the keywords: lower case, **diacritics removed**
-  (`é` → `e`, `ç` → `c`), punctuation and spaces are separators. A keyword is split into **words**
+- **Normalization** (`EmojiSearch.Normalize`), on both the typed text and the keywords: lower case,
+  **diacritics removed** (`é` → `e`, `ç` → `c`, `œ` → `oe`, `æ` → `ae`), every character but
+  letters and digits is a separator. A keyword is split into **words**
   (`tête de chat` → `tete`, `de`, `chat`; `sentir mauvais` → `sentir`, `mauvais`).
 - **Typed words**: the text is split into words; an emoji is a **result** when **every typed word is
   contained** in at least one word of its keywords, in either language — anywhere in the word, not
@@ -101,10 +105,12 @@ Examples: `caca` → 💩 (*caca*, tag, exact) before 🥜 (*cacahuete*, tag, st
 
 ### Search box
 
-- A native WinForms **`TextBox`**, docked at the top **above the tab strip**, DPI-scaled like the
-  other controls, placeholder **`Search emojis`** (`PlaceholderText`).
-- A **✕ clear button** next to it, shown only while the box holds text: empties the box and gives
-  the focus back to it.
+- A native WinForms **`TextBox`**, in a two-column `TableLayoutPanel` docked at the top **above the
+  tab strip**, placeholder **`Search emojis`** — the native cue banner shown even while focused
+  (`EM_SETCUEBANNER`, wParam `TRUE`): `PlaceholderText` hides on focus, and the box always has it.
+- A **✕ clear button** next to it (flat, no border), shown only while the box holds text: empties
+  the box and gives the focus back to it. It is a **square exactly as high as the box**, with the
+  same margins, so showing it never changes the bar's height.
 
 ### Show behaviour
 
@@ -122,12 +128,13 @@ Examples: `caca` → 💩 (*caca*, tag, exact) before 🥜 (*cacahuete*, tag, st
 
 | Element | Behaviour |
 |---|---|
-| Tab strip | Every tab **greyed**, no active underline, no hover, **clicks ignored** — a new state of `CategoryTabStrip` (the built-in `Enabled` does not grey custom drawing) |
+| Tab strip | Every tab **greyed** — halfway between the inactive grey and the background —, no active underline, no hover, no tooltip, **clicks ignored**: `CategoryTabStrip.Greyed` (the built-in `Enabled` does not grey custom drawing) |
 | Grid | One section, header **`Search results`**, holding the results in relevance order; scrolled to the top on every change of the text |
 | No result | The header, then the message **`No emoji found`** |
 | Emoji clicked | Inserted into the previous window, as today; the window hides |
 
-- `EmojiGrid` gets a way to swap its sections for the result list and back; the category view's
+- `EmojiGrid.ShowSearchResults` swaps its sections for the result list (keeping the category
+  view's scroll offset on the first call), `ShowCategories` swaps them back; the category view's
   `ActiveCategoryChanged` is not raised while searching.
 - **Leaving search mode** (box emptied, by typing, ✕ or Esc): tabs enabled again, category view
   back **at the scroll position it had before the search** (the active tab follows). On a show,
@@ -207,6 +214,37 @@ Open Questions answered (Q&A #5–#14):
 - No unit tests: Test Impact emptied, explicitly.
 - *Search box* row of `TODO-FEATURES.md` marked with this workfile.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code and documentation (no unit tests, Q&A #13), in a **worktree**
+(`.claude/worktrees/search-box`, branch `feature/search-box`, from `882c350`) — another session was
+modifying `MainForm.cs` on `main` in the original checkout.
+
+### Iteration 4 — 2026-10-08 — 🧭 Implementation choices
+
+No rule broken. Choices the frozen design did not state:
+
+- **Data files** named `compact.en.json` / `compact.fr.json` (the design's example). The first check
+  launch crashed: MSBuild treated `.en` / `.fr` as cultures and built satellite assemblies — fixed
+  with `WithCulture="false"` on both items.
+- **Placeholder** through `EM_SETCUEBANNER` instead of `PlaceholderText`, which hides on focus —
+  the box always has the focus, so the placeholder never showed.
+- **✕ button** flat, borderless, a square as high as the box with its margins. Fixed during the
+  run after the user reported the tabs moving a few pixels down when text was typed: the
+  auto-sized button was taller than the box and grew the bar.
+- **Greyed tabs** drawn halfway between `GrayText` and the background; hover and tooltip off too.
+- **Keyword words** kept once per emoji, flagged *name* when a name has them, even if a tag also
+  does.
+- **API**: `EmojiKeyword(Word, IsName)`, `EmojiSearch.Find / Normalize / Words`,
+  `EmojiGrid.ShowSearchResults / ShowCategories`, `CategoryTabStrip.Greyed`.
+- **Checks**: ranking checked by reflection on the built DLL (`caca` → 💩, 🪿, 🥜; `chat` / `cat` →
+  cats; `Cœur` = `coeur`; `huet` → 🥜; `zzzq` → none). Screens checked: placeholder, greyed tabs,
+  `Search results` header, ✕. Not checked by script: Enter (it would type into a real app) and the
+  restored scroll position — left to the user's test.
+- **Incident**: a first scripted check sent `caca` with `SendKeys` while the window was not in
+  front — the keys may have landed in another app. Rule added to `RULES.md § Search Box`: scripts
+  send `WM_SETTEXT` / `WM_KEYDOWN` to the box itself.
+
 ---
 
 ## Implementation Log
@@ -216,9 +254,12 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
+| Code | 3, 4 | 2026-10-08 | Data and search, tab strip, grid, search box; ✕ height fix after the user's report |
 | Unit tests | | | Not applicable — no test project, checked by hand (Q&A #13) |
-| README | | | |
+| README | 3 | 2026-10-08 | `README.md` / `README.fr.md`: *Search box* feature, removed from *Planned*; Tech line |
+| RULES | 3, 4 | 2026-10-08 | New § Search Box; Enter / Esc rows in the window table |
+| Glossary | 3 | 2026-10-08 | *Keyword*: in English or in French (both languages) |
+| CONTRIBUTING | 3 | 2026-10-08 | § Emoji data: both locale files |
 
 ---
 
