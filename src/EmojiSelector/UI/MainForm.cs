@@ -35,6 +35,7 @@ internal sealed class MainForm : Form
 
     // The emojis matching the search box, most relevant first; null while it is blank.
     private IReadOnlyList<Emoji>? searchResults;
+    private readonly EmojiUsage usage = EmojiUsage.Load();
     private readonly ForegroundTracker foregroundTracker = new();
     private readonly ShortcutHook shortcutHook;
 
@@ -280,8 +281,12 @@ internal sealed class MainForm : Form
         this.ActiveControl = this.searchBox;
     }
 
-    // The one place telling the tray icon an emoji was used.
-    private void OnEmojiUsed(string emoji) => this.trayIcon.ShowEmoji(emoji);
+    // The one place told an emoji was used: the tray icon shows it, its counter goes up.
+    private void OnEmojiUsed(string emoji)
+    {
+        this.trayIcon.ShowEmoji(emoji);
+        this.usage.Record(emoji);
+    }
 
     // A clicked emoji goes into the window that was in front before this one, then the window hides to the tray,
     // like Win+;. The previous window is brought back while this app is still in front: only the foreground app may
