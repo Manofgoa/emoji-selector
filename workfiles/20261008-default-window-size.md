@@ -22,8 +22,9 @@ size of the first launch (or of a launch whose saved size cannot be read).
 | In scope | Out of scope |
 |---|---|
 | The default size computed from the grid's metrics, at any DPI | The minimum size (`MinimumSize`, unchanged) |
-| The size saved when the user resizes, reloaded at the next launch | Where the window appears (Win+; under the text cursor, centred at launch — unchanged) |
+| The size saved in `settings.json` when the user resizes, reloaded at the next launch | Where the window appears (Win+; under the text cursor, centred at launch — unchanged); the position is never saved |
 | A saved size that does not fit the screen, or cannot be read → handled without error | The grid's metrics themselves (cell 40, header 32, padding 8) |
+| A *Reset window size* item in the settings menu | |
 
 ---
 
@@ -68,7 +69,27 @@ Computed, not hard-coded: the numbers follow the grid's metrics and the DPI.
   default size, never an error (like `cache\` and `usage.json`).
 - A saved size smaller than `MinimumSize` → `MinimumSize`; larger than the working area → reduced to
   fit it.
-- Where and in which file: see *Open Questions*.
+- **The size only**: the position is never saved — at launch the window stays centred, and Win+;
+  places it under the text cursor anyway.
+- **File**: `settings.json`, **next to the exe** (`AppContext.BaseDirectory`), like `usage.json` — a
+  shared settings file, ready for later settings. Its content:
+
+  ```json
+  { "windowWidth": 673, "windowHeight": 520 }
+  ```
+
+  Both values in logical pixels. A write keeps the file's other keys, should later settings add some.
+
+---
+
+## Reset Window Size
+
+- A **`Reset window size`** item in the settings menu (⚙), after *Open app folder*.
+- It brings the window back to the **default size** right away — its top-left corner stays, the
+  window reduced to fit the working area if needed — and **removes the saved size** from
+  `settings.json`: the next launch opens at the default size too.
+- The window stays shown, like after *Open app folder*.
+- Always enabled, even with no saved size: it then only resizes the window.
 
 ---
 
@@ -76,8 +97,8 @@ Computed, not hard-coded: the numbers follow the grid's metrics and the DPI.
 
 | File | Change |
 |---|---|
-| `RULES.md` / *Window and Tray Icon* | The default size (16 columns, header + 8 rows, computed), the remembered size (when saved, the file, the fallbacks) |
-| `README.md` / `README.fr.md` | *Window* bullet: opens 16 emojis wide and 8 rows high; remembers the size it is resized to |
+| `RULES.md` / *Window and Tray Icon* | The default size (16 columns, header + 8 rows, computed), the remembered size (when saved, `settings.json`, the fallbacks); a row for *Reset window size* in the actions table |
+| `README.md` / `README.fr.md` | *Window* bullet: opens 16 emojis wide and 8 rows high; remembers the size it is resized to; the gear's **Reset window size** |
 
 ---
 
@@ -92,6 +113,8 @@ There is no test project (`CONTRIBUTING.md`): every behaviour is checked by hand
 | Resized, then relaunched → the resized size comes back | — (manual) | — |
 | Invalid or missing saved file, read-only folder → default size, no error | — (manual) | — |
 | Saved size larger than the screen → fits the working area | — (manual) | — |
+| A resize writes `settings.json` next to the exe, other keys kept | — (manual) | — |
+| *Reset window size* → default size now, saved size removed, default at the next launch | — (manual) | — |
 
 ---
 
@@ -100,11 +123,11 @@ There is no test project (`CONTRIBUTING.md`): every behaviour is checked by hand
 - [x] ~~How are the 8 rows counted, given the section headers?~~ → The window opened at the top of a
   category shows its header, then 8 full rows
 - [x] ~~What happens after the user resizes?~~ → The size is remembered between launches
-- [ ] Is the window's **position** remembered too, or only its size?
-- [ ] Where is the size saved: its own `window.json` next to the exe (like `usage.json`), or a
-  shared `settings.json` next to the exe, ready for later settings?
-- [ ] A way back to the default size — a *Reset window size* item in the settings menu (next to
-  *Open app folder*) — or none?
+- [x] ~~Is the window's **position** remembered too, or only its size?~~ → The size only
+- [x] ~~Where is the size saved: its own `window.json` next to the exe (like `usage.json`), or a
+  shared `settings.json` next to the exe, ready for later settings?~~ → `settings.json` next to the exe
+- [x] ~~A way back to the default size — a *Reset window size* item in the settings menu (next to
+  *Open app folder*) — or none?~~ → A *Reset window size* item in the settings menu
 
 ---
 
@@ -118,6 +141,12 @@ the scoping batch (Q&A #1), the resized size remembered between launches (Q&A #2
 which depends on the DPI). Proposed: a default size computed from the grid's metrics and two named
 constants, the resized size saved at the end of each resize in logical pixels, every failure falling
 back to the default. Three open questions: the position, the file, a reset item.
+
+### Iteration 2 — 2026-10-08
+
+Q&A #4–6 answered: the **size only** is remembered, never the position; it is saved in a shared
+**`settings.json`** next to the exe (logical pixels, other keys kept); a **`Reset window size`** item
+joins the settings menu — default size now, saved size removed. No open question left.
 
 ---
 
@@ -138,9 +167,9 @@ back to the default. Three open questions: the position, the file, a reset item.
 | 1 | "6 rows of emojis" in height: how are they counted, given the section headers? | Header + 8 rows, in fact | 2026-10-08 |
 | 2 | After the user resizes the window? | Remembered between launches | 2026-10-08 |
 | 3 | Is the subject simple, or tricky / long? | Simple | 2026-10-08 |
-| 4 | Is the window's position remembered too, or only its size? | | 2026-10-08 |
-| 5 | Where is the size saved: `window.json` or a shared `settings.json`, next to the exe? | | 2026-10-08 |
-| 6 | A *Reset window size* item in the settings menu, or none? | | 2026-10-08 |
+| 4 | Is the window's position remembered too, or only its size? | The size only | 2026-10-08 |
+| 5 | Where is the size saved: `window.json` or a shared `settings.json`, next to the exe? | `settings.json` | 2026-10-08 |
+| 6 | A *Reset window size* item in the settings menu, or none? | The item in ⚙ | 2026-10-08 |
 
 ---
 
