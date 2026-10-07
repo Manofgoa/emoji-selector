@@ -172,6 +172,13 @@ frequent section; the *Clear frequently used* settings item joins the scope (wit
 confirmation, greyed with no counter), while the search ranking and the persisted tray icon stay
 out. No open question left.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given for **code, tests and documentation**, in a **worktree**
+(`.claude/worktrees/frequent-tab`, branch `feature/frequent-tab`, from `main` at `a278285`). The
+scope is frozen as the sections above stand. The confirmation of *Clear frequently used* (Yes / No,
+*No* the default) was proposed with the go and is part of it.
+
 ---
 
 ## Implementation Log
