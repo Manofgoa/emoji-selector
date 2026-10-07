@@ -233,6 +233,12 @@ the box's `OnSearchBoxKeyDown`. [20261007-search-box.md](20261007-search-box.md)
 `⚙️ Post-implementation` entry (Iteration 5) for the show rule and Enter; its code is changed by this
 workfile's run. No Open Question left.
 
+### Iteration 5 — 2026-10-08 — ✅ Implemented
+
+Go given: code, unit tests and documentation (no unit tests by design, Q&A 14), in a **worktree**
+(`.claude/worktrees/keyboard-navigation`, branch `feature/keyboard-navigation`, from `0c621e2`) —
+other sessions work on `main` in the original checkout.
+
 ---
 
 ## Implementation Log
