@@ -21,10 +21,10 @@ are moved by drag and drop — and *Delete group*.
 |---|---|
 | The custom tab, one, fixed glyph, after the frequent tab | An icon per group (dropped, Q&A #10) |
 | Creating (settings menu), renaming, deleting custom groups | Reordering the catalog categories or the frequent tab |
-| Adding / removing an emoji by right click | Keyboard navigation inside the reorder mode ([20261007-keyboard-navigation.md](20261007-keyboard-navigation.md) is in design) |
+| Adding / removing an emoji by right click | Moving emojis with the keyboard in the reorder mode |
 | The "…" menu of a group's section, its *Reorder* mode (drag and drop inside the group) | |
 | Saving the custom groups in a file | |
-| Glossary: *Custom tab* and the group term in, *Favorite* out | |
+| Glossary: *Custom tab* and the group term in, *Favorite* out | Hiding a group or the custom tab ([20261008-frequent-tab-toggle.md](20261008-frequent-tab-toggle.md)) |
 
 ### Starting point
 
@@ -40,7 +40,9 @@ are moved by drag and drop — and *Delete group*.
 | The grid handles the **left** click only (`OnMouseClick` → `EmojiClicked`); no right click, no `ContextMenuStrip`, no drag code | `UI/EmojiGrid.cs:341-348` |
 | The settings menu is a `ContextMenuStrip` owned by `MainForm`, shown under its button; it holds *Open app folder* | `UI/MainForm.cs:260-267` |
 | No user data is persisted today; the `cache\` folder next to the exe is written best effort (temporary file then move, failures ignored) | `Drawing/EmojiBitmapCache.cs:77, 222-241` |
-| The **frequent tab** workfile (designed, implementation under way in the `frequent-tab` worktree) adds a first tab (star) built from counters saved in `usage.json` next to the exe, kept out of the search, and a *Clear frequently used* settings item | [20261008-frequent-tab.md](20261008-frequent-tab.md) |
+| The **frequent tab** is **merged** into `main` (`dfb66ff`): the list is built once as `[CreateFrequentCategory(), .. categories]`; the grid swaps the frequent section in place (`ReplaceCategory(0, …)`); counters in `usage.json` (`Data/EmojiUsage.cs`, the file pattern to follow); *Clear frequently used* in the settings menu | [20261008-frequent-tab.md](20261008-frequent-tab.md), `UI/MainForm.cs`, `UI/EmojiGrid.cs` |
+| The **keyboard navigation** is merged too: arrows move the selection in the grid, Enter inserts it | [20261007-keyboard-navigation.md](20261007-keyboard-navigation.md) |
+| The **frequent tab toggle** workfile (in design) waits for this one: it **reuses** the "…" button of the section headers for the frequent section, and applies its hiding to the custom groups | [20261008-frequent-tab-toggle.md](20261008-frequent-tab-toggle.md) |
 | No test project — every earlier workfile checked by hand, by the user's decision | [20261007-category-tabs.md](20261007-category-tabs.md) Q&A #13 |
 
 ---
@@ -93,7 +95,9 @@ are moved by drag and drop — and *Delete group*.
 ## Section "…" Menu and Reorder Mode
 
 - A group's section header carries a **"…" button** on its right; the header text is shortened so
-  its ellipsis does not run under the button. Catalog and frequent sections have none.
+  its ellipsis does not run under the button. Catalog and frequent sections have none **in this
+  workfile** — the button is a property of a section, not hard-wired to the groups, since the
+  frequent tab toggle gives it to the frequent section next.
 - Its menu: **Rename…**, **Reorder**, **Move up**, **Move down**, **Delete group** (Q&A #8, #19) —
   the only place offering them. *Move up* / *Move down* swap the group with its neighbour, greyed on
   the first / last group.
@@ -134,7 +138,8 @@ are moved by drag and drop — and *Delete group*.
 
 - Implemented **after the frequent tab is merged** into `main` (Q&A #16): both change the list of
   tabs, `MainForm` and the settings menu; starting from it puts the custom tab right after the
-  frequent one and avoids the conflicts.
+  frequent one and avoids the conflicts. **Satisfied**: the frequent tab is in `main` (`dfb66ff`).
+- The [frequent tab toggle](20261008-frequent-tab-toggle.md) comes after this one.
 
 ---
 
@@ -190,6 +195,7 @@ below are **checked by hand** in the running app, not by unit tests.
 - [x] ~~Are the custom groups searched?~~ → No, the catalog only
 - [x] ~~Can the groups themselves be reordered?~~ → *Move up* / *Move down* in the "…" menu; a new group comes last
 - [x] ~~Which constraints on a group's name?~~ → Trimmed and non-blank only: duplicates allowed, no length limit
+- [ ] The keyboard navigation is now merged: in the reorder mode, what does Enter on the selected emoji of the group do?
 - [x] ~~How does a colour icon show the active and the greyed (search) states?~~ → Moot: a fixed monochrome glyph
 
 ---
@@ -241,6 +247,14 @@ Q&A #19–20 answered: the groups are reordered by *Move up* / *Move down* in th
 group coming last; a group's name is only trimmed and non-blank — duplicates allowed, no length
 limit. No open question left.
 
+### Iteration 6 — 2026-10-08
+
+Starting point refreshed: the frequent tab and the keyboard navigation were merged into `main`
+meanwhile, and the new frequent tab toggle workfile waits for this one, reusing the "…" button for
+the frequent section — so the button is a property of a section, not hard-wired to the groups. The
+delivery order (Q&A #16) is satisfied: the frequent tab is already in `main`. One question emerges
+from the keyboard navigation: what Enter does in the reorder mode.
+
 ---
 
 ## Implementation Log
@@ -286,6 +300,7 @@ Questions asked by the agent during design, with user responses.
 | 21 | Which term for a group? | *Custom group* (*groupe personnalisé*) | 2026-10-08 |
 | 22 | Which glyph for the custom tab? | The heart | 2026-10-08 |
 | 23 | What does the custom tab show while no group exists? | Shown, with a message pointing to ⚙ → *New group…* | 2026-10-08 |
+| 24 | In the reorder mode, what does Enter on the selected emoji of the group do? | | |
 
 ---
 
