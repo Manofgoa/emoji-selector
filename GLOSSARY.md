@@ -15,6 +15,7 @@ each.
 | Selection (*sélection*) | The one emoji of the grid framed in the accent colour, moved by the keyboard and by the mouse — the one Enter inserts |
 | Shortcut (*raccourci*) | Win+;, the global keyboard shortcut showing the window from any app — in place of Windows' own emoji panel while the app runs |
 | Text cursor (*curseur de texte*) | The blinking insertion point of the previous window, where typed text goes — Win+; shows the window just under it |
-| Favorite (*favori*) | An emoji the user marked to keep it at hand, shown before the others |
+| Custom tab (*onglet personnalisé*) | The second tab, a heart, right after *Frequently used*: it holds every **custom group** |
+| Custom group (*groupe personnalisé*) | A list of emojis the user keeps at hand: created and named by the user, filled by right click, ordered as the user wants; one section of the custom tab each, kept in `custom-groups.json` next to the exe |
 | Frequent (*fréquent*) | An emoji counted by its uses — each use adds 1 to its counter, kept in `usage.json` next to the exe; the most used are shown in the first tab, *Frequently used* |
 | Tray icon (*icône de notification*) | The app's icon in the notification area, shown as long as the app runs; it shows the last emoji used |
