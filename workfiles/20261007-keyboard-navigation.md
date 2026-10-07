@@ -83,6 +83,27 @@ read row by row.
 - Modifiers other than Shift on Tab and Ctrl on Home / End are not handled: other Ctrl, Alt, Win
   combinations keep their default behaviour (Alt+F4 still hides to the tray).
 
+### With the search box
+
+Once [20261007-search-box.md](20261007-search-box.md) is in, the keyboard has **two places**: the
+search box (focused on every show) and the grid.
+
+| Focus | Key | Does |
+|---|---|---|
+| Search box | ← / →, Home / End, Ctrl+Home / Ctrl+End | The text caret, as in any text box |
+| Search box | ↓ | The **grid** takes the keyboard; the selection goes to the **first emoji** (the first result in search mode) |
+| Grid | ↑ on the grid's **first row** | Back to the **search box** — instead of staying put (*Grid edges*) |
+| Grid | A character typed | Back to the **search box**, the character typed into it |
+| Grid | Every other key of the table above | As described there |
+
+- **Search mode**: on every change of the text, the selection goes to the **first result**; Enter
+  inserts the **selection** — the search box's *first result* unless the arrows moved it.
+- **Tab / Shift+Tab in search mode** are **ignored**, like clicks on the greyed tabs.
+- **Window shown**: back to the top, first emoji selected (this workfile's rule wins over the search
+  box's *scroll position before the search*, which is aligned — see Open Questions). Emptying the
+  box while the window stays open still brings the pre-search position back.
+- The selection frame stays drawn while the box has the focus: it shows what Enter inserts.
+
 ---
 
 ## Documentation
@@ -129,18 +150,26 @@ the earlier workfiles (Q&A #14).
   on 2026-10-08 (its Q3: Enter inserts the first result; Esc clears the box, or hides the window when
   it is empty) — the alignment raises questions 13–16
 - [x] ~~12. **Backlog**: mark the *Keyboard navigation* row?~~ → Yes, marked with this workfile
-- [ ] 13. **Keys while the search box has the focus** (it gets it on every show): ← / → and Home /
-  End also move the text caret. Who gets them — the grid, the caret, or the grid while the box is
-  empty and the caret once it holds text? ↑ / ↓, Page Up / Down, Tab and Enter go to the grid
-  either way.
-- [ ] 14. **Selection in search mode**: on every change of the text, the selection goes to the first
-  result — so Enter inserts the selected emoji, which is the search box's *first result* unless the
-  user moved with the arrows?
-- [ ] 15. **Tab / Shift+Tab in search mode** (every tab greyed, clicks ignored): ignored too, or
-  leave search mode and jump to the category?
-- [ ] 16. **Window shown**: the search box workfile brings the category view back **at the scroll
-  position it had before the search**; this workfile scrolls back **to the top** with the first emoji
-  selected. Which one wins (the other workfile then gets aligned)?
+- [x] ~~13. **Keys while the search box has the focus**: ← / → and Home / End to the grid, the
+  caret, or depending on the text?~~ → Two focus places: in the box the caret keys stay the box's,
+  ↓ hands the keyboard to the grid on the first emoji; ↑ (from the grid's first row) or a typed
+  character goes back to the box
+- [x] ~~14. **Selection in search mode**~~ → On the first result after every text change; Enter
+  inserts the selection
+- [x] ~~15. **Tab / Shift+Tab in search mode**~~ → Ignored
+- [x] ~~16. **Window shown**: back to the top, or the search box's pre-search position?~~ → Back to
+  the top; the search box workfile is aligned
+- [ ] 17. **Enter in an empty search box, right after a show**: the search box workfile says
+  *nothing when the box is blank*; this workfile says the first emoji is selected so that Enter
+  inserts at once. Which one?
+- [ ] 18. **Page Up / Page Down and Tab while the box has the focus**: Page Down enters the grid
+  like ↓ (and pages), Tab changes category as from the grid — or only ↓ leaves the box?
+- [ ] 19. **Implementation order**: this workfile after the search box (its focus model is built
+  in from the start), or before it (grid keys only, the *With the search box* part implemented by
+  whichever lands second)?
+- [ ] 20. **Aligning [20261007-search-box.md](20261007-search-box.md)** (show rule, Enter on the
+  selection, ↓ / ↑ / typed character): this session adds the iteration entry to it now, or its own
+  session does?
 
 ---
 
@@ -174,6 +203,16 @@ The user chose to wait for the search box's keys before settling the overlap. Th
 result, Esc clears the box or hides the window. Aligning on them raises Open Questions 13–16 — the
 caret keys in the focused box, the selection in search mode, Tab in search mode, and a conflict on
 the scroll position when the window is shown.
+
+### Iteration 3 — 2026-10-08
+
+Open Questions 13–16 answered (Q&A 17–20). The user went beyond the offered choices for the caret
+keys: the keyboard gets **two focus places** — in the search box, the caret keys are the box's and
+↓ hands the keyboard to the grid on the first emoji; ↑ (read as: from the grid's first row, the
+only place where ↑ has nothing else to do) or a typed character brings it back to the box. Search
+mode keeps the selection on the first result, Enter inserts the selection, Tab is ignored there; on
+show, this workfile's *back to the top* wins over the search box's restored position. New section
+*With the search box*; the follow-ups are Open Questions 17–20.
 
 ---
 
@@ -213,10 +252,14 @@ Questions asked by the agent during design, with user responses.
 | 14 | Unit tests: by hand or a test project? (Open Question 10) | By hand | 2026-10-08 |
 | 15 | Search box overlap: this workfile owns Enter / Esc for the grid, the search box adapts? (Open Question 11) | Wait for the search box, then align on it | 2026-10-08 |
 | 16 | Backlog: mark the *Keyboard navigation* row with this workfile? (Open Question 12) | Yes | 2026-10-08 |
-| 17 | Keys while the search box has the focus: ← / → and Home / End to the grid, the caret, or depending on the text? (Open Question 13) | | |
-| 18 | Search mode: selection on the first result after every text change, Enter inserts the selection? (Open Question 14) | | |
-| 19 | Tab / Shift+Tab in search mode: ignored, or leave search mode? (Open Question 15) | | |
-| 20 | Window shown: back to the top, or the search box's pre-search position? (Open Question 16) | | |
+| 17 | Keys while the search box has the focus: ← / → and Home / End to the grid, the caret, or depending on the text? (Open Question 13) | In the box: ↓ gives the grid the selection on the first emoji; ↑ or typing characters goes back to the box | 2026-10-08 |
+| 18 | Search mode: selection on the first result after every text change, Enter inserts the selection? (Open Question 14) | Yes, first result | 2026-10-08 |
+| 19 | Tab / Shift+Tab in search mode: ignored, or leave search mode? (Open Question 15) | Ignored | 2026-10-08 |
+| 20 | Window shown: back to the top, or the search box's pre-search position? (Open Question 16) | Back to the top | 2026-10-08 |
+| 21 | Enter in an empty search box right after a show: insert the first emoji, or nothing? (Open Question 17) | | |
+| 22 | Page Up / Down and Tab while the box has the focus (Open Question 18) | | |
+| 23 | Implementation order: after or before the search box? (Open Question 19) | | |
+| 24 | Who aligns the search box workfile? (Open Question 20) | | |
 
 ---
 
