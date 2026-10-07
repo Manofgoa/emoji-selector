@@ -12,7 +12,8 @@
 The **frequent tab** ([20261008-frequent-tab.md](20261008-frequent-tab.md)) is always the first tab
 today. This workfile lets the user **hide** it: a checkable item in the settings menu ⚙, and a
 **"…" button** at the right end of the *Frequently used* section's header whose menu hides it too —
-the same setting, two places.
+the same setting, two places. Labels: *Show frequently used* (⚙) and *Hide frequently used*
+("…") (Q&A #5).
 
 - **Hidden**: the star tab leaves the tab strip and its section leaves the grid. The use counters
   **keep counting** in `usage.json` (Q&A #1): shown again, the section is up to date.
@@ -72,6 +73,7 @@ the same setting, two places.
   *Group Menu*): its look, its place at the right end of the header, the header text shortened before
   it. This workfile gives it to the frequent section too.
 - Its menu holds **Hide frequently used** — the same setting as the settings menu's item, turned off.
+  **No confirmation** (Q&A #6): nothing is lost, the counters keep counting.
 - Never in search mode (the frequent section is not shown then).
 - Showing the tab again is done from the settings menu only: the "…" button leaves with its section.
 
@@ -91,7 +93,11 @@ shown again from.
   People*. A use still records the counter (`MainForm.OnEmojiUsed`) but replaces no section.
 - **Shown again**: the frequent section is rebuilt from the counters and put back first.
 - The grid and the strip need **an entry point to replace their list of categories** — today both
-  take it once, at construction. Indices shift by one: the active tab and the selection are reset.
+  take it once, at construction. Indices shift by one.
+- **After a toggle** with the window open, the grid goes back to the **top, on its first emoji**
+  (Q&A #9), like a show; the active tab is the first one.
+- The window's **minimum width** follows the tab count (Q&A #8): one tab narrower while hidden,
+  computed again at every toggle — showing the tab again may widen a window at its minimum.
 - **Every show** of the window still scrolls the grid to the top — the first section, whatever it is.
 
 ---
@@ -125,11 +131,11 @@ harness in the session's scratchpad, as `EmojiUsage` was.
 
 ## Open Questions
 
-- [ ] Labels: *Show frequently used* (checkable, ⚙) and *Hide frequently used* (the "…" menu)?
-- [ ] Does hiding ask for a confirmation? (Proposal: no — nothing is lost, the counters keep counting.)
+- [x] ~~Labels: *Show frequently used* (checkable, ⚙) and *Hide frequently used* (the "…" menu)?~~ → Yes, both
+- [x] ~~Does hiding ask for a confirmation?~~ → No: nothing is lost, the counters keep counting
 - [x] ~~Is the "…" button always drawn, or only while the mouse is over the header?~~ → As the custom groups' button: this workfile reuses it (Q&A #10)
-- [ ] The window's minimum width while the tab is hidden: kept as with every tab (toggling never resizes the window), or one tab narrower?
-- [ ] Where do the grid and the selection go after a toggle while the window is open: back to the top on the first emoji, or the first emoji in view?
+- [x] ~~The window's minimum width while the tab is hidden: kept as with every tab, or one tab narrower?~~ → One tab narrower, computed again at every toggle
+- [x] ~~Where do the grid and the selection go after a toggle while the window is open?~~ → Back to the top, on the first emoji
 - [x] ~~The custom tabs workfile also designs a "…" button on its group headers and says the frequent section has none: implement the "…" mechanism here first, and update that workfile so its groups reuse it?~~ → No: wait for the custom tabs to be delivered, reuse their "…" button, and apply the same hiding logic to the custom groups (Q&A #10)
 - [ ] Custom groups: what is hidden — **each group** on its own (its "…" menu gets *Hide*), or the **custom tab as a whole** (one setting, like the frequent tab)?
 - [ ] Custom groups: where is a hidden one shown again from — one checkable item per group in the settings menu, a submenu, or something else?
@@ -166,6 +172,12 @@ The user decided the order (Q&A #10): this workfile waits for the custom tabs
 the frequent section, and applies the same hiding logic to the custom groups. The "…" button's look
 is no longer designed here; new open questions on the custom groups' hiding.
 
+### Iteration 3 — 2026-10-08
+
+Q&A #5-9: the labels *Show frequently used* / *Hide frequently used*; no confirmation on hiding; the
+minimum width one tab narrower while hidden, computed again at every toggle; after a toggle, the
+grid back to the top on its first emoji.
+
 ---
 
 ## Implementation Log
@@ -191,11 +203,11 @@ Questions asked by the agent during design, with user responses.
 | 2 | Where is the setting? | The settings menu ⚙, a checkable item | 2026-10-08 |
 | 3 | Is the setting saved between launches? | Yes, in `settings.json`, on by default | 2026-10-08 |
 | 4 | Straightforward or tricky / long subject? | Straightforward | 2026-10-08 |
-| 5 | Labels: *Show frequently used* (⚙) and *Hide frequently used* ("…")? | | 2026-10-08 |
-| 6 | Does hiding ask for a confirmation? | | 2026-10-08 |
+| 5 | Labels: *Show frequently used* (⚙) and *Hide frequently used* ("…")? | Yes | 2026-10-08 |
+| 6 | Does hiding ask for a confirmation? | No | 2026-10-08 |
 | 7 | "…" button always drawn, or on hover only? | Moot: the custom groups' button is reused (#10) | 2026-10-08 |
-| 8 | Minimum window width while hidden? | | 2026-10-08 |
-| 9 | Grid and selection after a toggle with the window open? | | 2026-10-08 |
+| 8 | Minimum window width while hidden? | One tab narrower | 2026-10-08 |
+| 9 | Grid and selection after a toggle with the window open? | Back to the top, on the first emoji | 2026-10-08 |
 | 10 | Implement the "…" mechanism here first, and update the custom tabs workfile? | Unasked — the user said: wait for the custom tabs, and apply the same logic to them | 2026-10-08 |
 | 11 | Custom groups: hide each group, or the custom tab as a whole? | | 2026-10-08 |
 | 12 | Custom groups: where is a hidden one shown again from? | | 2026-10-08 |
