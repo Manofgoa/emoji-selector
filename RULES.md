@@ -29,6 +29,8 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Tray icon, left click | Hidden → shown; covered by another window → brought to the front; already in front → hidden |
 | Tray icon, right click → `Exit` | Ends the app |
 | Emoji clicked in the grid | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below) |
+| Enter in the search box | Inserts the first result, like a click on it (see *Search Box* below) |
+| Esc in the search box | Clears the box; already empty → hides the window to the tray |
 | Any other close reason — Windows shutting down, the Task Manager, a `WM_CLOSE` sent by another process | Ends the app, never blocked |
 
 - The tray icon shows the **last emoji used**, every launch starting on 😊 — **never persisted**.
@@ -52,6 +54,31 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   the notification area are skipped, since a click on the tray icon goes through them. It is brought
   back to the foreground **before** the window hides (only the foreground app may hand it over),
   then the emoji is typed with `SendInput` / `KEYEVENTF_UNICODE` — never through the clipboard.
+
+## Search Box
+
+The **search box** sits above the tab strip (`UI/MainForm.cs`); the matching and the ranking live in
+`Data/EmojiSearch.cs` alone.
+
+- **Keywords**: an emoji's name and tags, in **English and French at once**, no setting.
+  `compact.en.json` is the list; `compact.fr.json`, joined by hexcode, only adds keywords. Both are
+  embedded with `WithCulture="false"`: without it the `.en` / `.fr` in their names make MSBuild move
+  them to satellite assemblies, out of the exe.
+- **Matching**: case and diacritics ignored (`é` → `e`, `œ` → `oe`); an emoji is a result when every
+  typed word is **contained** in a word of its keywords.
+- **Ranking**, in tiers: the whole word → its start → anywhere else; then the share of the word
+  covered; then a name before a tag. Several typed words: the worst tier, then the lowest coverage,
+  then the most name matches. Ties keep the catalog order. `caca` → 💩 before 🥜 *cacahuète*.
+- **Every show** clears the box and focuses it (`OnVisibleChanged`). The placeholder is the native
+  cue banner shown while focused (`EM_SETCUEBANNER`): `PlaceholderText` hides on focus, and the box
+  always has it.
+- **Search mode** (non-blank text): the tab strip is `Greyed` (clicks ignored), the grid shows one
+  `Search results` section (`No emoji found` when empty) and raises no `ActiveCategoryChanged`.
+  Emptying the box brings the categories back at their previous scroll position.
+- The ✕ next to the box is exactly as high as it: showing it must not move the tabs.
+- An agent checking the search from a script sends `WM_SETTEXT` / `WM_KEYDOWN` to the box itself,
+  never global keystrokes (`SendKeys`, `SendInput`): the window may not be in front, and the keys
+  would land in another app.
 
 ## Repository Docs
 
