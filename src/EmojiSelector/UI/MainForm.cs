@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using EmojiSelector.Data;
 using EmojiSelector.Input;
@@ -39,6 +40,9 @@ internal sealed class MainForm : Form
 
     // The frequent section shows as many emojis as this many rows of the grid hold.
     private const int FrequentRows = 3;
+
+    // A use count beyond this one shows as "999+": it never overflows its cell.
+    private const int MaxShownCount = 999;
 
     private readonly TrayIcon trayIcon;
     private readonly ContextMenuStrip settingsMenu;
@@ -325,13 +329,16 @@ internal sealed class MainForm : Form
         this.grid.ReplaceCategory(0, this.CreateFrequentCategory());
     }
 
-    // The frequent tab: the emojis used most, from the counters. One the catalog no longer has is left out.
-    private EmojiCategory CreateFrequentCategory() => new(
-        FrequentHeader,
-        FrequentIcon,
-        this.usage.MostUsed().Select(text => this.emojisByText.GetValueOrDefault(text)).OfType<Emoji>().ToList(),
-        FrequentRows,
-        NoFrequentText);
+    // The frequent tab: the emojis used most, from the counters, each with its use count under it. One the catalog no
+    // longer has is left out.
+    private EmojiCategory CreateFrequentCategory()
+    {
+        List<Emoji> emojis = this.usage.MostUsed().Select(text => this.emojisByText.GetValueOrDefault(text)).OfType<Emoji>().ToList();
+        List<string> counts = emojis.Select(emoji => this.usage.CountOf(emoji.Text))
+            .Select(count => count > MaxShownCount ? $"{MaxShownCount}+" : count.ToString(CultureInfo.InvariantCulture))
+            .ToList();
+        return new EmojiCategory(FrequentHeader, FrequentIcon, emojis, FrequentRows, NoFrequentText, counts);
+    }
 
     // A clicked emoji goes into the window that was in front before this one, then the window hides to the tray,
     // like Win+;. The previous window is brought back while this app is still in front: only the foreground app may

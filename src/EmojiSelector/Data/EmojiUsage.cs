@@ -56,11 +56,13 @@ internal sealed partial class EmojiUsage
         .Select(entry => entry.Key)
         .ToList();
 
+    /// <summary>The number of uses of <paramref name="emoji"/>, 0 when never used.</summary>
+    public int CountOf(string emoji) => this.entries.TryGetValue(emoji, out Entry? entry) ? entry.Count : 0;
+
     /// <summary>One more use of <paramref name="emoji"/>, saved.</summary>
     public void Record(string emoji)
     {
-        int count = this.entries.TryGetValue(emoji, out Entry? entry) ? entry.Count : 0;
-        this.entries[emoji] = new Entry(count + 1, DateTime.UtcNow);
+        this.entries[emoji] = new Entry(this.CountOf(emoji) + 1, DateTime.UtcNow);
         this.Save();
     }
 

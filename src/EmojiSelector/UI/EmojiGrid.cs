@@ -23,6 +23,10 @@ internal sealed class EmojiGrid : Control
     private const int LogicalHeaderHeight = 32;
     private const int LogicalPadding = 8;
 
+    // A captioned emoji's distance from the top of its cell, and its caption's font size in points.
+    private const int LogicalCaptionedEmojiTop = 1;
+    private const float CaptionFontSize = 6.75F;
+
     // One notch of the mouse wheel scrolls this many rows.
     private const int RowsPerWheelNotch = 2;
 
@@ -42,6 +46,7 @@ internal sealed class EmojiGrid : Control
 
     private EmojiGridLayout layout;
     private Font headerFont;
+    private Font captionFont;
     private (int Section, int Index)? hovered;
     private int activeCategory;
 
@@ -58,6 +63,7 @@ internal sealed class EmojiGrid : Control
         this.SetStyle(ControlStyles.Selectable, false);
         this.BackColor = SystemColors.Window;
         this.headerFont = new Font(this.Font, FontStyle.Bold);
+        this.captionFont = new Font(this.Font.FontFamily, CaptionFontSize);
         this.scrollBar.ValueChanged += (_, _) => this.OnScrolled();
         this.Controls.Add(this.scrollBar);
         this.layout = this.CreateLayout();
@@ -181,7 +187,20 @@ internal sealed class EmojiGrid : Control
                 graphics.FillRectangle(brush, Rectangle.Inflate(cell, -1, -1));
             }
 
-            graphics.DrawImage(bitmap, cell.X + (cell.Width - emojiSize) / 2, cell.Y + (cell.Height - emojiSize) / 2, emojiSize, emojiSize);
+            // A captioned emoji sits at the top of its cell, its caption in the band left below it.
+            int emojiX = cell.X + (cell.Width - emojiSize) / 2;
+            if (this.sections[section].Captions is IReadOnlyList<string> captions)
+            {
+                int emojiY = cell.Y + this.LogicalToDeviceUnits(LogicalCaptionedEmojiTop);
+                graphics.DrawImage(bitmap, emojiX, emojiY, emojiSize, emojiSize);
+                var caption = new Rectangle(cell.X, emojiY + emojiSize, cell.Width, cell.Bottom - emojiY - emojiSize);
+                TextRenderer.DrawText(graphics, captions[index], this.captionFont, caption, SystemColors.GrayText,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
+            }
+            else
+            {
+                graphics.DrawImage(bitmap, emojiX, cell.Y + (cell.Height - emojiSize) / 2, emojiSize, emojiSize);
+            }
         }
     }
 
@@ -212,6 +231,9 @@ internal sealed class EmojiGrid : Control
         Font previous = this.headerFont;
         this.headerFont = new Font(this.Font, FontStyle.Bold);
         previous.Dispose();
+        Font previousCaption = this.captionFont;
+        this.captionFont = new Font(this.Font.FontFamily, CaptionFontSize);
+        previousCaption.Dispose();
         this.Invalidate();
     }
 
@@ -249,6 +271,7 @@ internal sealed class EmojiGrid : Control
             this.bitmaps.Dispose();
             this.toolTip.Dispose();
             this.headerFont.Dispose();
+            this.captionFont.Dispose();
         }
 
         base.Dispose(disposing);
