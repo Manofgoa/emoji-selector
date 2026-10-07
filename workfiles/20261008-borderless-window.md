@@ -259,6 +259,15 @@ No project rule broken. Choices the frozen design did not state:
   same time, so the run stopped simulating input. The menu is left to the hand test. One scripted
   click went astray before the window was up, at the screen's left edge (0, 84).
 
+### Iteration 7 — 2026-10-08 — ⚙️ Post-implementation — Settings menu never opening
+
+Reported by the user after the merge into `main`: the gear's menu never shows. Cause: the time the
+menu last closed under a press on the gear started at `long.MinValue`, and
+`Environment.TickCount64 - long.MinValue` overflows to a negative number — always below 250 ms, so
+every press on the gear was taken for the press closing the menu, and ignored. Fix: the field becomes
+a `long?`, null until such a closing; a null time never matches. The design is unchanged. Fixed
+directly on `main` (user's choice).
+
 ---
 
 ## Implementation Log
@@ -268,7 +277,7 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | 5, 6 | 2026-10-08 | Frame (`WindowFrame`, `MainForm`), close cross and drag area, settings button and menu — three commits |
+| Code | 5, 6, 7 | 2026-10-08 | Frame (`WindowFrame`, `MainForm`), close cross and drag area, settings button and menu — three commits; the menu-never-opening fix on `main` (iteration 7) |
 | Unit tests | 5 | 2026-10-08 | None, as designed (Q&A 7): no test project |
 | README | 5 | 2026-10-08 | `README.md` + `README.fr.md`: second title, tray icon, a *Window* feature line |
 | RULES | 5 | 2026-10-08 | § Command-Line Arguments, § Window and Tray Icon (table + new § Frame), § Shortcut |
