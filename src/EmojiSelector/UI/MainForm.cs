@@ -358,8 +358,8 @@ internal sealed class MainForm : Form
         }
     }
 
-    // The keyboard has two places: the search box, and the grid once a navigation key hands it over — ↓, or any of them
-    // while the box is empty. The grid only takes the focus that way — it is not selectable, a click never focuses it.
+    // The keyboard has two places: the search box, and the grid once a navigation key hands it over — ↓, ← / → at the
+    // text's edge, or any of them while the box is empty. The grid only takes the focus that way — it is not selectable, a click never focuses it.
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
         if (this.grid.Focused)
@@ -398,6 +398,23 @@ internal sealed class MainForm : Form
                 return true;
             }
 
+            // With text, a plain ← / → at its edge — the caret at its start / end, no text selected — has nowhere left to
+            // go in the box: it acts as in the grid, from the selection, and hands the keyboard over — even when the
+            // selection cannot move. No result: nothing to select, the keyboard stays in the box.
+            bool atEdge = this.searchBox.SelectionLength == 0
+                && (keyData == Keys.Left && this.searchBox.SelectionStart == 0
+                    || keyData == Keys.Right && this.searchBox.SelectionStart == this.searchBox.TextLength);
+            if (atEdge)
+            {
+                if (this.grid.SelectedEmoji is not null)
+                {
+                    this.grid.MoveSelection(keyData);
+                    this.grid.Focus();
+                }
+
+                return true;
+            }
+
             switch (keyData)
             {
                 // No result: nothing to select, the keyboard stays in the box.
@@ -410,7 +427,7 @@ internal sealed class MainForm : Form
 
                     return true;
 
-                // With text in the box, only ↓ leaves it.
+                // With text in the box, only ↓ — and ← / → at the text's edge — leave it.
                 case Keys.PageUp or Keys.PageDown or Keys.Tab or (Keys.Shift | Keys.Tab):
                     return true;
             }
