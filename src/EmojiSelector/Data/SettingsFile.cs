@@ -8,8 +8,8 @@ namespace EmojiSelector.Data;
 
 /// <summary>
 /// The app's settings, in <see cref="FileName"/> next to the exe: the size the user resized the window to, its client
-/// area in logical pixels (96 DPI), the emoji the user chose for the tray icon, whether the frequent tab is shown, and
-/// the details panel's French row and highlight colour.
+/// area in logical pixels (96 DPI), the window's opacity, the emoji the user chose for the tray icon, whether the
+/// frequent tab is shown, and the details panel's French row and highlight colour.
 /// A write keeps the keys it does not know, should later settings add some.
 /// </summary>
 /// <remarks>
@@ -29,6 +29,7 @@ internal static class SettingsFile
     private const string ShowFrequentKey = "showFrequent";
     private const string ShowFrenchKey = "showFrench";
     private const string HighlightColorKey = "highlightColor";
+    private const string OpacityKey = "opacity";
 
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, FileName);
 
@@ -115,6 +116,18 @@ internal static class SettingsFile
     {
         JsonObject settings = Read() ?? [];
         settings[HighlightColorKey] = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+        Write(settings);
+    }
+
+    /// <summary>The window's opacity, percent, as saved — any integer; null when there is none, or none that can be read.</summary>
+    public static int? ReadOpacity() =>
+        Read()?[OpacityKey] is JsonValue value && value.TryGetValue(out int percent) ? percent : null;
+
+    /// <summary>Saves the window's opacity, percent.</summary>
+    public static void WriteOpacity(int percent)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[OpacityKey] = percent;
         Write(settings);
     }
 
