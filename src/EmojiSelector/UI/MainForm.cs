@@ -29,6 +29,9 @@ internal sealed class MainForm : Form
     private const int DefaultColumns = 16;
     private const int DefaultRows = 8;
 
+    // The window's minimum height, the details panel's height added, in logical pixels.
+    private const int LogicalMinimumHeight = 240;
+
     public const string OpenAppFolderText = "Open app folder";
 
     public const string ResetWindowSizeText = "Reset window size";
@@ -38,6 +41,10 @@ internal sealed class MainForm : Form
     public const string HideFrequentText = "Hide frequently used";
 
     public const string ClearFrequentText = "Clear frequently used";
+
+    public const string ShowFrenchText = "Show French names";
+
+    public const string HighlightColorText = "Highlight color…";
 
     public const string ClearFrequentQuestion =
         "Clear the frequently used emojis? Their counts are deleted and cannot be brought back.";
@@ -104,6 +111,7 @@ internal sealed class MainForm : Form
     private readonly Button clearButton;
     private readonly CategoryTabStrip tabStrip;
     private readonly EmojiGrid grid;
+    private readonly EmojiDetailsPanel detailsPanel;
     private readonly EmojiUsage usage = EmojiUsage.Load();
     private readonly CustomGroups customGroups = CustomGroups.Load();
 
@@ -145,8 +153,8 @@ internal sealed class MainForm : Form
         this.MinimizeBox = false;
         this.MaximizeBox = false;
 
-        // The search box on top, the tabs below it, the grid filling the rest. Docking runs from the last control
-        // added: the search bar first, then the strip.
+        // The search box on top, the tabs below it, the details panel at the bottom, the grid filling the rest. Docking
+        // runs from the last control added: the search bar first, then the strip, then the panel.
         // The frequent tab first, the custom tab next, then the catalog's — the first two while shown. The search box
         // searches the catalog's only: the frequent section and the custom groups would give their emojis twice.
         this.categories = EmojiCatalog.Load();
@@ -162,13 +170,21 @@ internal sealed class MainForm : Form
         {
             Dock = DockStyle.Top,
         };
+        this.detailsPanel = new EmojiDetailsPanel(this.categories.SelectMany(category => category.Emojis).ToList())
+        {
+            Dock = DockStyle.Bottom,
+            ShowFrench = SettingsFile.ReadShowFrench(),
+            HighlightColor = SettingsFile.ReadHighlightColor() ?? EmojiDetailsPanel.DefaultHighlightColor,
+        };
 
-        // Never narrower than the tab strip needs, its side resize borders added.
-        this.MinimumSize = new Size(this.tabStrip.LogicalMinimumWidth + 2 * LogicalSideBorder, 240);
+        // Never narrower than the tab strip needs, its side resize borders added. Never lower than the details panel
+        // needs, room left for the grid: see UpdateMinimumHeight.
+        this.MinimumSize = new Size(this.tabStrip.LogicalMinimumWidth + 2 * LogicalSideBorder, LogicalMinimumHeight);
         this.searchBox = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right };
         this.clearButton = new Button { Text = "✕", Visible = false, TabStop = false, FlatStyle = FlatStyle.Flat };
         this.clearButton.FlatAppearance.BorderSize = 0;
         this.Controls.Add(this.grid);
+        this.Controls.Add(this.detailsPanel);
         this.Controls.Add(this.tabStrip);
         this.searchBar = this.CreateSearchBar();
         this.Controls.Add(this.searchBar);
@@ -187,6 +203,8 @@ internal sealed class MainForm : Form
         this.tabStrip.SettingsClicked += (_, bounds) =>
             this.settingsMenu.Show(this.tabStrip, new Point(bounds.Right, bounds.Bottom), ToolStripDropDownDirection.BelowLeft);
         this.grid.ActiveCategoryChanged += (_, _) => this.tabStrip.ActiveTab = this.TabOf(this.grid.ActiveCategory);
+        this.grid.SelectedEmojiChanged += (_, _) => this.detailsPanel.ShownEmoji = this.grid.SelectedEmoji;
+        this.detailsPanel.SizeChanged += (_, _) => this.UpdateMinimumHeight();
         this.grid.EmojiClicked += (_, emoji) => this.InsertEmoji(emoji);
         this.grid.EmojiRightClicked += (_, click) => this.ShowEmojiMenu(click);
         this.grid.SectionMenuClicked += (_, request) => this.ShowSectionMenu(request);
@@ -323,6 +341,15 @@ internal sealed class MainForm : Form
         base.OnLoad(e);
     }
 
+    // The details panel's height follows the width, set before the docking places the controls: set during it, the
+    // grid would keep the space of the panel's previous height.
+    protected override void OnLayout(LayoutEventArgs levent)
+    {
+        // Null while the base constructor runs.
+        this.detailsPanel?.FitHeight(this.ClientSize.Width);
+        base.OnLayout(levent);
+    }
+
     protected override void OnResizeBegin(EventArgs e)
     {
         base.OnResizeBegin(e);
@@ -405,13 +432,24 @@ internal sealed class MainForm : Form
     }
 
     // The client size showing the grid DefaultColumns wide and DefaultRows high, the search bar and the tab strip above
-    // it — device pixels, at the current DPI.
+    // it, the details panel below it — device pixels, at the current DPI.
     private Size DefaultClientSize()
     {
         // The search bar's preferred height: before the first show, its AutoSize may not have applied yet.
         Size grid = this.grid.SizeFor(DefaultColumns, DefaultRows);
         int searchBarHeight = this.searchBar.GetPreferredSize(new Size(grid.Width, 0)).Height;
-        return new Size(grid.Width, searchBarHeight + this.tabStrip.Height + grid.Height);
+        return new Size(grid.Width, searchBarHeight + this.tabStrip.Height + grid.Height + this.detailsPanel.HeightFor(grid.Width));
+    }
+
+    // The details panel's height follows the window's width: the window's minimum height follows it — device pixels,
+    // the form is already scaled to its DPI once its handle exists.
+    private void UpdateMinimumHeight()
+    {
+        if (this.IsHandleCreated)
+        {
+            this.MinimumSize = new Size(this.MinimumSize.Width,
+                this.LogicalToDeviceUnits(LogicalMinimumHeight) + this.detailsPanel.Height);
+        }
     }
 
     // The client size in logical pixels (96 DPI): reloaded on a monitor of another scale, it holds as many emojis.
@@ -445,16 +483,43 @@ internal sealed class MainForm : Form
         showFrequentItem.Click += (_, _) => this.SetShowFrequent(!this.showFrequent);
         menu.Items.Add(showFrequentItem);
         ToolStripItem clearFrequent = menu.Items.Add(ClearFrequentText, image: null, (_, _) => this.ClearFrequent());
+        var showFrenchItem = new ToolStripMenuItem(ShowFrenchText);
+        showFrenchItem.Click += (_, _) => this.SetShowFrench(!this.detailsPanel.ShowFrench);
+        menu.Items.Add(showFrenchItem);
+        menu.Items.Add(HighlightColorText, image: null, (_, _) => this.ChooseHighlightColor());
         // Hidden, the frequent tab still counts: its counters can still be cleared.
         menu.Opening += (_, _) =>
         {
             this.FillShowGroups(showGroups);
             showFrequentItem.Checked = this.showFrequent;
             clearFrequent.Enabled = !this.usage.IsEmpty;
+            showFrenchItem.Checked = this.detailsPanel.ShowFrench;
         };
         menu.Opened += (_, _) => this.tabStrip.SettingsMenuOpen = true;
         menu.Closed += (_, _) => this.tabStrip.SettingsMenuOpen = false;
         return menu;
+    }
+
+    // The details panel's French row hidden or shown again, from the settings menu; saved.
+    private void SetShowFrench(bool show)
+    {
+        if (show != this.detailsPanel.ShowFrench)
+        {
+            this.detailsPanel.ShowFrench = show;
+            SettingsFile.WriteShowFrench(show);
+        }
+    }
+
+    // The colour highlighting the search's matches in the details panel, picked in Windows' colour dialog; saved once
+    // changed.
+    private void ChooseHighlightColor()
+    {
+        using var dialog = new ColorDialog { Color = this.detailsPanel.HighlightColor, FullOpen = true };
+        if (dialog.ShowDialog(this) == DialogResult.OK && dialog.Color.ToArgb() != this.detailsPanel.HighlightColor.ToArgb())
+        {
+            this.detailsPanel.HighlightColor = dialog.Color;
+            SettingsFile.WriteHighlightColor(dialog.Color);
+        }
     }
 
     // Back to the default size right away, its top-left corner where it is, and at the next launch too: the saved size
@@ -604,6 +669,7 @@ internal sealed class MainForm : Form
     {
         string text = this.searchBox.Text;
         this.clearButton.Visible = text.Length > 0;
+        this.detailsPanel.SearchText = text;
         if (string.IsNullOrWhiteSpace(text))
         {
             this.grid.ShowCategories();
