@@ -37,6 +37,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Open app folder` | Opens the exe's folder in the File Explorer, the exe selected; the window stays |
 | Settings button ⚙ → `Start with Windows` | Checked while Windows starts this exe at sign-in: a click writes or deletes the **startup shortcut** (see *Start with Windows* below); the window stays |
 | Settings button ⚙ → `Check for emoji updates…` | The latest Emojibase version online; a newer one offered, downloaded, then a restart offered (see *Emoji Data* below) |
+| Settings button ⚙ → `Reset all settings…` | After a confirmation, every file the app wrote deleted, then a restart (see *Reset All Settings* below) |
 | Tray icon, left click | Hidden → shown in the **corner** of the mouse's monitor (see *Corner* below); covered by another window → brought to the front, not moved; already in front → hidden |
 | Tray icon, right click → `Exit` | Ends the app |
 | Win+; or Win+. — or an app's "Emoji — Windows+Period" menu entry that sends it | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
@@ -79,7 +80,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   lines and **untitled** (`MainForm.CreateSettingsMenu`): *frequently used* (`Show frequently used`,
   `Clear frequently used`), *custom groups* (`New group…`, `Show groups ▸`), *details panel* (`Show
   French names`, `Highlight color…`), *window* (`Reset window size`), *app* (`Open app folder`,
-  `Start with Windows`, `Check for emoji updates…`). A new item joins the section of its feature; the labels say their
+  `Start with Windows`, `Check for emoji updates…`, `Reset all settings…`). A new item joins the section of its feature; the labels say their
   subject on their own.
 - A **colour item** shows the colour in use as its image (`MainForm.SetSwatch`): a rounded square of
   16 logical pixels, outlined in `SystemColors.ControlDark`, drawn again at each opening of the menu
@@ -281,8 +282,8 @@ recreates it.
 - **A new list** changes the pre-render cache's key (the emoji list is in it): rendered again, no
   `FormatVersion` bump. Counters, custom groups and the tray emoji are kept by the emoji's text: an
   emoji the new list no longer has stays in their files and is not shown.
-- **`Check for emoji updates…`**, last in the settings menu, in its *app* section after `Open app
-  folder` (`MainForm.CheckEmojiUpdatesAsync`, `Data/EmojiDataUpdate.cs`): the app's **only network access**,
+- **`Check for emoji updates…`**, in the settings menu's *app* section, after `Start with Windows`
+  (`MainForm.CheckEmojiUpdatesAsync`, `Data/EmojiDataUpdate.cs`): the app's **only network access**,
   on that click only — no check at launch, no setting. The item is greyed while it runs; one
   `HttpClient`, 15 s timeout.
   1. The latest version: `https://registry.npmjs.org/emojibase-data/latest`'s `version` (never a
@@ -296,10 +297,42 @@ recreates it.
      data`, the folder left as it was.
   5. `Restart now to use it?`, Yes / No, *Yes* the default: Yes → the exe started again
      (`MainForm.Restart`), the same arguments, `--title` included, `--background` left out — the
-     single instance released first (see *Start with Windows*); No → used at the next launch.
+     single instance released first (see *Start with Windows*); No → used at the next launch. A
+     failed restart → `Could not restart the app`, a warning, the app kept running.
 - An agent checking the update cannot click the settings button from a script (custom-drawn, no
   accessibility): the network and the validation are checked by calling `EmojiDataUpdate` and
   `EmojiDataFolder.Parse` by reflection on the built dll.
+
+## Reset All Settings
+
+**`Reset all settings…`**, last in the settings menu, in its *app* section after `Check for emoji
+updates…` (`MainForm.ResetAllSettings`, `Data/AppReset.cs`), puts the app back to its first launch.
+Always enabled.
+
+- **Confirmation**: Yes / No, **No the default**, the warning icon, listing what is lost — the custom
+  groups, the counters, the window size, the tray emoji and the details panel's settings, Start with
+  Windows, the downloaded emoji data (back to the **embedded** version, named:
+  `EmojiDataFolder.EmbeddedVersion`), the image cache — and saying the app restarts.
+- **What is deleted** (`AppReset.DeleteAll`), next to the exe: `settings.json`, `usage.json`,
+  `custom-groups.json` and their temporary files (`TemporaryFileName`), the whole `cache\` and
+  `emoji-data\` folders; in the Startup folder, the **startup shortcut** and the Task Manager's value —
+  **only when the shortcut targets this exe**, disabled or not (`StartupShortcut.DisableForThisExe`): a
+  shortcut to another copy of the app is left alone. Nothing else, never the exe's folder itself.
+- **Each name comes from its owner's constant** (`FileName`, `TemporaryFileName`, `FolderName`): a
+  new file the app writes next to the exe gets its row in `AppReset`, or the reset leaves it behind.
+- **Order**:
+  1. The disk cache stops being written (`EmojiGrid.StopCacheWriting` → `EmojiBitmapCache.StopWriting`),
+     waiting for a write under way: the pre-render would put an atlas back. The bitmaps stay shown.
+  2. Every item deleted, each one attempted even when another failed; a missing one is not an error.
+     Any failure → `Some files could not be deleted:`, one line per item with its reason, a warning —
+     then the restart anyway.
+  3. The restart (`MainForm.Restart`), as after an emoji update; no question. A failed restart →
+     `The settings were reset. Start the app again to finish.`, a warning, then the app **exits**:
+     kept running, it would write its old settings back from memory on the next action.
+- An agent checking the reset cannot click the settings button: the deletion is checked by calling
+  `AppReset` by reflection on the dll of a **copy** of the build folder, never the user's own, after
+  `AppContext.SetData("APP_CONTEXT_BASE_DIRECTORY", <copy>)` — without it the host's folder is the
+  one emptied. The startup shortcut then targets the host (`pwsh.exe`), and is deleted at the end.
 
 ## Frequent Tab
 
