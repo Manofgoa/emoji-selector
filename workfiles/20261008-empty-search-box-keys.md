@@ -25,10 +25,13 @@ Components: `UI/MainForm.cs` (`ProcessCmdKey`, the search box branch), `UI/Emoji
 
 ### Agreed
 
-- **When**: the search box has the keyboard and is **empty** (`TextLength == 0`).
+- **When**: the search box has the keyboard and is **empty** (`TextLength == 0`) — a box holding only
+  spaces is **not** empty: ← / → still have a caret to move there.
 - **The keyboard moves to the grid**, then the key applies there, exactly as `EmojiGrid.MoveSelection`
   applies it when the grid has the keyboard. From then on, the grid's rules hold: a character or
   Backspace sends the keyboard back to the box, ↑ on the first row too.
+- **Even when the key moves nothing** — ← on the grid's first emoji, Home on the first emoji of its
+  category: the selection stays, the keyboard is in the grid (a letter brings it back to the box).
 - **From the current selection** — the first emoji after a show, but the one the mouse moved it to if
   it moved. Not forced back to the first emoji.
 - **↓ changes**: in the empty box it goes **one row down** from the selection, like in the grid —
@@ -52,6 +55,8 @@ Components: `UI/MainForm.cs` (`ProcessCmdKey`, the search box branch), `UI/Emoji
   and the grid gets the keyboard.
 - Not navigation keys, unchanged: Enter (inserts the selection, as today), Esc (hides the window when
   the box is empty, as today), Shift+arrows, Ctrl+← / → and the other text-editing keys.
+- **Menu key / Shift+F10** keep the box's own menu (Cut, Copy, Paste…), as today: Paste is useful in
+  an empty box.
 
 ### Box with text
 
@@ -88,14 +93,12 @@ box (RULES.md § Keyboard).
 
 ## Open Questions
 
-- [ ] A box holding **only spaces** (blank, not empty): does it count as empty? Proposal: **no** —
-  only a box with no character at all; in spaces, ← / → still have a caret to move.
-- [ ] A key that moves nothing — ← on the grid's first emoji, Home on the first emoji of its
-  category: does the keyboard still go to the grid? Proposal: **yes**, as if the grid had it (the
-  selection stays, the keyboard is in the grid; a letter brings it back to the box).
-- [ ] **Menu key / Shift+F10** in the empty box: the box's own menu (Paste…) as today, or the
-  selection's right-click menu like in the grid? Proposal: **the box's menu**, unchanged — Paste is
-  useful in an empty box.
+- [x] ~~A box holding **only spaces** (blank, not empty): does it count as empty?~~ → No: only a box
+  with no character at all.
+- [x] ~~A key that moves nothing — ← on the grid's first emoji, Home on the first emoji of its
+  category: does the keyboard still go to the grid?~~ → Yes, as if the grid had it.
+- [x] ~~**Menu key / Shift+F10** in the empty box: the box's own menu or the selection's?~~ → The
+  box's menu, unchanged.
 
 ---
 
@@ -107,6 +110,11 @@ Initial design from the request and the scoping answers: in an empty search box,
 move the keyboard to the grid and apply from the current selection; ↓ goes one row down there instead
 of resetting to the first emoji. A box with text is unchanged. No test project: the Test Impact table
 is empty on purpose.
+
+### Iteration 2 — 2026-10-08
+
+The three open questions answered: a box of spaces is not empty; a key that moves nothing still sends
+the keyboard to the grid; the Menu key / Shift+F10 keep the box's menu. No question left.
 
 ---
 
@@ -129,9 +137,9 @@ is empty on purpose.
 | 2 | From which emoji does the key apply? | The current selection (may have been moved by the mouse) | 2026-10-08 |
 | 3 | ↓ in the empty box: unchanged (first emoji) or one row down? | One row down, like in the grid | 2026-10-08 |
 | 4 | Is the subject straightforward or tricky? | Straightforward — a single exploration pass | 2026-10-08 |
-| 5 | A box holding only spaces counts as empty? | | |
-| 6 | A key that moves nothing still sends the keyboard to the grid? | | |
-| 7 | Menu key / Shift+F10 in the empty box: the box's menu or the selection's? | | |
+| 5 | A box holding only spaces counts as empty? | No — empty means no character | 2026-10-08 |
+| 6 | A key that moves nothing still sends the keyboard to the grid? | Yes | 2026-10-08 |
+| 7 | Menu key / Shift+F10 in the empty box: the box's menu or the selection's? | The box's menu, unchanged | 2026-10-08 |
 
 ---
 
