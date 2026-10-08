@@ -66,6 +66,84 @@ internal static class EmojiSearch
     /// <summary>The normalized words of <paramref name="text"/>: <c>Tête de chat</c> → <c>tete</c>, <c>de</c>, <c>chat</c>.</summary>
     public static string[] Words(string text) => Normalize(text).Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
+    /// <summary>
+    /// The parts of <paramref name="raw"/> — a name, tags — matched by the words of <paramref name="text"/>, as the
+    /// search matches them: every occurrence of every typed word inside a word, case and diacritics ignored. Positions
+    /// in <paramref name="raw"/> as written, overlapping matches merged, in order; none for a blank text.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="raw"/> is normalized one character at a time, each normalized character remembering the raw
+    /// characters it stands for: <c>œ</c> gives two (<c>oe</c>), so a match on either covers the whole <c>œ</c>; a
+    /// combining mark gives none and joins the character before it.
+    /// </remarks>
+    public static IReadOnlyList<(int Start, int Length)> MatchSpans(string raw, string text)
+    {
+        string[] typed = Words(text);
+        if (typed.Length == 0)
+        {
+            return [];
+        }
+
+        var normalized = new StringBuilder(raw.Length);
+        var starts = new List<int>(raw.Length);
+        var ends = new List<int>(raw.Length);
+        for (int index = 0; index < raw.Length;)
+        {
+            int length = char.IsSurrogatePair(raw, index) ? 2 : 1;
+            string part = Normalize(raw.Substring(index, length));
+            normalized.Append(part);
+            for (int i = 0; i < part.Length; i++)
+            {
+                starts.Add(index);
+                ends.Add(index + length);
+            }
+
+            if (part.Length == 0 && ends.Count > 0)
+            {
+                ends[^1] = index + length;
+            }
+
+            index += length;
+        }
+
+        string searched = normalized.ToString();
+        var spans = new List<(int Start, int End)>();
+        foreach (string word in typed)
+        {
+            for (int at = searched.IndexOf(word, StringComparison.Ordinal); at >= 0;
+                at = searched.IndexOf(word, at + 1, StringComparison.Ordinal))
+            {
+                spans.Add((starts[at], ends[at + word.Length - 1]));
+            }
+        }
+
+        spans.Sort();
+        var merged = new List<(int Start, int Length)>();
+        int mergedStart = -1;
+        int mergedEnd = -1;
+        foreach ((int start, int end) in spans)
+        {
+            if (start > mergedEnd)
+            {
+                if (mergedStart >= 0)
+                {
+                    merged.Add((mergedStart, mergedEnd - mergedStart));
+                }
+
+                mergedStart = start;
+            }
+
+            mergedEnd = Math.Max(mergedEnd, end);
+        }
+
+        if (mergedStart >= 0)
+        {
+            merged.Add((mergedStart, mergedEnd - mergedStart));
+        }
+
+        return merged;
+    }
+
     // Null when a typed word matches none of the emoji's keyword words.
     private static Rank? RankOf(Emoji emoji, string[] typed)
     {
