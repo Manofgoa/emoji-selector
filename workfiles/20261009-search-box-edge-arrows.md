@@ -124,6 +124,13 @@ in the grid, from the selection: one row down, the grid getting the keyboard eve
 cannot move; no result → stays in the box. It joins the edge arrows' branch in `ProcessCmdKey`.
 Revises the ↓ row of `20261008-empty-search-box-keys.md` / RULES.md § Keyboard.
 
+### Iteration 5 — 2026-10-09 — 🧭 Implementation choices
+
+No divergent choice: ↓ with text joins the edge arrows' branch (`atEdge || keyData == Keys.Down`),
+the old `case Keys.Down` (`ResetToTop`) removed, the leftover `switch` turned into an `if`. Checked on
+the built app — 21 checks passed, the 16 earlier ones plus: ↓ with text hands the keyboard over, a
+first ↑ stays in the grid (↓ went one row down), a second comes back; ↓ with no result stays.
+
 ---
 
 ## Implementation Log
@@ -133,10 +140,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | 2 | 2026-10-09 | `MainForm.ProcessCmdKey`, checked on the built app (Iteration 3) |
-| Unit tests | 2 | 2026-10-09 | Does not apply: no test project — see *Test Impact* |
-| README | 2 | 2026-10-09 | `README.md` and `README.fr.md` § Keyboard |
-| RULES.md | 2 | 2026-10-09 | § Keyboard: the intro, a new row, *The text's edge* note |
+| Code | 2, 4 | 2026-10-09 | `MainForm.ProcessCmdKey`, checked on the built app (Iterations 3, 5) |
+| Unit tests | 2, 4 | 2026-10-09 | Does not apply: no test project — see *Test Impact* |
+| README | 2, 4 | 2026-10-09 | `README.md` and `README.fr.md` § Keyboard |
+| RULES.md | 2, 4 | 2026-10-09 | § Keyboard: the intro, a new row, *The text's edge* note; the ↓ row (Iteration 4) |
 
 ---
 
