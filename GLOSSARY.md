@@ -18,4 +18,4 @@ each.
 | Custom tab (*onglet personnalisé*) | The second tab, a heart, right after *Frequently used*: it holds every **custom group** |
 | Custom group (*groupe personnalisé*) | A list of emojis the user keeps at hand: created and named by the user, filled by right click, ordered as the user wants; one section of the custom tab each, kept in `custom-groups.json` next to the exe |
 | Frequent (*fréquent*) | An emoji counted by its uses — each use adds 1 to its counter, kept in `usage.json` next to the exe; the most used are shown in the first tab, *Frequently used* |
-| Tray icon (*icône de notification*) | The app's icon in the notification area, shown as long as the app runs; it shows the last emoji used |
+| Tray icon (*icône de notification*) | The app's icon in the notification area, shown as long as the app runs; it shows the emoji the user chose, 🙂 by default |
