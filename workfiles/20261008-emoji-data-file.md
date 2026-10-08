@@ -153,6 +153,11 @@ or updated. The checks are manual, in the running app:
 - Exploration: the pre-render cache key already follows the emoji list; `SECURITY.md` states the app never connects to
   a network — to be rewritten; no test project.
 
+### Iteration 2 — 2026-10-08 — ✅ Implemented
+
+- Go given: code, tests and documentation, in a worktree (`.claude/worktrees/emoji-data-file`, branch
+  `feature/emoji-data-file`). The design above is frozen as the scope.
+
 ---
 
 ## Implementation Log
