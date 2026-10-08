@@ -33,13 +33,17 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Tray icon, right click → `Exit` | Ends the app |
 | Win+; | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
 | Emoji clicked in the grid — not one of the group in reorder mode | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below); its use counted (see *Frequent Tab* below) |
-| Emoji right-clicked in the grid | Its menu: `Add to ▸` the custom groups, `Remove` in a group (see *Custom Tab* below) |
+| Emoji right-clicked in the grid | Its menu: `Use as tray icon`, then `Add to ▸` the custom groups, `Remove` in a group (see *Custom Tab* below) |
 | Enter, in the search box or the grid | Inserts the **selection**, like a click on it (see *Keyboard* below) — never an emoji of the group in reorder mode |
 | Esc, in the search box or the grid | Ends the reorder mode; otherwise clears the box; already empty → hides the window to the tray |
 | Any other close reason — Windows shutting down, the Task Manager, a `WM_CLOSE` sent by another process | Ends the app, never blocked |
 
-- The tray icon shows the **last emoji used**, every launch starting on 😊 — **never persisted**.
-  `MainForm.OnEmojiUsed` is the one place telling it an emoji was used.
+- The tray icon shows the **emoji the user chose**, 🙂 by default (`TrayIcon.DefaultEmoji`): using an
+  emoji never changes it. **`Use as tray icon`**, first in an emoji's right-click menu in any section,
+  a separator after it, **checked** on the emoji the icon shows: a click shows it at once and saves
+  it as `trayEmoji` in `settings.json` (see *Size* below) — the default 🙂 included, there is no
+  reset; the window stays. Reloaded at launch; an emoji the catalog does not have shows 🙂, its key
+  left as it is until the next choice.
 - Emojis are drawn **in colour** by `Drawing/EmojiRenderer.cs` (Direct2D + DirectWrite): GDI and
   GDI+ draw Segoe UI Emoji in monochrome.
 - The tooltip is the window's title, second title included. A hidden window has no taskbar button.
@@ -79,8 +83,8 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   in place of the default. Not at exit: Windows shutting down or the Task Manager may end the app
   without running its code. A move, or a drag to a monitor of another scale, saves nothing.
 - `settings.json` is the app's **shared settings file** (`Data/SettingsFile.cs`): `{ "windowWidth":
-  …, "windowHeight": … }` for now; a write keeps the keys it does not know. Written through
-  `settings.json.new` then a replace.
+  …, "windowHeight": …, "trayEmoji": … }`; a write keeps the keys it does not know. Written through
+  `settings.json.new` then a replace, the emojis as themselves (`EmojiUsage.ReadableEmojis`).
 - **The size only**: the position is never saved — centred at launch, Win+; places it anyway.
 - Missing, unreadable or invalid file, a folder that cannot be written → the default size, never an
   error. A size larger than the working area of the monitor is reduced to fit it; `MinimumSize` wins
@@ -200,7 +204,8 @@ section reading `Create a group from ⚙ → New group…`.
 - **New group…** (settings menu): `UI/GroupNameDialog.cs` asks for the name — trimmed, *OK* greyed
   while blank, duplicates allowed, no length limit. The group comes last; the grid scrolls to it
   unless a search is shown.
-- **Right click** on an emoji, in any section — search results included: `Add to ▸` lists every
+- **Right click** on an emoji, in any section — search results included: after `Use as tray icon`
+  (see *Window and Tray Icon*), `Add to ▸` lists every
   group, the ones holding the emoji **checked**; a click adds it at the end of the group, or takes
   it out when checked. Greyed while there is no group. In a group's section, `Remove` takes it out
   of that group. The menus are built for one show (`MainForm.ShowOnce`).
