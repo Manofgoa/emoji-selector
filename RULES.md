@@ -549,7 +549,7 @@ routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
 |---|---|---|
 | Search box, with text | ← / →, Home / End | The text caret — ← / → at the text's edge aside, next row |
 | Search box, with text | ← with the caret at the start of the text, → at its end — no text selected, no modifier | As in the grid, from the selection, and the grid gets the keyboard — even when the selection cannot move; no result → nothing, the keyboard stays in the box |
-| Search box, with text | ↓ | The grid gets the keyboard, the selection on its first emoji; no result → nothing, the keyboard stays in the box |
+| Search box, with text | ↓ | As in the grid, from the selection — one row down —, and the grid gets the keyboard — even when the selection cannot move; no result → nothing, the keyboard stays in the box |
 | Search box, with text | Page Up / Page Down, Tab / Shift+Tab | Ignored |
 | Search box, empty | ← / →, ↑ / ↓, Home / End, Ctrl+Home / Ctrl+End, Page Up / Page Down, Tab / Shift+Tab | As in the grid, from the selection, and the grid gets the keyboard — even when the selection cannot move. ↑ on the grid's first row → nothing, the keyboard stays in the box |
 | Search box | Menu key, Shift+F10 | The box's own menu (Cut, Copy, Paste…) |
