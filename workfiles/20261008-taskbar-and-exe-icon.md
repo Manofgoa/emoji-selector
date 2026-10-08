@@ -139,6 +139,11 @@ Q&A 5–6: the `app.ico` generation script is committed (`AppIcon/New-AppIcon.ps
 own tools only, reading the committed SVG), and the glossary gets the term **App icon**, in English and in
 French. No open question left.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code, tests and documentation, in a worktree (`.claude/worktrees/taskbar-and-exe-icon`, branch
+`feature/taskbar-and-exe-icon`). The scope is the design sections as they stand at iteration 2.
+
 ---
 
 ## Implementation Log
