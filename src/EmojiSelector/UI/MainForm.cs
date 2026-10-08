@@ -98,6 +98,9 @@ internal sealed class MainForm : Form
     private readonly ContextMenuStrip settingsMenu;
     // The catalog's categories, without the frequent tab.
     private readonly IReadOnlyList<EmojiCategory> categories;
+
+    // The Emojibase version the categories come from.
+    private readonly Version emojiDataVersion;
     private readonly Dictionary<string, Emoji> emojisByText;
     private readonly TableLayoutPanel searchBar;
     private readonly TextBox searchBox;
@@ -149,7 +152,9 @@ internal sealed class MainForm : Form
         // added: the search bar first, then the strip.
         // The frequent tab first, the custom tab next, then the catalog's — the first two while shown. The search box
         // searches the catalog's only: the frequent section and the custom groups would give their emojis twice.
-        this.categories = EmojiCatalog.Load();
+        EmojiDataFolder.EmojiData emojiData = EmojiDataFolder.Load();
+        this.emojiDataVersion = emojiData.Version;
+        this.categories = emojiData.Categories;
         this.emojisByText = this.categories.SelectMany(category => category.Emojis).ToDictionary(emoji => emoji.Text);
         List<EmojiCategory> customSections = this.CreateCustomSections();
         this.customSectionCount = customSections.Count;

@@ -10,11 +10,14 @@
     <RootNamespace>EmojiSelector</RootNamespace>
   </PropertyGroup>
 
-  <!-- The emoji list, by category, and the keywords in English and French: Emojibase's data (MIT), read by Data/EmojiCatalog. -->
+  <!-- The emoji list, by category, and the keywords in English and French: Emojibase's data (MIT), its license and its
+       version. Data/EmojiDataFolder writes this embedded copy to emoji-data\ next to the exe, and falls back on it. -->
   <!-- WithCulture="false": the .en / .fr in the names are not cultures, the data stays in the exe (no satellite assembly). -->
   <ItemGroup>
     <EmbeddedResource Include="Data\Emojibase\compact.en.json" LogicalName="EmojiSelector.Data.Emojibase.compact.en.json" WithCulture="false" />
     <EmbeddedResource Include="Data\Emojibase\compact.fr.json" LogicalName="EmojiSelector.Data.Emojibase.compact.fr.json" WithCulture="false" />
+    <EmbeddedResource Include="Data\Emojibase\LICENSE" LogicalName="EmojiSelector.Data.Emojibase.LICENSE" />
+    <EmbeddedResource Include="Data\Emojibase\version.txt" LogicalName="EmojiSelector.Data.Emojibase.version.txt" />
   </ItemGroup>
 
   <!-- dotnet publish -c Release: one small .exe, precompiled for fast startup; needs the .NET 10 Desktop Runtime. -->
