@@ -493,24 +493,28 @@ internal sealed class MainForm : Form
             Math.Min(clientSize.Height + borders.Height, workingArea.Height));
     }
 
-    // The menu of the tab strip's settings button, shown under it, its right edge on the button's.
+    // The menu of the tab strip's settings button, shown under it, its right edge on the button's. One section per
+    // feature, in the window's order, separated by lines: frequently used, custom groups, details panel, window, app.
     private ContextMenuStrip CreateSettingsMenu()
     {
         var menu = new ContextMenuStrip();
-        menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
-        menu.Items.Add(NewGroupText, image: null, (_, _) => this.NewGroup());
-        var showGroups = new ToolStripMenuItem(ShowGroupsText);
-        menu.Items.Add(showGroups);
-        menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
         var showFrequentItem = new ToolStripMenuItem(ShowFrequentText);
         showFrequentItem.Click += (_, _) => this.SetShowFrequent(!this.showFrequent);
         menu.Items.Add(showFrequentItem);
         ToolStripItem clearFrequent = menu.Items.Add(ClearFrequentText, image: null, (_, _) => this.ClearFrequent());
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(NewGroupText, image: null, (_, _) => this.NewGroup());
+        var showGroups = new ToolStripMenuItem(ShowGroupsText);
+        menu.Items.Add(showGroups);
+        menu.Items.Add(new ToolStripSeparator());
         var showFrenchItem = new ToolStripMenuItem(ShowFrenchText);
         showFrenchItem.Click += (_, _) => this.SetShowFrench(!this.detailsPanel.ShowFrench);
         menu.Items.Add(showFrenchItem);
         menu.Items.Add(HighlightColorText, image: null, (_, _) => this.ChooseHighlightColor());
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
         ToolStripItem checkEmojiUpdates = menu.Items.Add(CheckEmojiUpdatesText, image: null, null);
         checkEmojiUpdates.Click += async (_, _) => await this.CheckEmojiUpdatesAsync(checkEmojiUpdates);
         // Hidden, the frequent tab still counts: its counters can still be cleared.
