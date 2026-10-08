@@ -117,7 +117,7 @@ internal sealed class EmojiGrid : Control
     }
 
     /// <summary>An emoji was clicked — not one of the section in reorder mode.</summary>
-    public event EventHandler<Emoji>? EmojiClicked;
+    public event EventHandler<EmojiClick>? EmojiClicked;
 
     /// <summary>An emoji was right-clicked.</summary>
     public event EventHandler<EmojiRightClick>? EmojiRightClicked;
@@ -678,7 +678,8 @@ internal sealed class EmojiGrid : Control
         this.EndDrag();
     }
 
-    // The emojis of the section in reorder mode are dragged, never inserted.
+    // The emojis of the section in reorder mode are dragged, never inserted. Ctrl alone held: inserted, the window kept
+    // open.
     protected override void OnMouseClick(MouseEventArgs e)
     {
         base.OnMouseClick(e);
@@ -686,7 +687,8 @@ internal sealed class EmojiGrid : Control
         this.ignoreClick = false;
         if (e.Button == MouseButtons.Left && !ignore && this.HitTest(e.Location) is (int section, int index) && section != this.reorderSection)
         {
-            this.EmojiClicked?.Invoke(this, this.sections[section].Emojis[index]);
+            bool keepOpen = ModifierKeys == Keys.Control;
+            this.EmojiClicked?.Invoke(this, new EmojiClick(this.sections[section].Emojis[index], keepOpen));
         }
     }
 
@@ -929,6 +931,9 @@ internal sealed class EmojiGrid : Control
             this.Invalidate();
         }
     }
+
+    /// <summary>An emoji clicked, and whether with Ctrl alone: inserted, the window kept open.</summary>
+    public readonly record struct EmojiClick(Emoji Emoji, bool KeepOpen);
 
     /// <summary>
     /// An emoji right-clicked: its section, the emoji, and where, in the grid's coordinates. From the keyboard — the
