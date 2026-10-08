@@ -59,7 +59,8 @@ Relevant components: `UI/MainForm.cs` (window creation), `UI/WindowFrame.cs` (fr
   |---|---|
   | `slightly_smiling_face_color.svg` | The source, as published |
   | `LICENSE` | Fluent Emoji's MIT license, as published |
-  | `app.ico` | Generated **once** from the SVG and committed: 16, 20, 24, 32, 40, 48, 64 and 256 px, transparent background, each one a PNG entry |
+  | `app.ico` | Generated from the SVG by the script below and committed: 16, 20, 24, 32, 40, 48, 64 and 256 px, transparent background, each one a PNG entry |
+  | `New-AppIcon.ps1` | The **generation script**, re-runnable: reads the SVG next to it, writes `app.ico` next to it |
 
 - **Exe**: `<ApplicationIcon>AppIcon\app.ico</ApplicationIcon>` in `EmojiSelector.csproj` — the Win32 icon
   resource: File Explorer, the startup shortcut (`StartupShortcut` already points to the exe's icon), the
@@ -69,9 +70,12 @@ Relevant components: `UI/MainForm.cs` (window creation), `UI/WindowFrame.cs` (fr
   (`EmojiSelector.AppIcon.app.ico`), read with `new Icon(stream)`: the multi-size icon, so Windows picks the
   small and the large size itself — `Icon.ExtractAssociatedIcon` gives one 32 px image.
 - The **tray icon** is unchanged: rendered at run time from Segoe UI Emoji, 🙂 by default.
-- **Generation** (at implementation): the SVG rendered at each size with a transparent background, then the
-  PNGs packed into the `.ico`. The tool is chosen at implementation; how it was made is written in
-  `CONTRIBUTING.md` § App icon (see *Open Questions* for a committed script).
+- **Generation** — `New-AppIcon.ps1`, committed and re-runnable: the SVG rendered at each size with a
+  transparent background, then the PNGs packed into the `.ico` (an `ICONDIR` header, one `ICONDIRENTRY` per
+  size, the PNGs after them). Only what Windows ships — no download, no new dependency: the renderer is
+  chosen at implementation (Microsoft Edge headless, shipped with Windows 11, is the first candidate). The
+  script reads the committed SVG; it never fetches it. `CONTRIBUTING.md` § App icon says how to run it and
+  where the SVG comes from. The script is not part of the build: `app.ico` is committed.
 
 ---
 
@@ -84,8 +88,8 @@ Relevant components: `UI/MainForm.cs` (window creation), `UI/WindowFrame.cs` (fr
 | `RULES.md` § Frame | What the tool window keeps (and the corner preference, if forced) |
 | `README.md` / `README.fr.md` § Features | *Second title*: tray tooltip only. *Window*: no taskbar button, not in Alt+Tab, like Windows' emoji panel. The exe's 🙂 icon |
 | `README.md` / `README.fr.md` § Tech | The icon is Fluent Emoji's (MIT), link to `CONTRIBUTING.md` § App icon |
-| `CONTRIBUTING.md` § App icon | New: source, license, sizes, how `app.ico` was generated |
-| `GLOSSARY.md` / `GLOSSARY.fr.md` | See *Open Questions* |
+| `CONTRIBUTING.md` § App icon | New: source, license, sizes, how to run `New-AppIcon.ps1` |
+| `GLOSSARY.md` / `GLOSSARY.fr.md` | New term **App icon** (*icône de l'application*): the 🙂 icon of the exe — File Explorer, the startup shortcut, the Task Manager — and of the window, Fluent Emoji's design, fixed; not the **tray icon**, which can show another emoji |
 
 `CLAUDE.md` § Launch is unchanged: the survival check by `MainWindowTitle` keeps working on an unowned
 window.
@@ -113,10 +117,10 @@ The checks are manual / scripted at implementation:
 - [x] ~~Taskbar: no button, button without text, Alt+Tab?~~ → No button **and** out of Alt+Tab (tool window)
 - [x] ~~The window's icon: the exe's, or the tray's chosen emoji?~~ → The exe's, fixed
 - [x] ~~Where the 🙂 image comes from?~~ → Fluent Emoji *Color* SVG (MIT), `.ico` generated once and committed
-- [ ] Commit the script generating `app.ico` from the SVG (re-runnable), or only describe the procedure in
-  `CONTRIBUTING.md` § App icon?
-- [ ] Add a glossary term **App icon** (*icône de l'application*) — the exe's 🙂, distinct from the **tray
-  icon** that can show another emoji?
+- [x] ~~Commit the script generating `app.ico` from the SVG (re-runnable), or only describe the procedure in
+  `CONTRIBUTING.md` § App icon?~~ → Script committed: `AppIcon/New-AppIcon.ps1`
+- [x] ~~Add a glossary term **App icon** (*icône de l'application*) — the exe's 🙂, distinct from the **tray
+  icon** that can show another emoji?~~ → Yes, in both glossaries
 
 ---
 
@@ -128,6 +132,12 @@ Initial design from the request and the scoping answers (Q&A 1–4): the window 
 window (`WS_EX_TOOLWINDOW`, never `ShowInTaskbar = false`), out of the taskbar and Alt+Tab; the exe and the
 window get a fixed 🙂 icon generated from Fluent Emoji's MIT SVG, committed as a multi-size `app.ico`. Two
 questions left: a committed generation script, a glossary term.
+
+### Iteration 2 — 2026-10-08
+
+Q&A 5–6: the `app.ico` generation script is committed (`AppIcon/New-AppIcon.ps1`, re-runnable, Windows'
+own tools only, reading the committed SVG), and the glossary gets the term **App icon**, in English and in
+French. No open question left.
 
 ---
 
@@ -152,8 +162,8 @@ questions left: a committed generation script, a glossary term.
 | 2 | The window's icon: the exe's, fixed, or following the tray's chosen emoji? | The exe's, fixed | 2026-10-08 |
 | 3 | Source of the 🙂 image for the `.ico`: Fluent Emoji Color (MIT), a render of Segoe UI Emoji, or generated at build? | Fluent Emoji Color (MIT) | 2026-10-08 |
 | 4 | Depth: straightforward or tricky / long? | Straightforward | 2026-10-08 |
-| 5 | Commit the `app.ico` generation script, or describe the procedure only? | | |
-| 6 | Add the glossary term *App icon*? | | |
+| 5 | Commit the `app.ico` generation script, or describe the procedure only? | Script committed | 2026-10-08 |
+| 6 | Add the glossary term *App icon*? | Yes | 2026-10-08 |
 
 ---
 
