@@ -67,7 +67,7 @@ turned into rows — see Iterations 1 and 3):
 - **Right**: a small **icon button**, the copy glyph only — no text, so the tags get the width. Its
   **tooltip** gives the emoji's **first code point only** (`U+1F602`; 👨‍👩‍👧‍👦 → `U+1F468`). A click copies **the emoji itself** (its whole Unicode character
   sequence, `😂`) to the clipboard as text.
-  - Feedback after a copy: see Open Question 14.
+  - After a copy the copy glyph turns into a **check mark** for about a second, then comes back.
   - A copy neither hides the window nor counts as a use (the frequent tab ignores it).
 - **No selection** (a search with no result): the panel stays, empty, at the same height.
 
@@ -168,8 +168,8 @@ on the running app.
 - [x] ~~11. What does the button read for a multi-code-point emoji (👨‍👩‍👧‍👦 = `1F468-200D-1F469-200D-1F467-200D-1F466`)?~~ → The first code point only *(revised 2026-10-08, see Iteration 5: the code point moves to the button's tooltip)*
 - [x] ~~12. Does the grid's tooltip (the hovered emoji's name) stay, now that the panel shows the name?~~ → Removed
 - [x] ~~13. Details: panel when the grid has no selection (a search with no result); feedback after a copy; does a copy hide the window or count as a use?~~ → Empty panel at the same height; `Copied` for about a second; a copy neither hides the window nor counts as a use *(revised 2026-10-08, see Iteration 5: the button has no text left to read `Copied`)*
-- [ ] 14. Feedback after a copy, now that the button is an icon only?
-- [ ] 15. The tooltip of a multi-code-point emoji: the first code point only, or the whole sequence now that width is no constraint?
+- [x] ~~14. Feedback after a copy, now that the button is an icon only?~~ → The icon turns into a check mark for about a second
+- [x] ~~15. The tooltip of a multi-code-point emoji: the first code point only, or the whole sequence now that width is no constraint?~~ → The first code point only
 
 ---
 
@@ -218,6 +218,11 @@ code point moving to its **tooltip** — more width for the tags. Two questions 
 Questions 14 and 15): the copy feedback (`Copied` had no text left to replace) and whether the
 tooltip, free of the width constraint, gives the whole sequence.
 
+### Iteration 6 — 2026-10-08
+
+Open Questions 14 and 15 answered (Q&A #24, #25): a check mark replaces the copy glyph for about a
+second after a copy; the tooltip keeps the first code point only. No open question left.
+
 ---
 
 ## Implementation Log
@@ -264,8 +269,8 @@ Questions asked by the agent during design, with user responses.
 | 21 | Does the rows mockup suit as is? | Yes | 2026-10-08 |
 | 22 | Start the implementation? Scope / where | No — the gate holds (Worktree chosen, ignored) | 2026-10-08 |
 | 23 | (request) | The copy button is too big: no code shown, the copy icon is enough, the code in its tooltip — more room for the tags | 2026-10-08 |
-| 24 | Copy feedback with an icon-only button? | | |
-| 25 | Tooltip of a multi-code-point emoji: first code point or whole sequence? | | |
+| 24 | Copy feedback with an icon-only button? | The icon turns into a check mark for about a second | 2026-10-08 |
+| 25 | Tooltip of a multi-code-point emoji: first code point or whole sequence? | The first code point only | 2026-10-08 |
 
 ---
 
