@@ -35,7 +35,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Show French names` | Checked while the details panel shows its French row: a click hides it or shows it again (see *Details Panel* below) |
 | Settings button ⚙ → `Highlight color…` | Windows' colour dialog: the colour highlighting the search's matches in the details panel (see *Details Panel* below) |
 | Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept — moved only as far as needed to stay inside the working area —, and the saved size removed (see *Size* and *Corner* below); the window stays |
-| Settings button ⚙ → `Window opacity ▸` | `100%`, `90%`, `80%`, `70%`, the one in use checked: a click applies it to the whole window at once and saves it (see *Opacity* below); the window stays |
+| Settings button ⚙ → `Window opacity ▸` | `100%`, `98%`, `96%`, `94%`, `92%`, the one in use checked: a click applies it to the whole window at once and saves it (see *Opacity* below); the window stays |
 | Settings button ⚙ → `Open app folder` | Opens the exe's folder in the File Explorer, the exe selected; the window stays |
 | Settings button ⚙ → `Start with Windows` | Checked while Windows starts this exe at sign-in: a click writes or deletes the **startup shortcut** (see *Start with Windows* below); the window stays |
 | Settings button ⚙ → `Check for emoji updates…` | The latest Emojibase version online; a newer one offered, downloaded, then a restart offered (see *Emoji Data* below) |
@@ -164,7 +164,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 ### Opacity
 
 - **`Window opacity ▸`**, in the settings menu's *window* section after `Reset window size`: `100%`,
-  `90%`, `80%`, `70%` (`MainForm.OpacityPercents`), the one in use checked at each opening of the
+  `98%`, `96%`, `94%`, `92%` (`MainForm.OpacityPercents`), the one in use checked at each opening of the
   menu. A click applies it at once (`MainForm.SetOpacity`) and saves it; no confirmation.
 - **`Form.Opacity`**: below 100 %, a layered window (`WS_EX_LAYERED`, `LWA_ALPHA`) — the whole window
   fades, search bar, tabs, grid and details panel, **always**: in front or not. The frame stays
@@ -172,9 +172,9 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 - Set in the constructor, before the handle exists: a `--background` launch shows the window at its
   opacity from the first show.
 - **Saved** as `opacity` in `settings.json`, the percentage (`SettingsFile.ReadOpacity` /
-  `WriteOpacity`). Missing, or not an integer → 100 %. An integer that is not one of the four
-  (written by hand) → the **nearest**, a tie to the more opaque (`MainForm.NearestOpacity`): `85` →
-  90 %, `50` → 70 %, `120` → 100 % — the key left as it is until the next choice.
+  `WriteOpacity`). Missing, or not an integer → 100 %. An integer that is not one of the five
+  (written by hand) → the **nearest**, a tie to the more opaque (`MainForm.NearestOpacity`): `97` →
+  98 %, `90` → 92 %, `120` → 100 % — the key left as it is until the next choice.
 - `Reset window size` leaves it alone; `Reset all settings…` brings it back to 100 %.
 - An agent checking the opacity from a script cannot click the settings button: it writes `opacity`
   in the build's `settings.json`, launches the exe and reads `GetLayeredWindowAttributes` (no
