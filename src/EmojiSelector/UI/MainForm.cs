@@ -398,13 +398,13 @@ internal sealed class MainForm : Form
                 return true;
             }
 
-            // With text, a plain ← / → at its edge — the caret at its start / end, no text selected — has nowhere left to
-            // go in the box: it acts as in the grid, from the selection, and hands the keyboard over — even when the
-            // selection cannot move. No result: nothing to select, the keyboard stays in the box.
+            // With text, ↓ — and a plain ← / → at the text's edge: the caret at its start / end, no text selected — has
+            // nowhere to go in the box: it acts as in the grid, from the selection, and hands the keyboard over — even
+            // when the selection cannot move. No result: nothing to select, the keyboard stays in the box.
             bool atEdge = this.searchBox.SelectionLength == 0
                 && (keyData == Keys.Left && this.searchBox.SelectionStart == 0
                     || keyData == Keys.Right && this.searchBox.SelectionStart == this.searchBox.TextLength);
-            if (atEdge)
+            if (atEdge || keyData == Keys.Down)
             {
                 if (this.grid.SelectedEmoji is not null)
                 {
@@ -415,21 +415,10 @@ internal sealed class MainForm : Form
                 return true;
             }
 
-            switch (keyData)
+            // With text in the box, only ↓ and ← / → at the text's edge leave it.
+            if (keyData is Keys.PageUp or Keys.PageDown or Keys.Tab or (Keys.Shift | Keys.Tab))
             {
-                // No result: nothing to select, the keyboard stays in the box.
-                case Keys.Down:
-                    this.grid.ResetToTop();
-                    if (this.grid.SelectedEmoji is not null)
-                    {
-                        this.grid.Focus();
-                    }
-
-                    return true;
-
-                // With text in the box, only ↓ — and ← / → at the text's edge — leave it.
-                case Keys.PageUp or Keys.PageDown or Keys.Tab or (Keys.Shift | Keys.Tab):
-                    return true;
+                return true;
             }
         }
 
