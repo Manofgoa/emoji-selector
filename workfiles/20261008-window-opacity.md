@@ -124,6 +124,11 @@ The three open questions answered: an `opacity` value that is not one of the fou
 **nearest** one, a tie to the more opaque (`85` → 90 %); the submenu is labelled **`Window opacity
 ▸`**, not `Opacity ▸`; the reset's confirmation names the opacity. No question left.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code, checks and documentation, in a worktree (`.claude/worktrees/window-opacity`, branch
+`feature/window-opacity`). Scope frozen on Iterations 1–2.
+
 ---
 
 ## Implementation Log
