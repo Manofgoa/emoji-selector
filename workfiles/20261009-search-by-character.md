@@ -201,6 +201,11 @@ the details panel. Still open: the emoticon highlight, the tests.
 Q&A 9–10 answered: the emoticons under the emoji are highlighted like the names and tags; no test
 project — the search is checked by reflection on the built dll. No question left open.
 
+### Iteration 4 — 2026-10-09 — ✅ Implemented
+
+Go given: code, checks and documentation, in a worktree (`.claude/worktrees/search-by-character`,
+branch `feature/search-by-character`). Scope frozen on the sections above.
+
 ---
 
 ## Implementation Log
