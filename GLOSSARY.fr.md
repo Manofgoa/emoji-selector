@@ -16,5 +16,6 @@ Les mots utilisés dans le code, la documentation, les workfiles et la conversat
 | Curseur de texte (*text cursor*) | Le point d'insertion clignotant de la fenêtre précédente, là où va le texte tapé — Win+; affiche la fenêtre juste en dessous |
 | Onglet personnalisé (*custom tab*) | Le deuxième onglet, un cœur, juste après *Frequently used* : il contient tous les **groupes personnalisés** |
 | Groupe personnalisé (*custom group*) | Une liste d'émojis que l'utilisateur garde sous la main : créée et nommée par l'utilisateur, remplie par clic droit, ordonnée comme il le veut ; une section de l'onglet personnalisé chacune, gardée dans `custom-groups.json` à côté de l'exe |
+| Données des émojis (*emoji data*) | Les fichiers d'Emojibase d'où viennent la liste des émojis, leurs noms et leurs mots-clés : dans le dossier `emoji-data` à côté de l'exe, écrits à partir de la copie que porte l'exe, remplacés par *Check for emoji updates…* |
 | Fréquent (*frequent*) | Un émoji compté selon ses utilisations — chaque utilisation ajoute 1 à son compteur, gardé dans `usage.json` à côté de l'exe ; les plus utilisés sont affichés dans le premier onglet, *Frequently used* |
 | Icône de notification (*tray icon*) | L'icône de l'application dans la zone de notification, affichée tant que l'application tourne ; elle montre l'émoji choisi par l'utilisateur, 🙂 par défaut |
