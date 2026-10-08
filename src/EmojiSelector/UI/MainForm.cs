@@ -239,6 +239,13 @@ internal sealed class MainForm : Form
     {
         if (this.grid.Focused)
         {
+            // The selection's right-click menu. In the box, these keys keep the box's own menu.
+            if (keyData is Keys.Apps or (Keys.Shift | Keys.F10))
+            {
+                this.grid.OpenSelectionMenu();
+                return true;
+            }
+
             if (this.grid.MoveSelection(keyData))
             {
                 return true;
@@ -763,7 +770,8 @@ internal sealed class MainForm : Form
 
     // The menu of a right-clicked emoji: Use as tray icon, checked when the icon shows it; Add to ▸ every group, the
     // ones holding it checked — a click on one of those takes it out; Remove when it was right-clicked in a group,
-    // Remove from frequently used in the frequent section.
+    // Remove from frequently used in the frequent section. Opened from the keyboard, its first enabled item is
+    // highlighted, as Windows does.
     private void ShowEmojiMenu(EmojiGrid.EmojiRightClick click)
     {
         var menu = new ContextMenuStrip();
@@ -794,6 +802,10 @@ internal sealed class MainForm : Form
         }
 
         ShowOnce(menu, this.grid, click.Location, ToolStripDropDownDirection.Default);
+        if (click.FromKeyboard)
+        {
+            menu.Items.OfType<ToolStripMenuItem>().FirstOrDefault(item => item.Enabled)?.Select();
+        }
     }
 
     // The emoji's counter forgotten: the next one moves up into the section, which reads No emoji used yet once empty.

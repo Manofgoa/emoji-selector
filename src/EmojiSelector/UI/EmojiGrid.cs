@@ -185,6 +185,23 @@ internal sealed class EmojiGrid : Control
     }
 
     /// <summary>
+    /// Asks for the selected emoji's menu, as a right click on it would — the Menu key, Shift+F10: its cell scrolled
+    /// into view, the menu at the cell's bottom-left corner. Nothing when no emoji is selected.
+    /// </summary>
+    public void OpenSelectionMenu()
+    {
+        if (this.selection is not (int section, int index))
+        {
+            return;
+        }
+
+        this.SetSelection(this.selection, ensureVisible: true);
+        Rectangle cell = this.layout.CellBounds(section, index);
+        var location = new Point(cell.Left, cell.Bottom - this.Offset);
+        this.EmojiRightClicked?.Invoke(this, new EmojiRightClick(section, this.sections[section].Emojis[index], location, FromKeyboard: true));
+    }
+
+    /// <summary>
     /// Moves the selection for a navigation key — arrows, Home / End and their Ctrl variants, Page Up / Page Down,
     /// Tab / Shift+Tab — and scrolls it into view. Returns false when the key is not one of them, and for ↑ on the
     /// grid's first row, which has nothing above it: the caller hands the keyboard back to the search box.
@@ -854,8 +871,11 @@ internal sealed class EmojiGrid : Control
         }
     }
 
-    /// <summary>An emoji right-clicked: its section, the emoji, and where, in the grid's coordinates.</summary>
-    public readonly record struct EmojiRightClick(int Section, Emoji Emoji, Point Location);
+    /// <summary>
+    /// An emoji right-clicked: its section, the emoji, and where, in the grid's coordinates. From the keyboard — the
+    /// Menu key, Shift+F10 — the selected emoji, under its cell.
+    /// </summary>
+    public readonly record struct EmojiRightClick(int Section, Emoji Emoji, Point Location, bool FromKeyboard = false);
 
     /// <summary>A section's "…" button clicked: the section, and the button's bounds in the grid's coordinates.</summary>
     public readonly record struct SectionMenuRequest(int Section, Rectangle ButtonBounds);
