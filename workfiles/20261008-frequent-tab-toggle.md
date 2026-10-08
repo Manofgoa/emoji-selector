@@ -31,37 +31,37 @@ the same setting, two places. Labels: *Show frequently used* (⚙) and *Hide fre
 | Hiding / showing the tab and its section while the app runs | Changing how the counters work |
 | The same hiding for the custom groups (see *Custom Groups*) | |
 
-### Existing code
+### Code
 
-| Fact | Where |
+What the implementation touched (Iteration 8). The starting point was `main` after the custom tabs
+merge (`8b02c16`), which had already brought `settings.json` (`Data/SettingsFile.cs`, from the default
+window size), the "…" button (`EmojiCategory.HasMenu`) and `EmojiGrid.ReplaceCategories`.
+
+| Piece | Where |
 |---|---|
-| The tab list is built once, frequent first: `[CreateFrequentCategory(), .. categories]`, then given to the grid and the strip | `UI/MainForm.cs:88-90` |
-| The grid copies the list into a fixed array; `ReplaceCategory(0, …)` swaps the frequent section in place after a use or *Clear* | `UI/EmojiGrid.cs:68-71`, `231-239`; `UI/MainForm.cs:305`, `392` |
-| The strip keeps the list it was given; a tab's index is its section's index (`TabClicked`, `ActiveTab`, `ActiveCategory`) | `UI/CategoryTabStrip.cs:45`, `58-60`, `117` |
-| The window's minimum width comes from the strip's tab count | `UI/MainForm.cs:93`, `UI/CategoryTabStrip.cs:86-87` |
-| Section headers are drawn as plain text, the width of the grid, ending in an ellipsis | `UI/EmojiGrid.cs:263-271` |
-| The settings menu is a `ContextMenuStrip` owned by `MainForm`: *Open app folder*, *Clear frequently used* (greyed while no counter) | `UI/MainForm.cs:286-295` |
-| `usage.json`: read at launch, missing or invalid → empty; written through `.tmp` then a replace; a read-only folder is not an error | `Data/EmojiUsage.cs` |
-| The **custom tabs** workfile (in design) plans a "…" button on its group headers — and states that the catalog and frequent sections have none — and a mutable list of sections | [20261008-custom-tabs.md](20261008-custom-tabs.md) |
+| `showFrequent` read and written | `Data/SettingsFile.cs` — `ReadShowFrequent`, `WriteShowFrequent` |
+| A group's hidden flag | `Data/CustomGroups.cs` — `CustomGroup.Hidden`, `SetHidden` |
+| Tabs replaced at run time | `UI/CategoryTabStrip.cs` — `ReplaceTabs` |
+| Sections, tabs and their mapping whatever is shown; the toggles; the menus | `UI/MainForm.cs` — `SetShowFrequent`, `SetGroupHidden`, `RebuildSections`, `UpdateTabs`, `CreateTabs`, `TabOf` / `SectionOf` / `GroupOf` / `SectionOfGroup`, `ShowSectionMenu`, `CreateGroupMenu`, `FillShowGroups` |
 
 ---
 
 ## Setting and File
 
 - One setting, **show the frequent tab**, on by default.
-- Saved in **`settings.json`** next to the exe (`AppContext.BaseDirectory`), **not** in `cache\` —
-  the same reasoning as `usage.json`: that folder is disposable. A JSON object,
-  `{ "showFrequent": true }`, ready for more keys.
-- A new `Data/AppSettings.cs` owns it, on `EmojiUsage`'s pattern: read once at launch — missing,
-  invalid, or a key missing → the default; written after each change, through `settings.json.tmp`
-  then a replace; a folder that cannot be written is not an error, the setting lives in memory until
-  the app ends.
+- Saved as the **`showFrequent`** key of the app's existing **`settings.json`** next to the exe
+  (`Data/SettingsFile.cs`, shared with the window size), **not** in `cache\`: that folder is
+  disposable. Missing file, key or readable value → shown. Written through `settings.json.new` then a
+  replace, the other keys kept; a folder that cannot be written is not an error, the setting lives in
+  memory until the app ends.
 
 ---
 
 ## Settings Menu
 
-- A **checkable** item, *Show frequently used*, checked while the tab is shown. A click flips it.
+- A **checkable** item, *Show frequently used*, checked while the tab is shown, just above *Clear
+  frequently used*. A click flips it.
+- A *Show groups ▸* submenu, right after *New group…* (see *Custom Groups*).
 - *Clear frequently used* stays where it is and **stays usable while the tab is hidden**: the
   counters still count.
 
@@ -72,7 +72,8 @@ the same setting, two places. Labels: *Show frequently used* (⚙) and *Hide fre
 - The **same "…" button** as the custom groups' headers ([20261008-custom-tabs.md](20261008-custom-tabs.md),
   *Group Menu*): its look, its place at the right end of the header, the header text shortened before
   it. This workfile gives it to the frequent section too.
-- Its menu holds **Hide frequently used** — the same setting as the settings menu's item, turned off.
+- Its menu (`MainForm.ShowSectionMenu`) holds **Hide frequently used** — the same setting as the
+  settings menu's item, turned off. The frequent section never enters the reorder mode.
   **No confirmation** (Q&A #6): nothing is lost, the counters keep counting.
 - Never in search mode (the frequent section is not shown then).
 - Showing the tab again is done from the settings menu only: the "…" button leaves with its section.
@@ -84,10 +85,13 @@ the same setting, two places. Labels: *Show frequently used* (⚙) and *Hide fre
 The same logic applied to the custom groups of the custom tab (Q&A #10), shaped by
 [20261008-custom-tabs.md](20261008-custom-tabs.md) as it is delivered.
 
-- **Each group** is hidden on its own (Q&A #11): its "…" menu gets **Hide group**, next to
-  *Rename…*, *Reorder* and *Delete group*. No confirmation, like the frequent tab.
+- **Each group** is hidden on its own (Q&A #11): its "…" menu gets **Hide group**, after *Move
+  down*, before the separator and *Delete group*. No confirmation, like the frequent tab.
 - A hidden group's section leaves the grid. The **custom tab** leaves the strip once **every** group
-  is hidden; the minimum width follows the tab count, as for the frequent tab.
+  is hidden; the minimum width follows the tab count, as for the frequent tab. With **no group at
+  all**, the tab and its `New group…` placeholder stay, as before.
+- **Move up / Move down** swap a group with its nearest **shown** neighbour; a hidden group in between
+  keeps its place in the file.
 - **Shown again** from a **submenu of the settings menu ⚙**, *Show groups* (Q&A #12): one checkable
   item per group, in the groups' order, checked while the group is shown — unchecking one hides it
   too. Greyed while no group exists.
@@ -95,8 +99,8 @@ The same logic applied to the custom groups of the custom tab (Q&A #10), shaped 
   as the hidden frequent tab keeps counting.
 - After a toggle with the window open: back to the top, on the first emoji, as for the frequent tab.
 - The **hidden flag is saved with the group** (Q&A #14), a field of the group in the custom groups'
-  own file: a renamed group keeps it, a deleted one takes it along. `settings.json` holds only the
-  frequent tab's setting.
+  own file — `"hidden": true`, the key written only when set: a renamed group keeps it, a deleted one
+  takes it along. `settings.json` holds only the frequent tab's setting.
 
 ---
 
@@ -105,12 +109,15 @@ The same logic applied to the custom groups of the custom tab (Q&A #10), shaped 
 - **Hidden**: the grid and the strip get the catalog's categories alone; the first tab is *Smileys &
   People*. A use still records the counter (`MainForm.OnEmojiUsed`) but replaces no section.
 - **Shown again**: the frequent section is rebuilt from the counters and put back first.
-- The grid and the strip need **an entry point to replace their list of categories** — today both
-  take it once, at construction. Indices shift by one.
+- A toggle — the frequent tab's or a group's — rebuilds the frequent and custom sections
+  (`EmojiGrid.ReplaceCategories` over both) and the tabs (`CategoryTabStrip.ReplaceTabs`):
+  `MainForm.RebuildSections`.
 - **After a toggle** with the window open, the grid goes back to the **top, on its first emoji**
-  (Q&A #9), like a show; the active tab is the first one.
+  (Q&A #9), like a show; the active tab is the first one. While a **search** is shown, the results
+  stay: the categories come back where they were, moved by the change, when the box is emptied.
 - The window's **minimum width** follows the tab count (Q&A #8): one tab narrower while hidden,
-  computed again at every toggle — showing the tab again may widen a window at its minimum.
+  computed again at every toggle, in device pixels — showing the tab again may widen a window at its
+  minimum.
 - **Every show** of the window still scrolls the grid to the top — the first section, whatever it is.
 
 ---
@@ -119,8 +126,8 @@ The same logic applied to the custom groups of the custom tab (Q&A #10), shaped 
 
 | File | Change |
 |---|---|
-| `RULES.md` | *Frequent Tab*: the setting, `settings.json`, the "…" button, hidden → still counted; *Window and Tray Icon*: the settings menu's new item |
-| `README.md` / `README.fr.md` | The setting, where it is |
+| `RULES.md` | *Window and Tray Icon*: the settings menu's two new items; *Size*: the `showFrequent` key; *Frequent Tab*: *Hidden*; *Custom Tab*: the strip's tabs replaceable, `hidden` in `custom-groups.json`, the menu's *Hide group*, *Hidden group* |
+| `README.md` / `README.fr.md` | The gear's menu, the frequent tab hidden, a group hidden |
 | `GLOSSARY.md` / `GLOSSARY.fr.md` | No new term planned |
 
 ---
@@ -128,8 +135,10 @@ The same logic applied to the custom groups of the custom tab (Q&A #10), shaped 
 ## Test Impact
 
 No test project exists, and no earlier workfile created one: the behaviours below are **checked by
-hand** in the running app, not by unit tests. `AppSettings` can be checked by a throwaway console
-harness in the session's scratchpad, as `EmojiUsage` was.
+hand** in the running app, not by unit tests. `SettingsFile` and `CustomGroups` were checked by a
+throwaway console harness in the session's scratchpad (not committed), the UI by an instance driven
+from a script: mouse messages posted to the "…" and ⚙ buttons, the menu items invoked through UI
+Automation, the window captured with `PrintWindow`.
 
 | Behaviour to pin | Test file | Create / Update |
 |---|---|---|
@@ -213,6 +222,39 @@ wait of Q&A #10, the user chose to **wait** (Q&A #15): nothing is written until
 [20261008-custom-tabs.md](20261008-custom-tabs.md) is delivered; the run starts then, on the user's
 signal, with the go already given. The *✅ Implemented* pivot entry is written when the run starts.
 
+### Iteration 7 — 2026-10-08 — ✅ Implemented
+
+The custom tabs are merged into `main` (`8b02c16`): the user gave the signal (Q&A #16). The run
+starts in the worktree `.claude/worktrees/frequent-tab-toggle`, branch `feature/frequent-tab-toggle`,
+created from the local `HEAD`; scope frozen as the sections above stand.
+
+### Iteration 8 — 2026-10-08 — 🧭 Implementation choices
+
+No project rule broken. Choices the frozen design did not state, or that its starting point changed:
+
+- **`settings.json` already existed** — the default window size workfile, merged meanwhile, brought
+  `Data/SettingsFile.cs`. The setting is a `showFrequent` key there, written through its
+  `settings.json.new` pattern; the planned `Data/AppSettings.cs` (and its `.tmp`) was not created.
+- **Menu places**: *Show groups ▸* right after *New group…*; *Show frequently used* right above
+  *Clear frequently used*; *Hide group* after *Move down*, before the separator and *Delete group*.
+- **Move up / Move down with hidden groups**: swap with the nearest shown group; a hidden one in
+  between keeps its place. Swapping with the next group in the file would often move nothing visible.
+- **No group at all**: the custom tab and its `New group…` placeholder stay, as before; the tab leaves
+  only when groups exist and every one is hidden.
+- **`hidden` written only when set** (`JsonIgnoreCondition.WhenWritingDefault`): a file without hidden
+  groups is unchanged.
+- **A toggle while a search is shown** — possible from ⚙, never greyed: the results stay, the grid is
+  not sent to the top; the categories come back where they were, moved by the change.
+- **Minimum width at run time** set in device pixels (`LogicalToDeviceUnits`): the form is already
+  scaled to its DPI once shown; the constructor keeps setting it in logical pixels, before scaling.
+- **Checks**: no test project; `SettingsFile` and `CustomGroups` by a scratchpad harness (11 checks,
+  all passing: missing / invalid file / key / value → shown; write keeps the other keys; hidden flag
+  read, round trip, key omitted when shown, kept by a rename); the UI by a scripted instance — launch
+  with the frequent tab hidden and one group hidden; launch with every group hidden (no heart tab);
+  *Hide frequently used* from the "…"; *Show frequently used* and *Show groups ▸ Group A* from ⚙;
+  *Hide group* from a group's "…" — each captured and as designed, the files written as expected. Not
+  checked by script: a use counted while hidden, a hidden group in *Add to*, a read-only folder.
+
 ---
 
 ## Implementation Log
@@ -222,9 +264,11 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | No test project: manual checks (see *Test Impact*) |
-| README | | | |
+| Code | 8 | 2026-10-08 | `733d67f` settings, `e39d765` groups' flag, `4e7570b` tab strip, `a5a5545` frequent toggle, `c7c5936` group hiding |
+| Unit tests | 8 | 2026-10-08 | No test project: scratchpad harness and scripted UI checks (see Iteration 8) |
+| README | 8 | 2026-10-08 | `28d2f83`, English and French |
+| RULES | 8 | 2026-10-08 | `f05d328` |
+| Glossary | 8 | 2026-10-08 | Not needed: no new term |
 
 ---
 
@@ -248,7 +292,8 @@ Questions asked by the agent during design, with user responses.
 | 12 | Custom groups: where is a hidden one shown again from? | A *Show groups* submenu in ⚙ | 2026-10-08 |
 | 13 | Does a hidden custom group still receive emojis from *Add to…*? | Yes |
 | 14 | Where is a custom group's hidden flag saved? | With the group, in the custom groups' file | 2026-10-08 |
-| 15 | Go given while the custom tabs are not delivered: frequent part now, with or without "…", or wait? | Wait: the run starts once the custom tabs are delivered | 2026-10-08 | 2026-10-08 |
+| 15 | Go given while the custom tabs are not delivered: frequent part now, with or without "…", or wait? | Wait: the run starts once the custom tabs are delivered | 2026-10-08 |
+| 16 | The custom tabs are in `main`: start the implementation now, in a worktree? | Yes, now | 2026-10-08 | 2026-10-08 |
 
 ---
 

@@ -14,10 +14,11 @@ namespace EmojiSelector.UI;
 /// While the search box holds text, the sections give way to one <c>Search results</c> section
 /// (<see cref="ShowSearchResults"/>), until <see cref="ShowCategories"/> brings them back where they were.
 /// <para>
-/// A right click on an emoji raises <see cref="EmojiRightClicked"/>. A section with a menu — a <b>custom group</b>'s —
-/// has a "…" button at the right end of its header, raising <see cref="SectionMenuClicked"/>. Its <b>reorder mode</b>
-/// (<see cref="StartReorder"/>) turns the button into <see cref="DoneText"/>: its emojis are dragged and dropped inside
-/// it (<see cref="EmojiMoved"/>), and neither a click nor Enter inserts them, until <see cref="EndReorder"/>.
+/// A right click on an emoji raises <see cref="EmojiRightClicked"/>. A section with a menu — a <b>custom group</b>'s, the
+/// frequent one — has a "…" button at the right end of its header, raising <see cref="SectionMenuClicked"/>. A group's
+/// <b>reorder mode</b> (<see cref="StartReorder"/>) turns the button into <see cref="DoneText"/>: its emojis are dragged
+/// and dropped inside it (<see cref="EmojiMoved"/>), and neither a click nor Enter inserts them, until
+/// <see cref="EndReorder"/>.
 /// </para>
 /// </summary>
 internal sealed class EmojiGrid : Control
@@ -298,8 +299,8 @@ internal sealed class EmojiGrid : Control
 
     /// <summary>
     /// Replaces the <paramref name="count"/> sections from <paramref name="index"/> with <paramref name="replacement"/>
-    /// — the custom groups' sections, all under one tab. The view stays on what it showed: when it was below the
-    /// replaced sections, it moves with their change of height. The selection goes back to the first emoji in view;
+    /// — the custom groups' sections, the frequent one hidden or shown. The view stays on what it showed: when it was
+    /// below the replaced sections, it moves with their change of height. The selection goes back to the first emoji in view;
     /// the reorder mode stays on its section while that one still has a menu.
     /// </summary>
     public void ReplaceCategories(int index, int count, IReadOnlyList<EmojiCategory> replacement)

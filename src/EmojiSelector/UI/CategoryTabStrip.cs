@@ -42,7 +42,7 @@ internal sealed class CategoryTabStrip : Control
     private static readonly Color CloseHoverColor = Color.FromArgb(0xC4, 0x2B, 0x1C);
     private static readonly Color ClosePressedColor = Color.FromArgb(0xC7, 0x49, 0x3C);
 
-    private readonly IReadOnlyList<EmojiCategory> categories;
+    private IReadOnlyList<EmojiCategory> categories;
     private readonly ToolTip toolTip = new();
     private Font iconFont;
     private Font closeFont;
@@ -164,6 +164,19 @@ internal sealed class CategoryTabStrip : Control
     public bool IsDragArea(Point location) =>
         location.Y >= 0 && location.Y < this.Height
         && location.X >= this.TabBounds(this.categories.Count - 1).Right && location.X < this.SettingsBounds.Left;
+
+    /// <summary>
+    /// Replaces the tabs — the frequent tab or the custom one hidden or shown again. The active tab is kept within the
+    /// new count, for the caller to set; the hover is dropped: another tab may now be under the mouse.
+    /// <see cref="LogicalMinimumWidth"/> follows the new count.
+    /// </summary>
+    public void ReplaceTabs(IReadOnlyList<EmojiCategory> categories)
+    {
+        this.categories = categories;
+        this.activeTab = Math.Min(this.activeTab, categories.Count - 1);
+        this.SetHovered(-1, this.hoveredButton);
+        this.Invalidate();
+    }
 
     protected override void OnPaint(PaintEventArgs e)
     {

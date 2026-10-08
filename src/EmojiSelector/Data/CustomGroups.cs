@@ -1,5 +1,6 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace EmojiSelector.Data;
 
@@ -46,7 +47,8 @@ internal sealed class CustomGroups
             List<CustomGroup> groups = (entries ?? [])
                 .Where(entry => !string.IsNullOrWhiteSpace(entry?.Name) && entry.Emojis is not null)
                 .Select(entry => new CustomGroup(entry!.Name!,
-                    entry.Emojis!.Where(emoji => !string.IsNullOrEmpty(emoji)).Select(emoji => emoji!).Distinct().ToList()))
+                    entry.Emojis!.Where(emoji => !string.IsNullOrEmpty(emoji)).Select(emoji => emoji!).Distinct().ToList(),
+                    entry.Hidden ?? false))
                 .ToList();
             return new CustomGroups(groups);
         }
@@ -67,6 +69,13 @@ internal sealed class CustomGroups
     public void Rename(int group, string name)
     {
         this.groups[group] = this.groups[group] with { Name = name };
+        this.Save();
+    }
+
+    /// <summary>Hides <paramref name="group"/>, or shows it again, saved.</summary>
+    public void SetHidden(int group, bool hidden)
+    {
+        this.groups[group] = this.groups[group] with { Hidden = hidden };
         this.Save();
     }
 
@@ -133,8 +142,12 @@ internal sealed class CustomGroups
     }
 
     // A group as read from the file: anything may be missing.
-    private sealed record Entry(string? Name, List<string?>? Emojis);
+    private sealed record Entry(string? Name, List<string?>? Emojis, bool? Hidden);
 }
 
-/// <summary>A <b>custom group</b>: its name, and its emojis' texts in the user's order.</summary>
-internal sealed record CustomGroup(string Name, IReadOnlyList<string> Emojis);
+/// <summary>
+/// A <b>custom group</b>: its name, its emojis' texts in the user's order, and whether the user hid it — a hidden group
+/// has no section in the grid, and is written without the key while shown.
+/// </summary>
+internal sealed record CustomGroup(string Name, IReadOnlyList<string> Emojis,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Hidden = false);

@@ -28,7 +28,9 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Drag area — the empty band between the last tab and the settings button | Moves the window; right click → Windows' system menu |
 | Settings button ⚙ left of the close cross → `Open app folder` | Opens the exe's folder in the File Explorer, the exe selected; the window stays |
 | Settings button ⚙ → `New group…` | Asks for a name, then creates a **custom group**, last, and scrolls to it (see *Custom Tab* below) |
+| Settings button ⚙ → `Show groups ▸` | Every custom group, checked while shown: a click hides it or shows it again (see *Custom Tab* below) |
 | Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept, and the saved size removed (see *Size* below); the window stays |
+| Settings button ⚙ → `Show frequently used` | Checked while the frequent tab is shown: a click hides it or shows it again (see *Frequent Tab* below) |
 | Tray icon, left click | Hidden → shown; covered by another window → brought to the front; already in front → hidden |
 | Tray icon, right click → `Exit` | Ends the app |
 | Win+; | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
@@ -83,8 +85,9 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   in place of the default. Not at exit: Windows shutting down or the Task Manager may end the app
   without running its code. A move, or a drag to a monitor of another scale, saves nothing.
 - `settings.json` is the app's **shared settings file** (`Data/SettingsFile.cs`): `{ "windowWidth":
-  …, "windowHeight": …, "trayEmoji": … }`; a write keeps the keys it does not know. Written through
-  `settings.json.new` then a replace, the emojis as themselves (`EmojiUsage.ReadableEmojis`).
+  …, "windowHeight": …, "trayEmoji": …, "showFrequent": … }`; a write keeps the keys it does not
+  know. Written through `settings.json.new` then a replace, the emojis as themselves
+  (`EmojiUsage.ReadableEmojis`).
 - **The size only**: the position is never saved — centred at launch, Win+; places it anyway.
 - Missing, unreadable or invalid file, a folder that cannot be written → the default size, never an
   error. A size larger than the working area of the monitor is reduced to fit it; `MinimumSize` wins
@@ -145,9 +148,9 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 
 ## Frequent Tab
 
-The first tab, **Frequently used** (a star, `E734`), lists the emojis used most. It is one more
-`EmojiCategory` at the head of the list `MainForm` gives the tab strip and the grid, built from the
-counters (`MainForm.CreateFrequentCategory`), not from the catalog.
+The first tab, **Frequently used** (a star, `E734`), lists the emojis used most — while shown (see
+*Hidden* below). It is one more `EmojiCategory` at the head of the list `MainForm` gives the tab strip
+and the grid, built from the counters (`MainForm.CreateFrequentCategory`), not from the catalog.
 
 - **Counters**: `Data/EmojiUsage.cs` alone. Every call of `MainForm.OnEmojiUsed` adds 1 to the
   emoji's count and sets its last use — every way of inserting goes through it.
@@ -173,29 +176,41 @@ counters (`MainForm.CreateFrequentCategory`), not from the catalog.
   the first emoji in view: the cell it was on may be gone.
 - **Empty**: the tab stays, the section reads `No emoji used yet` (`EmojiCategory.EmptyText`, one row
   kept for it — the mechanism `No emoji found` uses too).
-- **Every show** scrolls the grid to the top, on this section (`OnVisibleChanged`).
+- **Every show** scrolls the grid to the top, on the first section — this one while shown
+  (`OnVisibleChanged`).
 - The **search box** searches the catalog's categories only: the frequent section would give each of
   its emojis twice.
 - The grid pre-renders the catalog's emojis only (`EmojiGrid`'s `emojis` argument): the frequent
   section reuses their bitmaps, and the disk cache's key never changes with the counters.
 - **Clear frequently used**, in the settings menu: a Yes / No confirmation, *No* the default, then
   every counter reset and `usage.json` rewritten empty. Greyed while there is no counter.
+- **Hidden**: `Show frequently used` in the settings menu, checked while shown, and `Hide frequently
+  used` in the section's **"…" button** — the same setting, saved as `showFrequent` in
+  `settings.json` (`SettingsFile.ReadShowFrequent`; missing or unreadable → shown). No confirmation:
+  nothing is lost.
+  - Hidden, the tab leaves the strip and the section the grid; the counters **keep counting**, and
+    *Clear frequently used* stays usable. Shown again, the section is up to date and first.
+  - A toggle rebuilds the frequent and custom sections and the tabs (`MainForm.RebuildSections`,
+    `CategoryTabStrip.ReplaceTabs`): the grid back at the top on its first emoji — unless a search is
+    shown — and the window's `MinimumSize` following the tab count, one tab narrower while hidden.
 
 ## Custom Tab
 
-The second tab, **Custom** (a heart, `EB51`), right after the frequent one, holds the user's **custom
+The **Custom** tab (a heart, `EB51`), right after the frequent one, holds the user's **custom
 groups**: one section each, under the group's name. While there is no group, it holds one `Custom`
-section reading `Create a group from ⚙ → New group…`.
+section reading `Create a group from ⚙ → New group…`; while every group is hidden, the tab is gone.
 
-- **One tab, several sections**: the tab strip's list is fixed — frequent, custom, the catalog's —
-  while the grid's custom sections come and go (`EmojiGrid.ReplaceCategories`). `MainForm.TabOf` /
-  `SectionOf` map one to the other: a click on the tab scrolls to the first group, and the tab is
+- **One tab, several sections**: the tab strip lists the frequent tab and the custom one while
+  shown, then the catalog's (`CategoryTabStrip.ReplaceTabs` when one comes or goes), while the grid's
+  custom sections come and go (`EmojiGrid.ReplaceCategories`). `MainForm.TabOf` / `SectionOf` map one
+  to the other, `GroupOf` / `SectionOfGroup` a section to its group: a click on the tab scrolls to the first group, and the tab is
   active while any group's section is at the top. A change to the groups keeps the view where it was
   when it is below them (it moves with their change of height).
 - **Groups**: `Data/CustomGroups.cs` alone. **`custom-groups.json`**, next to the exe, like
-  `usage.json`: a JSON array of `{ "name", "emojis" }`, the groups and their emojis in the user's
-  order, the emojis as their text (`EmojiUsage.ReadableEmojis`). Read once at launch — missing or
-  invalid → no group; a group without a name or an emoji list is left out. Written after each
+  `usage.json`: a JSON array of `{ "name", "emojis", "hidden" }` (`hidden` written only when set),
+  the groups and their emojis in the user's order, the emojis as their text
+  (`EmojiUsage.ReadableEmojis`). Read once at launch — missing or invalid → no group; a group without
+  a name or an emoji list is left out. Written after each
   change, through `custom-groups.json.tmp` then a replace; a folder that cannot be written keeps the
   groups in memory until the app ends.
 - The emojis are the **catalog's texts**, `FE0F` included (`👍️`, `✅️`): a file written by hand
@@ -210,10 +225,16 @@ section reading `Create a group from ⚙ → New group…`.
   it out when checked. Greyed while there is no group. In a group's section, `Remove` takes it out
   of that group. The menus are built for one show (`MainForm.ShowOnce`).
 - **"…" button**, at the right end of a section's header when its `EmojiCategory.HasMenu` is set —
-  the groups' only; the header's name ends before it. Its menu: `Rename…`, `Reorder` (greyed under
-  two emojis shown), `Move up` / `Move down` (swap with the neighbour, greyed at the ends, the group
-  kept in view), `Delete group` — a Yes / No confirmation, *No* the default, when the group holds
-  emojis; an empty one is deleted right away.
+  the groups' and the frequent section's (see *Frequent Tab*); the header's name ends before it. A
+  group's menu (`MainForm.CreateGroupMenu`): `Rename…`, `Reorder` (greyed under two emojis shown),
+  `Move up` / `Move down` (swap with the nearest **shown** group — a hidden one in between keeps its
+  place —, greyed at the ends, the group kept in view), `Hide group`, `Delete group` — a Yes / No
+  confirmation, *No* the default, when the group holds emojis; an empty one is deleted right away.
+- **Hidden group**: `Hide group` in its menu, no confirmation; `Show groups ▸` in the settings menu
+  lists every group, checked while shown, a click hiding it or showing it again — greyed while there
+  is no group. The flag is saved **with the group** (`CustomGroups.SetHidden`), so a rename keeps it.
+  A hidden group has no section, but stays in `Add to ▸`; the custom tab leaves once every group is
+  hidden. A toggle goes through `MainForm.RebuildSections`, like the frequent tab's.
 - **Reorder mode** (`EmojiGrid.StartReorder`), one section at a time: its "…" becomes `Done`, in the
   accent colour. A press on one of its emojis then a move beyond `SystemInformation.DragSize` drags
   it: hover and selection stay still, a bar in the accent colour shows the gap it goes in
