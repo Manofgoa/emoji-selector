@@ -14,8 +14,9 @@ What the exe accepts, parsed in `Program.Main`:
 
 - `--title` takes the **next argument** as its value, unless that one is an option itself; a value
   missing or blank is ignored (the plain title), it is trimmed, and given twice the last one wins.
-- The second title is the window's `Text`, shown in the **taskbar** and **Alt+Tab** — the window
-  has no title bar — and in the **tray icon's tooltip**. It is **not persisted**.
+- The second title is the window's `Text`, shown in the **tray icon's tooltip** — the window has no
+  title bar, no taskbar button, no Alt+Tab entry (see *Frame*) — and read by scripts as the process's
+  `MainWindowTitle`. It is **not persisted**.
 - It exists for the agents: every launch by Claude Code passes the session's name in it (see
   `CLAUDE.md` § Launch), so instances running side by side tell which implementation they test.
 
@@ -53,9 +54,13 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   it as `trayEmoji` in `settings.json` (see *Size* below) — the default 🙂 included, there is no
   reset; the window stays. Reloaded at launch; an emoji the catalog does not have shows 🙂, its key
   left as it is until the next choice.
+- The **app icon** — the exe's and the window's — is a 🙂 too, but **fixed**: Fluent Emoji's design
+  (`AppIcon/app.ico`, [CONTRIBUTING.md § App icon](CONTRIBUTING.md#app-icon)), the exe's
+  `ApplicationIcon` and `MainForm.Icon`, read from the embedded `.ico` with every size (Windows picks
+  the small and the large one). `Use as tray icon` never changes it.
 - Emojis are drawn **in colour** by `Drawing/EmojiRenderer.cs` (Direct2D + DirectWrite): GDI and
   GDI+ draw Segoe UI Emoji in monochrome.
-- The tooltip is the window's title, second title included. A hidden window has no taskbar button.
+- The tooltip is the window's title, second title included.
 - An agent checking the close button from a script sends `WM_SYSCOMMAND` / `SC_CLOSE`: a plain
   `WM_CLOSE` counts as the Task Manager and ends the app.
 
@@ -65,6 +70,13 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   area, its top put back to the window's top: the caption becomes client area, while the left, right
   and bottom resize borders, the shadow and the rounded corners stay Windows' own. Never
   `FormBorderStyle.None`, which loses all three.
+- **A tool window**, like the Win+; panel: `MainForm.CreateParams` adds `WS_EX_TOOLWINDOW` and takes
+  out `WS_EX_APPWINDOW` — no taskbar button, no Alt+Tab nor Task View entry. Never `ShowInTaskbar =
+  false`: WinForms makes the form owned by a hidden window for it — an owned window stays in Alt+Tab,
+  and `Process.MainWindowHandle` skips it, which the agents' survival check by `MainWindowTitle` needs.
+- Windows 11 gives a tool window a menu's **small corner radius**: `OnHandleCreated` asks
+  `DWMWCP_ROUND` (`DWMWA_WINDOW_CORNER_PREFERENCE`), the corners of an app window. Windows 10 refuses
+  it, and has no rounded corners anyway.
 - The **top resize border** went with the caption: `WM_NCHITTEST` answers `HTTOP` (`HTTOPLEFT` /
   `HTTOPRIGHT` at the corners) on the top band of the client area, as thick as a side border
   (`UI/WindowFrame.cs`). The **drag area** answers `HTCAPTION`: Windows moves the window, snaps it
