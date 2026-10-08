@@ -1,13 +1,14 @@
 using System.Diagnostics;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace EmojiSelector.Data;
 
 /// <summary>
-/// The app's settings, in <see cref="FileName"/> next to the exe: for now the size the user resized the window to,
-/// its client area in logical pixels (96 DPI). A write keeps the keys it does not know, should later settings add
-/// some.
+/// The app's settings, in <see cref="FileName"/> next to the exe: the size the user resized the window to, its client
+/// area in logical pixels (96 DPI), and the emoji the user chose for the tray icon. A write keeps the keys it does not
+/// know, should later settings add some.
 /// </summary>
 /// <remarks>
 /// Best effort, like the emoji cache: a missing or invalid file reads as no setting, and a folder that cannot be
@@ -19,6 +20,7 @@ internal static class SettingsFile
 
     private const string WindowWidthKey = "windowWidth";
     private const string WindowHeightKey = "windowHeight";
+    private const string TrayEmojiKey = "trayEmoji";
 
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, FileName);
 
@@ -54,6 +56,20 @@ internal static class SettingsFile
         Write(settings);
     }
 
+    /// <summary>The emoji chosen for the tray icon; null when there is none, or none that can be read.</summary>
+    public static string? ReadTrayEmoji() =>
+        Read()?[TrayEmojiKey] is JsonValue emoji && emoji.TryGetValue(out string? text) && !string.IsNullOrWhiteSpace(text)
+            ? text
+            : null;
+
+    /// <summary>Saves the emoji chosen for the tray icon.</summary>
+    public static void WriteTrayEmoji(string emoji)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[TrayEmojiKey] = emoji;
+        Write(settings);
+    }
+
     private static JsonObject? Read()
     {
         try
@@ -74,7 +90,9 @@ internal static class SettingsFile
         string temporary = FilePath + ".new";
         try
         {
-            File.WriteAllText(temporary, settings.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            // The emojis written as themselves, not \uXXXX escapes, like usage.json.
+            var options = new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+            File.WriteAllText(temporary, EmojiUsage.ReadableEmojis(settings.ToJsonString(options)));
             File.Move(temporary, FilePath, overwrite: true);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
