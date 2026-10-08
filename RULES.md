@@ -33,11 +33,11 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Show groups ▸` | Every custom group, checked while shown: a click hides it or shows it again (see *Custom Tab* below) |
 | Settings button ⚙ → `Show French names` | Checked while the details panel shows its French row: a click hides it or shows it again (see *Details Panel* below) |
 | Settings button ⚙ → `Highlight color…` | Windows' colour dialog: the colour highlighting the search's matches in the details panel (see *Details Panel* below) |
-| Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept, and the saved size removed (see *Size* below); the window stays |
+| Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept — moved only as far as needed to stay inside the working area —, and the saved size removed (see *Size* and *Corner* below); the window stays |
 | Settings button ⚙ → `Open app folder` | Opens the exe's folder in the File Explorer, the exe selected; the window stays |
 | Settings button ⚙ → `Start with Windows` | Checked while Windows starts this exe at sign-in: a click writes or deletes the **startup shortcut** (see *Start with Windows* below); the window stays |
 | Settings button ⚙ → `Check for emoji updates…` | The latest Emojibase version online; a newer one offered, downloaded, then a restart offered (see *Emoji Data* below) |
-| Tray icon, left click | Hidden → shown; covered by another window → brought to the front; already in front → hidden |
+| Tray icon, left click | Hidden → shown in the **corner** of the mouse's monitor (see *Corner* below); covered by another window → brought to the front, not moved; already in front → hidden |
 | Tray icon, right click → `Exit` | Ends the app |
 | Win+; or Win+. — or an app's "Emoji — Windows+Period" menu entry that sends it | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
 | Emoji clicked in the grid — not one of the group in reorder mode | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below); its use counted (see *Frequent Tab* below) |
@@ -89,7 +89,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 
 - **Default size**, measured in emojis: **16 columns** wide, and high enough for a section's header
   then **8 full rows** when that section is scrolled to the top (`MainForm.DefaultColumns` /
-  `DefaultRows`). Computed in `MainForm.OnLoad`, before the window is centred, from the grid's metrics
+  `DefaultRows`). Computed in `MainForm.OnLoad`, before the window is placed, from the grid's metrics
   at the window's DPI (`EmojiGrid.SizeFor`) and the heights of the search bar, the tab strip and the
   details panel (`EmojiDetailsPanel.HeightFor`) — never a hard-coded pixel size.
 - The window is sized through **`MainForm.SetClientArea`**, never the `ClientSize` setter: that one
@@ -104,12 +104,48 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   a write keeps the keys it does not
   know. Written through `settings.json.new` then a replace, the emojis as themselves
   (`EmojiUsage.ReadableEmojis`).
-- **The size only**: the position is never saved — centred at launch, Win+; places it anyway.
+- **The size only**: the position is never saved — placed in the corner at launch (see *Corner*
+  below), Win+; places it anyway.
 - Missing, unreadable or invalid file, a folder that cannot be written → the default size, never an
   error. A size larger than the working area of the monitor is reduced to fit it; `MinimumSize` wins
   over a smaller one.
 - An agent checking a resize from a script sends `WM_ENTERSIZEMOVE`, a `SetWindowPos`, then
   `WM_EXITSIZEMOVE`: `OnResizeEnd` runs as after a drag, the mouse untouched.
+
+### Corner
+
+- **When**: the launch, and the tray icon's click — or a later launch (see *Start with Windows*) — on
+  a **hidden** window, put its visible frame in the **corner** of the working area of the monitor
+  holding the **mouse pointer**, next to its notification area, `WindowPlacement.CornerMargin` (12
+  logical pixels) from both edges, like Windows' own flyouts (`MainForm.PlaceInCorner`,
+  `WindowPlacement.PlaceInCorner`).
+- **Which corner** — the notification area ends the taskbar, so the corner follows its edge, read
+  from the monitor itself: the side where the working area is shorter than the bounds, the widest gap
+  when several are (`WindowPlacement.TaskbarEdge`).
+
+  | Taskbar | Corner |
+  |---|---|
+  | Bottom, right, or none seen (auto-hidden, not on that monitor) | Bottom right |
+  | Top | Top right |
+  | Left | Bottom left |
+
+- A frame larger than the working area keeps its top-left corner in it.
+- **Not moved**: a covered window the tray icon brings to the front; a window the user moved, until
+  its next hidden → shown. Win+; places it under the text cursor (see *Shortcut*).
+- **Placed twice**, like Win+;: before the show, so it does not appear at its old place, and after,
+  once its frame can be read — `OnShown` for the launch. Windows applies the DPI of a monitor of
+  another scale **after** that second placement: `OnDpiChanged` places it again while the window is
+  where `PlaceInCorner` put it (`inCorner`, cleared by a user move or resize, Win+; and `Reset window
+  size`).
+- **`Reset window size`** keeps the top-left corner, then moves the frame up / left only as far as
+  needed to stay inside the working area of its monitor (`WindowPlacement.KeepInside`): grown from the
+  corner, the default size would leave it.
+- An agent checking a tray click from a script cannot reach the icon (hidden in the overflow, no UI
+  Automation): it **posts** the icon's callback message, `WM_USER + 1024` with `WM_LBUTTONDOWN` then
+  `WM_LBUTTONUP` as `lParam`, to the app's hidden `NotifyIcon` window. Such a click gives no
+  foreground right: the window shows without being in front. The script runs **Per-Monitor V2 aware**
+  (`SetThreadDpiAwarenessContext(-4)`): PowerShell is system aware, and sees the coordinates of the
+  monitors of another scale converted.
 
 ## Start with Windows
 
@@ -142,7 +178,8 @@ launch the app at sign-in, hidden in the notification area. Off by default.
   two folders (a worktree's next to `main`'s) still run side by side; the same exe twice does not.
 - **A later launch** of the same exe exits at once: without `--background` it first sets the event
   `Local\EmojiSelector-<key>-show` — the first instance's window is shown and brought to the front, as
-  the tray icon's click does it, never hidden — after `AllowSetForegroundWindow(ASFW_ANY)`; with
+  the tray icon's click does it (`MainForm.ShowOrBringToFront`: a hidden one in the corner, see
+  *Corner*), never hidden — after `AllowSetForegroundWindow(ASFW_ANY)`; with
   `--background` (a sign-in while the app runs) it exits silently. Its arguments, `--title` included,
   are ignored.
 - The first instance waits for the event on a thread of its own, the show posted to the UI thread.
@@ -184,7 +221,7 @@ launch the app at sign-in, hidden in the notification area. Off by default.
   that window's app only) — else takes the mouse pointer. The sources asking the other app run off
   the UI thread, **200 ms** in all. `UI/WindowPlacement.cs` puts the visible frame under the found
   rectangle, above it when there is no room, inside the monitor's working area. The tray icon's
-  click never moves the window.
+  click places it in the corner instead (see *Window and Tray Icon* § *Corner*).
 - UI Automation and MSAA are declared by hand (`Input/AccessibilityInterop.cs`), like Direct2D: no
   new dependency.
 - An agent checking Win+; or Win+. from a script sends it with `SendInput` — injected keys go
