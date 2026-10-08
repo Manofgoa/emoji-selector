@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Globalization;
@@ -14,6 +15,12 @@ internal sealed class MainForm : Form
     /// <c>Emoji Selector — &lt;text&gt;</c>, so instances running side by side tell each other apart.
     /// </summary>
     public const string TitleArgument = "--title";
+
+    /// <summary>
+    /// The command-line option starting the app hidden in the notification area, its window shown by Win+; or the tray
+    /// icon: the Start with Windows shortcut passes it.
+    /// </summary>
+    public const string BackgroundArgument = "--background";
 
     public const string AppTitle = "Emoji Selector";
 
@@ -47,6 +54,10 @@ internal sealed class MainForm : Form
 
     public const string HighlightColorText = "Highlight color…";
 
+    public const string StartWithWindowsText = "Start with Windows";
+
+    public const string StartupFailedText = "Could not change the startup shortcut: {0}";
+
     public const string ClearFrequentQuestion =
         "Clear the frequently used emojis? Their counts are deleted and cannot be brought back.";
 
@@ -64,6 +75,8 @@ internal sealed class MainForm : Form
     public const string InvalidDownloadText = "the downloaded files are not valid emoji data.";
 
     public const string RestartQuestion = "Emoji data updated to Emojibase {0}. Restart now to use it?";
+
+    public const string RestartFailedText = "Could not restart the app: {0}";
 
     public const string FrequentHeader = "Frequently used";
 
@@ -157,15 +170,27 @@ internal sealed class MainForm : Form
     // a monitor of another DPI — saves nothing.
     private Size sizeBeforeResize;
 
+    // Released before a restart, so the restarted app is the first instance.
+    private readonly SingleInstance singleInstance;
+
+    // Started with BackgroundArgument and not shown yet: Application.Run's show is skipped.
+    private bool startHidden;
+
+    // The text cursor Win+; places the window under while it shows it: the first show sizes and centres the window in
+    // OnLoad, after it was placed.
+    private Rectangle? showAnchor;
+
     /// <summary>The second title given with <see cref="TitleArgument"/>, null without one.</summary>
     public string? SecondTitle { get; }
 
-    public MainForm(string? secondTitle)
+    public MainForm(string? secondTitle, bool startHidden, SingleInstance singleInstance)
     {
         SuspendLayout();
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
         this.SecondTitle = secondTitle;
+        this.startHidden = startHidden;
+        this.singleInstance = singleInstance;
         this.Text = secondTitle is null ? AppTitle : $"{AppTitle} — {secondTitle}";
         // Sized in OnLoad, once the bars are laid out at the window's DPI.
         this.StartPosition = FormStartPosition.CenterScreen;
@@ -244,6 +269,21 @@ internal sealed class MainForm : Form
         // Created after the controls: the hook posts Win+; through the UI thread's synchronization context.
         this.shortcutHook = new ShortcutHook();
         this.shortcutHook.Pressed += this.OnShortcutPressed;
+        this.singleInstance.ShowRequested += this.OnShowRequested;
+        this.singleInstance.Listen();
+    }
+
+    // Started with BackgroundArgument, Application.Run's show leaves the window hidden: the tray icon, the hook and the
+    // pre-render run as on a normal launch, and the first show — Win+; or the tray icon — runs OnLoad then.
+    protected override void SetVisibleCore(bool value)
+    {
+        if (this.startHidden && value)
+        {
+            this.startHidden = false;
+            value = false;
+        }
+
+        base.SetVisibleCore(value);
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
@@ -358,11 +398,16 @@ internal sealed class MainForm : Form
     }
 
     // Sized before base.OnLoad centres the window: the handle exists, at the DPI of its monitor, and the bars can be
-    // measured. The size the user last resized to wins over the default one.
+    // measured. The size the user last resized to wins over the default one. A first show by Win+; — after a start with
+    // BackgroundArgument — places the window again once sized, where centring moved it.
     protected override void OnLoad(EventArgs e)
     {
         this.SetClientArea(SettingsFile.ReadWindowSize() is Size saved ? this.LogicalToDeviceUnits(saved) : this.DefaultClientSize());
         base.OnLoad(e);
+        if (this.showAnchor is Rectangle anchor)
+        {
+            this.PlaceAt(anchor);
+        }
     }
 
     // The details panel's height follows the width, set before the docking places the controls: set during it, the
@@ -518,6 +563,9 @@ internal sealed class MainForm : Form
         menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
+        var startWithWindowsItem = new ToolStripMenuItem(StartWithWindowsText);
+        startWithWindowsItem.Click += (_, _) => this.SetStartWithWindows(!startWithWindowsItem.Checked);
+        menu.Items.Add(startWithWindowsItem);
         ToolStripItem checkEmojiUpdates = menu.Items.Add(CheckEmojiUpdatesText, image: null, null);
         checkEmojiUpdates.Click += async (_, _) => await this.CheckEmojiUpdatesAsync(checkEmojiUpdates);
         // Hidden, the frequent tab still counts: its counters can still be cleared.
@@ -528,6 +576,9 @@ internal sealed class MainForm : Form
             clearFrequent.Enabled = !this.usage.IsEmpty;
             showFrenchItem.Checked = this.detailsPanel.ShowFrench;
             this.SetSwatch(highlightColorItem, this.detailsPanel.HighlightColor);
+            // Read from the Startup folder each time: the user may delete the shortcut, or disable it in the Task
+            // Manager.
+            startWithWindowsItem.Checked = StartupShortcut.IsEnabled();
         };
         menu.Opened += (_, _) => this.tabStrip.SettingsMenuOpen = true;
         menu.Closed += (_, _) => this.tabStrip.SettingsMenuOpen = false;
@@ -565,6 +616,27 @@ internal sealed class MainForm : Form
         {
             this.detailsPanel.ShowFrench = show;
             SettingsFile.WriteShowFrench(show);
+        }
+    }
+
+    // Start with Windows checked or unchecked, from the settings menu: the shortcut written — to this exe, started
+    // hidden — or deleted. A failure is said, the item left as it was.
+    private void SetStartWithWindows(bool start)
+    {
+        try
+        {
+            if (start)
+            {
+                StartupShortcut.Enable(BackgroundArgument);
+            }
+            else
+            {
+                StartupShortcut.Disable();
+            }
+        }
+        catch (Exception exception) when (StartupShortcut.IsFailure(exception))
+        {
+            this.ShowWarning(string.Format(StartupFailedText, exception.Message));
         }
     }
 
@@ -634,15 +706,48 @@ internal sealed class MainForm : Form
             if (MessageBox.Show(this, string.Format(RestartQuestion, latest), AppTitle, MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question) == DialogResult.Yes)
             {
-                // Ends the app — not a user close, the window is not hidden to the tray — then starts it again with
-                // the same arguments, --title included.
-                Application.Restart();
+                this.Restart();
             }
         }
         finally
         {
             item.Enabled = true;
         }
+    }
+
+    // Starts the exe again with the same arguments, --title included, BackgroundArgument left out — the user is
+    // looking at the window — then ends the app: not a user close, the window is not hidden to the tray. The single
+    // instance is released first, or the new process would find this one and exit. Application.Restart would pass
+    // BackgroundArgument along.
+    private void Restart()
+    {
+        if (Environment.ProcessPath is not string exe)
+        {
+            return;
+        }
+
+        var start = new ProcessStartInfo(exe) { UseShellExecute = false, WorkingDirectory = Environment.CurrentDirectory };
+        foreach (string arg in Environment.GetCommandLineArgs().Skip(1))
+        {
+            if (!arg.Equals(BackgroundArgument, StringComparison.OrdinalIgnoreCase))
+            {
+                start.ArgumentList.Add(arg);
+            }
+        }
+
+        this.singleInstance.Dispose();
+        try
+        {
+            using Process? restarted = Process.Start(start);
+        }
+        catch (Win32Exception exception)
+        {
+            // The app keeps running, without the single instance: the new emoji data is used at the next launch.
+            this.ShowWarning(string.Format(RestartFailedText, exception.Message));
+            return;
+        }
+
+        Application.Exit();
     }
 
     private void ShowWarning(string text) =>
@@ -1178,6 +1283,14 @@ internal sealed class MainForm : Form
         this.Activate();
     }
 
+    // A later launch of this exe (see SingleInstance): shown and brought to the front, as the tray icon's click does it
+    // when hidden or covered — never hidden, a launch is not a toggle. The launching process handed the foreground over.
+    private void OnShowRequested(object? sender, EventArgs e)
+    {
+        this.Show();
+        this.Activate();
+    }
+
     // Win+;. Shown in front → hidden, the previous window getting the foreground back so typing resumes there. Hidden,
     // or shown but covered → placed under the text cursor of the previous window and brought to the foreground.
     private void OnShortcutPressed(object? sender, EventArgs e)
@@ -1198,7 +1311,9 @@ internal sealed class MainForm : Form
         // frame can be read and a move to a monitor of another DPI has resized it.
         Rectangle anchor = CaretLocator.Locate(previous);
         this.PlaceAt(anchor);
+        this.showAnchor = anchor;
         this.Show();
+        this.showAnchor = null;
         this.PlaceAt(anchor);
         this.TakeForeground();
     }
