@@ -1,6 +1,6 @@
 # Window Opacity
 
-> Working document — a setting choosing the window's opacity among 100 %, 90 %, 80 % and 70 %.
+> Working document — a setting choosing the window's opacity among 100 %, 98 %, 96 %, 94 % and 92 %.
 > This file is the source of truth for the planned work until implemented,
 > then the log of every adjustment made to it afterwards.
 
@@ -8,8 +8,8 @@
 
 ## Overview
 
-The settings menu gets a **`Window opacity ▸`** submenu offering four values — `100%`, `90%`, `80%`,
-`70%` — the one in use checked. The chosen opacity applies to the whole window, **always**: in
+The settings menu gets a **`Window opacity ▸`** submenu offering five values — `100%`, `98%`, `96%`,
+`94%`, `92%` — the one in use checked. The chosen opacity applies to the whole window, **always**: in
 front or not. It is saved in `settings.json`, 100 % by default.
 
 Components: `UI/MainForm.cs` (the menu, the opacity applied), `Data/SettingsFile.cs` (the key),
@@ -22,7 +22,7 @@ the reset's confirmation text, `RULES.md`, `README.md` / `README.fr.md`.
 - **`Window opacity ▸`**, in the settings menu's **window** section, after `Reset window size`
   (`MainForm.CreateSettingsMenu`) — the section of its feature, per RULES.md § Frame; the label
   says its subject on its own.
-- Its submenu: `100%`, `90%`, `80%`, `70%`, top to bottom (`MainForm.OpacityPercents`), the value
+- Its submenu: `100%`, `98%`, `96%`, `94%`, `92%`, top to bottom (`MainForm.OpacityPercents`), the value
   in use **checked** (set at each opening of the menu, like the other check marks). The `▸` is the
   menu's own submenu arrow, not part of the label (`WindowOpacityText = "Window opacity"`).
 - A click goes through `MainForm.SetOpacity`: `Form.Opacity` set, `opacity` written.
@@ -50,12 +50,13 @@ the reset's confirmation text, `RULES.md`, `README.md` / `README.fr.md`.
 
 ## Settings File
 
-- A new key **`opacity`** in `settings.json`: the **percentage**, an integer (`100`, `90`, `80`,
-  `70`) — `SettingsFile.ReadOpacity` / `WriteOpacity`, like `showFrench` / `highlightColor`.
+- A new key **`opacity`** in `settings.json`: the **percentage**, an integer (`100`, `98`, `96`,
+  `94`, `92`) — `SettingsFile.ReadOpacity` / `WriteOpacity`, like `showFrench` / `highlightColor`.
 - **Missing key, missing file, unreadable value** (not an integer) → 100 %.
 - `SettingsFile.ReadOpacity` returns any integer; `MainForm.NearestOpacity` maps it.
-- **An integer that is not one of the four** (written by hand) → the **nearest** of the four; a
-  tie goes to the more opaque one: `85` → 90 %, `75` → 80 %, `50` → 70 %, `120` → 100 %. The key
+- **An integer that is not one of the five** (written by hand, or saved by the first version:
+  `90`, `80`, `70`) → the **nearest** of the five; a tie goes to the more opaque one: `99` → 100 %,
+  `97` → 98 %, `95` → 96 %, `90` → 92 %, `50` → 92 %, `120` → 100 %. The key
   is left as it is until the next choice; the menu checks the value applied.
 - `100` is written like the others when chosen (the key is not removed): the file says what the
   user picked.
@@ -87,7 +88,7 @@ check instance where it can be:
 | No `opacity` key → the window opaque, `100%` checked | — (by hand) | — |
 | A value clicked → the window at that opacity at once, `opacity` written, the other keys kept | — (by hand; the file read back) | — |
 | A relaunch → the saved opacity applied from the first show, `--background` launch included | — (by hand; `GetLayeredWindowAttributes` from a script) | — |
-| An `opacity` value written by hand: not an integer → 100 %; `85` → 90 %, `75` → 80 %, `50` → 70 %, `120` → 100 % | — (by hand) | — |
+| An `opacity` value written by hand: not an integer → 100 %; `99` → 100 %, `97` → 98 %, `95` → 96 %, `90` → 92 %, `50` → 92 %, `120` → 100 % | — (by hand) | — |
 | The frame keeps its shadow, rounded corners, resize borders and drag area below 100 % | — (by hand) | — |
 | The menus and dialogs stay opaque | — (by hand) | — |
 | `Window opacity ▸` sits in the *window* section, after `Reset window size` | — (by hand) | — |
@@ -98,7 +99,8 @@ check instance where it can be:
 ## Open Questions
 
 - [x] ~~**1. An `opacity` value that is not one of the four** (e.g. `85` or `50`, written by
-  hand)?~~ → The nearest of the four, a tie to the more opaque one
+  hand)?~~ → The nearest of the four, a tie to the more opaque one *(revised 2026-10-08, see
+  Iteration 5: five values, the rule unchanged)*
 - [x] ~~**2. Label of the submenu?**~~ → `Window opacity ▸`
 - [x] ~~**3. Reset all settings' confirmation**: add the opacity to what is lost?~~ → Yes, *"the
   window size and opacity, the tray emoji, the details panel's settings"*
@@ -148,6 +150,14 @@ Go given: code, checks and documentation, in a worktree (`.claude/worktrees/wind
 - **Not checked by script**: a click in the submenu at run time — the settings button cannot be
   clicked from a script; left to the user's hand test.
 - No rule broken.
+
+### Iteration 5 — 2026-10-08 — ⚙️ Post-implementation — Lighter opacity levels
+
+The user's hand test: the levels are too transparent (*"les niveaux de transparence sont trop
+importants"*). The submenu now offers **`100%`, `98%`, `96%`, `94%`, `92%`** — five values in place
+of four (`MainForm.OpacityPercents`). Everything else holds: the label, the nearest-value rule (a
+tie to the more opaque), the key and its integer percentage. A value saved by the first version
+(`90`, `80`, `70`) maps to `92%`. RULES.md § Opacity and the READMEs follow the new values.
 
 ---
 
