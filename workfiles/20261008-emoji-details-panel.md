@@ -24,7 +24,7 @@ What it shows, from the embedded Emojibase data (`compact.en.json` / `compact.fr
 | The French name, after a French flag — when the French row is on | fr `label`, capitalized | Visage riant aux larmes |
 | The French tags, all of them — same condition | fr `tags` | content, heureux, joie, larmes, lol, mdr, pleurer de joie, pleurer de rire, rire aux larmes, sourire, émoticône |
 | The emoticon, when there is one (49 emojis) | `emoticon` (a string or an array) | `:')` |
-| The first code point, on a button copying the emoji | `hexcode` | `U+1F602` (👨‍👩‍👧‍👦 → `U+1F468`) |
+| The first code point, in the tooltip of a copy icon button copying the emoji | `hexcode` | `U+1F602` (👨‍👩‍👧‍👦 → `U+1F468`) |
 
 Left out for now: `group` (the category) and `skins` (skin tone variants). No colour choice (skin
 tone) either, unlike Twitter.
@@ -41,7 +41,7 @@ turned into rows — see Iterations 1 and 3):
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ ┌────┐  🇺🇸 Face with tears of joy                [⧉ U+1F602] │
+│ ┌────┐  🇺🇸 Face with tears of joy                        [⧉] │
 │ │ 😂 │  crying, face, feels, funny, haha, happy, hehe,         │
 │ └────┘  hi[la]rious, joy, [la]ugh, lmao, lol, rofl, roflmao,   │
 │  :')    tear                                                  │
@@ -64,10 +64,10 @@ turned into rows — see Iterations 1 and 3):
   - The flags are **images embedded in the exe** (US and French, two sizes for the DPI) — Segoe UI
     Emoji has no flag glyphs.
   - Tags are joined with `, ` and **wrap** to as many lines as they need — never truncated, no `…`.
-- **Right**: a **button** reading the emoji's **first code point only** (`U+1F602`; 👨‍👩‍👧‍👦 →
-  `U+1F468`), with a copy glyph. A click copies **the emoji itself** (its whole Unicode character
+- **Right**: a small **icon button**, the copy glyph only — no text, so the tags get the width. Its
+  **tooltip** gives the emoji's **first code point only** (`U+1F602`; 👨‍👩‍👧‍👦 → `U+1F468`). A click copies **the emoji itself** (its whole Unicode character
   sequence, `😂`) to the clipboard as text.
-  - After a copy the button reads `Copied` for about a second, then its code point again.
+  - Feedback after a copy: see Open Question 14.
   - A copy neither hides the window nor counts as a use (the frequent tab ignores it).
 - **No selection** (a search with no result): the panel stays, empty, at the same height.
 
@@ -165,9 +165,11 @@ on the running app.
 - [x] ~~8. What is highlighted?~~ → Exactly the matched characters, in fluorescent yellow, colour customizable in the settings menu
 - [x] ~~9. French column?~~ → Optional, on by default
 - [x] ~~10. How are the flags drawn? Segoe UI Emoji has no flag glyphs (see [TODO-FEATURES.md](TODO-FEATURES.md) *Flags tab*)~~ → Embedded PNG images
-- [x] ~~11. What does the button read for a multi-code-point emoji (👨‍👩‍👧‍👦 = `1F468-200D-1F469-200D-1F467-200D-1F466`)?~~ → The first code point only
+- [x] ~~11. What does the button read for a multi-code-point emoji (👨‍👩‍👧‍👦 = `1F468-200D-1F469-200D-1F467-200D-1F466`)?~~ → The first code point only *(revised 2026-10-08, see Iteration 5: the code point moves to the button's tooltip)*
 - [x] ~~12. Does the grid's tooltip (the hovered emoji's name) stay, now that the panel shows the name?~~ → Removed
-- [x] ~~13. Details: panel when the grid has no selection (a search with no result); feedback after a copy; does a copy hide the window or count as a use?~~ → Empty panel at the same height; `Copied` for about a second; a copy neither hides the window nor counts as a use
+- [x] ~~13. Details: panel when the grid has no selection (a search with no result); feedback after a copy; does a copy hide the window or count as a use?~~ → Empty panel at the same height; `Copied` for about a second; a copy neither hides the window nor counts as a use *(revised 2026-10-08, see Iteration 5: the button has no text left to read `Copied`)*
+- [ ] 14. Feedback after a copy, now that the button is an icon only?
+- [ ] 15. The tooltip of a multi-code-point emoji: the first code point only, or the whole sequence now that width is no constraint?
 
 ---
 
@@ -208,6 +210,13 @@ setting becomes the "French row" (same menu item, `Show French names`).
 
 Rows mockup validated as is (Q&A #21). The backlog row *Copy (UTF-8)* is marked with this workfile
 — the code point button copies the emoji (Q&A #19). No open question left.
+
+### Iteration 5 — 2026-10-08
+
+The user's request (Q&A #23): the copy button is too big. It becomes **the copy icon only**, the
+code point moving to its **tooltip** — more width for the tags. Two questions follow from it (Open
+Questions 14 and 15): the copy feedback (`Copied` had no text left to replace) and whether the
+tooltip, free of the width constraint, gives the whole sequence.
 
 ---
 
@@ -254,6 +263,9 @@ Questions asked by the agent during design, with user responses.
 | 20 | (request on the revised mockup B) | Not bad, but rows per language instead of columns | 2026-10-08 |
 | 21 | Does the rows mockup suit as is? | Yes | 2026-10-08 |
 | 22 | Start the implementation? Scope / where | No — the gate holds (Worktree chosen, ignored) | 2026-10-08 |
+| 23 | (request) | The copy button is too big: no code shown, the copy icon is enough, the code in its tooltip — more room for the tags | 2026-10-08 |
+| 24 | Copy feedback with an icon-only button? | | |
+| 25 | Tooltip of a multi-code-point emoji: first code point or whole sequence? | | |
 
 ---
 
