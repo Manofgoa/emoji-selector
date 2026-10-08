@@ -19,8 +19,15 @@ namespace EmojiSelector.Input;
 /// </remarks>
 internal sealed class ShortcutHook : IDisposable
 {
-    // Marks the events the hook injects itself, so it lets them through untouched.
-    private static readonly IntPtr InjectedMarker = new(0x454D4F4A);
+    /// <summary>
+    /// Marks the events the app injects itself — the hook's dummy key, the emoji's characters — so the hook lets them
+    /// through untouched.
+    /// </summary>
+    public static readonly IntPtr InjectedMarker = new(0x454D4F4A);
+
+    // The longest the keys are swallowed for a keep-open insertion, should StopSwallowing never come: the keyboard is
+    // never left swallowed.
+    private const long MaxSwallowMilliseconds = 1000;
 
     // Kept in a field: the hook calls it for as long as it is installed, the garbage collector must not collect it.
     private readonly LowLevelKeyboardProc callback;
@@ -30,6 +37,14 @@ internal sealed class ShortcutHook : IDisposable
 
     // The virtual-key code of the `;` or `.` key being swallowed, from its key-down to its key-up; 0 when none.
     private uint swallowedKey;
+
+    // Environment.TickCount64 until which the physical keys are swallowed, the modifiers excepted — a keep-open
+    // insertion handing the foreground back. Written by the UI thread, read by the hook's.
+    private long swallowUntil;
+
+    // The keys whose key-down was swallowed during a keep-open insertion: their key-up is swallowed too, even once it
+    // ended. The hook's thread only.
+    private readonly HashSet<uint> swallowedDuringInsertion = [];
 
     public ShortcutHook()
     {
@@ -44,6 +59,16 @@ internal sealed class ShortcutHook : IDisposable
 
     /// <summary>Win+; or Win+. was pressed. Raised on the UI thread, once per press: auto-repeat raises nothing.</summary>
     public event EventHandler? Pressed;
+
+    /// <summary>
+    /// A keep-open insertion starts: until <see cref="StopSwallowing"/> — one second at most — the keys pressed are
+    /// swallowed, never typed into the previous window it hands the keyboard to. The modifiers go through: their state
+    /// follows the user's fingers.
+    /// </summary>
+    public void SwallowKeys() => Volatile.Write(ref this.swallowUntil, Environment.TickCount64 + MaxSwallowMilliseconds);
+
+    /// <summary>The keep-open insertion ended: the keys go through again.</summary>
+    public void StopSwallowing() => Volatile.Write(ref this.swallowUntil, 0);
 
     public void Dispose()
     {
@@ -79,7 +104,8 @@ internal sealed class ShortcutHook : IDisposable
         if (code >= 0)
         {
             var key = Marshal.PtrToStructure<KeyboardHookData>(data);
-            if (key.ExtraInfo != InjectedMarker && this.Swallows((uint)message, key.VirtualKey))
+            if (key.ExtraInfo != InjectedMarker
+                && (this.SwallowsDuringInsertion((uint)message, key.VirtualKey) || this.Swallows((uint)message, key.VirtualKey)))
             {
                 return 1;
             }
@@ -87,6 +113,35 @@ internal sealed class ShortcutHook : IDisposable
 
         return CallNextHookEx(IntPtr.Zero, code, message, data);
     }
+
+    // While a keep-open insertion hands the foreground back, a key-down — a quick second Ctrl+Enter, Enter's
+    // auto-repeat — would land in the previous window: swallowed, the modifiers excepted. A key-up is swallowed only
+    // when its key-down was: one whose key-down went through must reach Windows, or the key would stay down.
+    private bool SwallowsDuringInsertion(uint message, uint virtualKey)
+    {
+        if (message is WmKeyUp or WmSysKeyUp)
+        {
+            return this.swallowedDuringInsertion.Remove(virtualKey);
+        }
+
+        if (message is not (WmKeyDown or WmSysKeyDown) || IsModifier(virtualKey)
+            || Environment.TickCount64 >= Volatile.Read(ref this.swallowUntil))
+        {
+            return false;
+        }
+
+        // The auto-repeat of a key held since before the insertion is swallowed, but its key-up is not: Windows saw it
+        // go down.
+        if (!IsDown((int)virtualKey))
+        {
+            this.swallowedDuringInsertion.Add(virtualKey);
+        }
+
+        return true;
+    }
+
+    private static bool IsModifier(uint virtualKey) =>
+        virtualKey is VkShift or VkControl or VkMenu or VkLWin or VkRWin or (>= VkLShift and <= VkRMenu);
 
     private bool Swallows(uint message, uint virtualKey)
     {
@@ -184,6 +239,8 @@ internal sealed class ShortcutHook : IDisposable
     private const int VkMenu = 0x12;
     private const int VkLWin = 0x5B;
     private const int VkRWin = 0x5C;
+    private const int VkLShift = 0xA0;
+    private const int VkRMenu = 0xA5;
     private const uint VkOemPeriod = 0xBE;
 
     // A virtual-key code Windows assigns to nothing: the dummy key means nothing to any app.
