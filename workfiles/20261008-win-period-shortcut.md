@@ -136,6 +136,11 @@ up; API-based menus are an accepted limit, written in the README; the Edge failu
 not pursued — the user is not interested in Edge in particular; checks by hand and by script, no test
 project.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code, tests and documentation, in a worktree (`.claude/worktrees/win-period-shortcut`,
+branch `feature/win-period-shortcut`). The design above is the frozen scope.
+
 ---
 
 ## Implementation Log
