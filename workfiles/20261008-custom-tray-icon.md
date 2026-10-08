@@ -34,7 +34,9 @@ frequent one, the custom groups, the search results — like `Add to ▸`.
 | `Use as tray icon` (`MainForm.UseAsTrayIconText`) | **First**, above `Add to ▸`, a separator after it | **Checked** when that emoji is the current tray icon | The tray icon shows the emoji at once, and it is saved |
 | `Add to ▸`, `Remove` | Unchanged, after the separator | Unchanged | Unchanged |
 
-- Clicking it while it is checked changes nothing (the emoji already is the icon).
+- Clicking it while it is checked changes nothing (the emoji already is the icon) — nothing is written
+  either: with an unknown saved emoji, 🙂 is shown and checked, and its key stays until another emoji
+  is chosen (`MainForm.UseAsTrayIcon`).
 - The window **stays open** after the click, like the settings menu's items: the icon is seen changing.
 - Choosing 🙂, the default, **saves it like any other emoji** (`trayEmoji` = 🙂): there is no reset that removes the key.
 - The emoji compared and saved is the **catalog's text** (`FE0F` included), as the custom groups do:
@@ -67,7 +69,7 @@ frequent one, the custom groups, the search results — like `Add to ▸`.
 | Key | `trayEmoji`: the emoji's text |
 | Read | `SettingsFile.ReadTrayEmoji()`: a non-blank string, else null (missing key, wrong type, unreadable file) |
 | Write | `SettingsFile.WriteTrayEmoji(string)`: sets the key — the default 🙂 included —, keeps the other keys, through `settings.json.new` then a replace — like the size |
-| Readable | Written as the emoji itself, not `\uXXXX` escapes: the JSON goes through `EmojiUsage.ReadableEmojis`, as `usage.json` and `custom-groups.json` do |
+| Readable | Written as the emoji itself, not `\uXXXX` escapes: the relaxed encoder, then `EmojiUsage.ReadableEmojis`, as `usage.json` and `custom-groups.json` do — for every key of the file |
 | Unknown emoji | An emoji the catalog does not have (a typo, an older catalog) → the default shown; the key is **left as it is** until the next choice overwrites it |
 | Failure | A folder that cannot be written → the choice lasts until the app ends, never an error |
 
@@ -130,6 +132,30 @@ Open questions answered (Q&A 5–7): the window stays open after `Use as tray ic
 it like any other emoji (the agent proposed removing the key — declined); an unknown saved emoji
 shows the default and its key is left untouched. No open question remains.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code, unit tests and documentation, in a worktree (`.claude/worktrees/custom-tray-icon`,
+branch `feature/custom-tray-icon`). The scope is the design above as it stands.
+
+### Iteration 4 — 2026-10-08 — 🧭 Implementation choices
+
+No rule broken. Choices the frozen design did not state:
+
+- **A click on the checked item writes nothing.** With a saved emoji the catalog does not have, 🙂
+  is shown, so `Use as tray icon` on 🙂 is checked and does nothing: the unknown key stays until
+  another emoji is chosen. The design said choosing 🙂 saves it like any other; in that one case
+  it is not rewritten.
+- **The whole `settings.json` is written with the relaxed encoder** then `ReadableEmojis` — not only
+  the new key; the window size keys are numbers, unchanged.
+- **A separator** after `Use as tray icon`, before `Add to ▸`.
+- **`TrayIcon` takes its first emoji in its constructor** (`TrayIcon(tooltip, emoji)`) and exposes
+  `Emoji`; `MainForm` resolves the saved emoji against the catalog before creating it.
+- **Checked in the running app by script**: a test `settings.json` with an escaped 🐱 and an unknown
+  key; a scripted resize rewrote it with `"trayEmoji": "🐱"` readable and the unknown key kept; a
+  right click on the grid opened `Use as tray icon`, a separator, `Add to`; invoking the item saved
+  the clicked emoji (🥺) and the window stayed open. The check mark and the icon itself were not
+  readable by script: left to the manual test.
+
 ---
 
 ## Implementation Log
@@ -139,11 +165,11 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | Not applicable — no test project, checked by hand |
-| README | | | |
-| RULES.md | | | |
-| GLOSSARY | | | |
+| Code | 4 | 2026-10-08 | `SettingsFile` (`trayEmoji`), `TrayIcon`, `MainForm` (menu item, launch, `OnEmojiUsed`) |
+| Unit tests | 4 | 2026-10-08 | Not applicable — no test project; scripted check in the running app, see Iteration 4 |
+| README | 4 | 2026-10-08 | `README.md` + `README.fr.md`: tray icon, insertion |
+| RULES.md | 4 | 2026-10-08 | § Window and Tray Icon, § Size (`settings.json`), § Custom Tab (right click) |
+| GLOSSARY | 4 | 2026-10-08 | `GLOSSARY.md` + `GLOSSARY.fr.md`: *Tray icon* |
 
 ---
 

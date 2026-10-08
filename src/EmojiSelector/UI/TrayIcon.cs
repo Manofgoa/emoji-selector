@@ -4,14 +4,14 @@ using EmojiSelector.Drawing;
 namespace EmojiSelector.UI;
 
 /// <summary>
-/// The <b>tray icon</b>: the app's icon in the notification area, shown as long as the app runs. It shows the last
-/// emoji used, <see cref="DefaultEmoji"/> at every launch — never persisted. A left click raises
+/// The <b>tray icon</b>: the app's icon in the notification area, shown as long as the app runs. It shows the emoji
+/// the user chose (<see cref="Emoji"/>), <see cref="DefaultEmoji"/> while none was. A left click raises
 /// <see cref="Clicked"/>; a right click opens a menu whose <c>Exit</c> raises <see cref="ExitRequested"/>.
 /// </summary>
 internal sealed class TrayIcon : IDisposable
 {
-    /// <summary>The emoji shown at every launch: 😊.</summary>
-    public const string DefaultEmoji = "\U0001F60A";
+    /// <summary>The emoji shown while the user chose none: 🙂.</summary>
+    public const string DefaultEmoji = "\U0001F642";
 
     public const string ExitText = "Exit";
 
@@ -24,7 +24,8 @@ internal sealed class TrayIcon : IDisposable
     private Icon? icon;
 
     /// <param name="tooltip">The text shown when the mouse hovers the icon: the window's title.</param>
-    public TrayIcon(string tooltip)
+    /// <param name="emoji">The emoji the icon shows.</param>
+    public TrayIcon(string tooltip, string emoji)
     {
         this.menu = new ContextMenuStrip();
         this.menu.Items.Add(ExitText, image: null, (_, _) => this.ExitRequested?.Invoke(this, EventArgs.Empty));
@@ -34,7 +35,7 @@ internal sealed class TrayIcon : IDisposable
             ContextMenuStrip = this.menu,
         };
         this.notifyIcon.MouseClick += this.OnMouseClick;
-        this.ShowEmoji(DefaultEmoji);
+        this.ShowEmoji(emoji);
         this.notifyIcon.Visible = true;
     }
 
@@ -44,9 +45,13 @@ internal sealed class TrayIcon : IDisposable
     /// <summary><c>Exit</c> was chosen in the icon's menu.</summary>
     public event EventHandler? ExitRequested;
 
-    /// <summary>Redraws the icon with <paramref name="emoji"/>: the last emoji used.</summary>
+    /// <summary>The emoji the icon shows.</summary>
+    public string Emoji { get; private set; } = DefaultEmoji;
+
+    /// <summary>Redraws the icon with <paramref name="emoji"/>: the emoji the user chose.</summary>
     public void ShowEmoji(string emoji)
     {
+        this.Emoji = emoji;
         // The notification area draws its icons at the small-icon size.
         int size = SystemInformation.SmallIconSize.Width;
         Icon? previous = this.icon;
