@@ -223,6 +223,12 @@ tooltip, free of the width constraint, gives the whole sequence.
 Open Questions 14 and 15 answered (Q&A #24, #25): a check mark replaces the copy glyph for about a
 second after a copy; the tooltip keeps the first code point only. No open question left.
 
+### Iteration 7 — 2026-10-08 — ✅ Implemented
+
+Go given (Q&A #26): code, unit tests and documentation, in a worktree —
+`.claude/worktrees/emoji-details-panel`, branch `feature/emoji-details-panel`, created from `main`
+at `20a0199`. The scope is the design sections as they stand in Iteration 6.
+
 ---
 
 ## Implementation Log
@@ -271,6 +277,7 @@ Questions asked by the agent during design, with user responses.
 | 23 | (request) | The copy button is too big: no code shown, the copy icon is enough, the code in its tooltip — more room for the tags | 2026-10-08 |
 | 24 | Copy feedback with an icon-only button? | The icon turns into a check mark for about a second | 2026-10-08 |
 | 25 | Tooltip of a multi-code-point emoji: first code point or whole sequence? | The first code point only | 2026-10-08 |
+| 26 | Start the implementation? Scope / where | Code, unit tests and documentation / Worktree | 2026-10-08 |
 
 ---
 
