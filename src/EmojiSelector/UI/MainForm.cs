@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using EmojiSelector.Data;
@@ -493,24 +494,30 @@ internal sealed class MainForm : Form
             Math.Min(clientSize.Height + borders.Height, workingArea.Height));
     }
 
-    // The menu of the tab strip's settings button, shown under it, its right edge on the button's.
+    // The menu of the tab strip's settings button, shown under it, its right edge on the button's. One section per
+    // feature, in the window's order, separated by lines: frequently used, custom groups, details panel, window, app.
     private ContextMenuStrip CreateSettingsMenu()
     {
         var menu = new ContextMenuStrip();
-        menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
-        menu.Items.Add(NewGroupText, image: null, (_, _) => this.NewGroup());
-        var showGroups = new ToolStripMenuItem(ShowGroupsText);
-        menu.Items.Add(showGroups);
-        menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
         var showFrequentItem = new ToolStripMenuItem(ShowFrequentText);
         showFrequentItem.Click += (_, _) => this.SetShowFrequent(!this.showFrequent);
         menu.Items.Add(showFrequentItem);
         ToolStripItem clearFrequent = menu.Items.Add(ClearFrequentText, image: null, (_, _) => this.ClearFrequent());
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(NewGroupText, image: null, (_, _) => this.NewGroup());
+        var showGroups = new ToolStripMenuItem(ShowGroupsText);
+        menu.Items.Add(showGroups);
+        menu.Items.Add(new ToolStripSeparator());
         var showFrenchItem = new ToolStripMenuItem(ShowFrenchText);
         showFrenchItem.Click += (_, _) => this.SetShowFrench(!this.detailsPanel.ShowFrench);
         menu.Items.Add(showFrenchItem);
-        menu.Items.Add(HighlightColorText, image: null, (_, _) => this.ChooseHighlightColor());
+        var highlightColorItem = new ToolStripMenuItem(HighlightColorText);
+        highlightColorItem.Click += (_, _) => this.ChooseHighlightColor();
+        menu.Items.Add(highlightColorItem);
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
         ToolStripItem checkEmojiUpdates = menu.Items.Add(CheckEmojiUpdatesText, image: null, null);
         checkEmojiUpdates.Click += async (_, _) => await this.CheckEmojiUpdatesAsync(checkEmojiUpdates);
         // Hidden, the frequent tab still counts: its counters can still be cleared.
@@ -520,10 +527,35 @@ internal sealed class MainForm : Form
             showFrequentItem.Checked = this.showFrequent;
             clearFrequent.Enabled = !this.usage.IsEmpty;
             showFrenchItem.Checked = this.detailsPanel.ShowFrench;
+            this.SetSwatch(highlightColorItem, this.detailsPanel.HighlightColor);
         };
         menu.Opened += (_, _) => this.tabStrip.SettingsMenuOpen = true;
         menu.Closed += (_, _) => this.tabStrip.SettingsMenuOpen = false;
+        menu.Disposed += (_, _) => highlightColorItem.Image?.Dispose();
         return menu;
+    }
+
+    // A colour item's image becomes a swatch of the colour in use: a rounded square, outlined so a colour close to the
+    // menu's background still shows, at the window's DPI. Drawn again on every opening of the menu, so it follows the
+    // colour and the monitor.
+    private void SetSwatch(ToolStripMenuItem item, Color color)
+    {
+        int size = this.LogicalToDeviceUnits(16);
+        int corner = this.LogicalToDeviceUnits(6);
+        var swatch = new Bitmap(size, size);
+        using (Graphics graphics = Graphics.FromImage(swatch))
+        using (var fill = new SolidBrush(color))
+        using (var outline = new Pen(SystemColors.ControlDark))
+        {
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            var bounds = new Rectangle(0, 0, size - 1, size - 1);
+            graphics.FillRoundedRectangle(fill, bounds, new Size(corner, corner));
+            graphics.DrawRoundedRectangle(outline, bounds, new Size(corner, corner));
+        }
+
+        Image? previous = item.Image;
+        item.Image = swatch;
+        previous?.Dispose();
     }
 
     // The details panel's French row hidden or shown again, from the settings menu; saved.

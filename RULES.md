@@ -26,13 +26,14 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 |---|---|
 | Close cross ✕ right of the tabs, Alt+F4 (`CloseReason.UserClosing`) | Hides the window to the tray — the app keeps running |
 | Drag area — the empty band between the last tab and the settings button | Moves the window; right click → Windows' system menu |
-| Settings button ⚙ left of the close cross → `Open app folder` | Opens the exe's folder in the File Explorer, the exe selected; the window stays |
+| Settings button ⚙ left of the close cross → `Show frequently used` | Checked while the frequent tab is shown: a click hides it or shows it again (see *Frequent Tab* below) |
+| Settings button ⚙ → `Clear frequently used` | After a confirmation, every use counter reset (see *Frequent Tab* below) |
 | Settings button ⚙ → `New group…` | Asks for a name, then creates a **custom group**, last, and scrolls to it (see *Custom Tab* below) |
 | Settings button ⚙ → `Show groups ▸` | Every custom group, checked while shown: a click hides it or shows it again (see *Custom Tab* below) |
-| Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept, and the saved size removed (see *Size* below); the window stays |
-| Settings button ⚙ → `Show frequently used` | Checked while the frequent tab is shown: a click hides it or shows it again (see *Frequent Tab* below) |
 | Settings button ⚙ → `Show French names` | Checked while the details panel shows its French row: a click hides it or shows it again (see *Details Panel* below) |
 | Settings button ⚙ → `Highlight color…` | Windows' colour dialog: the colour highlighting the search's matches in the details panel (see *Details Panel* below) |
+| Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept, and the saved size removed (see *Size* below); the window stays |
+| Settings button ⚙ → `Open app folder` | Opens the exe's folder in the File Explorer, the exe selected; the window stays |
 | Settings button ⚙ → `Check for emoji updates…` | The latest Emojibase version online; a newer one offered, downloaded, then a restart offered (see *Emoji Data* below) |
 | Tray icon, left click | Hidden → shown; covered by another window → brought to the front; already in front → hidden |
 | Tray icon, right click → `Exit` | Ends the app |
@@ -72,6 +73,15 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 - The close cross and the settings button belong to the tab strip (`UI/CategoryTabStrip.cs`) and
   are never greyed by a search. The cross turns Windows red on hover; the settings button's menu is a
   `ContextMenuStrip` shown under it, owned by `MainForm`.
+- The settings menu has **five sections**, one per feature, in the window's order, separated by
+  lines and **untitled** (`MainForm.CreateSettingsMenu`): *frequently used* (`Show frequently used`,
+  `Clear frequently used`), *custom groups* (`New group…`, `Show groups ▸`), *details panel* (`Show
+  French names`, `Highlight color…`), *window* (`Reset window size`), *app* (`Open app folder`,
+  `Check for emoji updates…`). A new item joins the section of its feature; the labels say their
+  subject on their own.
+- A **colour item** shows the colour in use as its image (`MainForm.SetSwatch`): a rounded square of
+  16 logical pixels, outlined in `SystemColors.ControlDark`, drawn again at each opening of the menu
+  — so it follows the colour and the monitor's DPI.
 
 ### Size
 
@@ -186,8 +196,8 @@ recreates it.
 - **A new list** changes the pre-render cache's key (the emoji list is in it): rendered again, no
   `FormatVersion` bump. Counters, custom groups and the tray emoji are kept by the emoji's text: an
   emoji the new list no longer has stays in their files and is not shown.
-- **`Check for emoji updates…`**, last in the settings menu after a separator
-  (`MainForm.CheckEmojiUpdatesAsync`, `Data/EmojiDataUpdate.cs`): the app's **only network access**,
+- **`Check for emoji updates…`**, last in the settings menu, in its *app* section after `Open app
+  folder` (`MainForm.CheckEmojiUpdatesAsync`, `Data/EmojiDataUpdate.cs`): the app's **only network access**,
   on that click only — no check at launch, no setting. The item is greyed while it runs; one
   `HttpClient`, 15 s timeout.
   1. The latest version: `https://registry.npmjs.org/emojibase-data/latest`'s `version` (never a
@@ -406,8 +416,9 @@ selected emoji changes — the same cell may hold another emoji once the section
   places the controls — set during it, the grid would keep the old space. The window's minimum
   height is 240 logical pixels plus the panel's height.
 - **Search highlight**: while the search box holds text, the characters it matches in the names and
-  tags are highlighted in `highlightColor` (settings menu, `Highlight color…`, `#RRGGBB` in
-  `settings.json`; default fluorescent yellow `#FFFF00`), the text keeping its colour. Exactly the
+  tags are highlighted in `highlightColor` (settings menu, `Highlight color…`, which shows it as a
+  swatch; `#RRGGBB` in `settings.json`; default fluorescent yellow `#FFFF00`), the text keeping its
+  colour. Exactly the
   matched characters, every occurrence, matched as the search matches (`EmojiSearch.MatchSpans`:
   accents and case ignored, inside one word).
 - **No selection** (a search with no result): the panel stays, empty, at the same height.
