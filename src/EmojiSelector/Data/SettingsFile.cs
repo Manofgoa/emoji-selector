@@ -9,7 +9,7 @@ namespace EmojiSelector.Data;
 /// <summary>
 /// The app's settings, in <see cref="FileName"/> next to the exe: the size the user resized the window to, its client
 /// area in logical pixels (96 DPI), the window's opacity, the emoji the user chose for the tray icon, whether the
-/// frequent tab is shown, and the details panel's French row and highlight colour.
+/// frequent tab is shown, the details panel's French row and highlight colour, and the default skin tones.
 /// A write keeps the keys it does not know, should later settings add some.
 /// </summary>
 /// <remarks>
@@ -30,6 +30,8 @@ internal static class SettingsFile
     private const string ShowFrenchKey = "showFrench";
     private const string HighlightColorKey = "highlightColor";
     private const string OpacityKey = "opacity";
+    private const string SkinToneKey = "skinTone";
+    private const string SecondSkinToneKey = "secondSkinTone";
 
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, FileName);
 
@@ -128,6 +130,46 @@ internal static class SettingsFile
     {
         JsonObject settings = Read() ?? [];
         settings[OpacityKey] = percent;
+        Write(settings);
+    }
+
+    /// <summary>The default skin tone; <see cref="SkinTone.None"/> when there is none, or none that can be read.</summary>
+    public static SkinTone ReadSkinTone() =>
+        Read()?[SkinToneKey] is JsonValue value && value.TryGetValue(out string? key) && SkinTones.Parse(key) is SkinTone tone
+            ? tone
+            : SkinTone.None;
+
+    /// <summary>Saves the default skin tone.</summary>
+    public static void WriteSkinTone(SkinTone tone)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[SkinToneKey] = SkinTones.KeyOf(tone);
+        Write(settings);
+    }
+
+    /// <summary>
+    /// The second person's default skin tone, for the two-person emojis; null — the same as the first person's — when
+    /// there is none, or none that can be read. Never <see cref="SkinTone.None"/>.
+    /// </summary>
+    public static SkinTone? ReadSecondSkinTone() =>
+        Read()?[SecondSkinToneKey] is JsonValue value && value.TryGetValue(out string? key)
+            && SkinTones.Parse(key) is SkinTone tone && tone != SkinTone.None
+            ? tone
+            : null;
+
+    /// <summary>Saves the second person's default skin tone; null removes it: the same as the first person's.</summary>
+    public static void WriteSecondSkinTone(SkinTone? tone)
+    {
+        JsonObject settings = Read() ?? [];
+        if (tone is SkinTone value)
+        {
+            settings[SecondSkinToneKey] = SkinTones.KeyOf(value);
+        }
+        else
+        {
+            settings.Remove(SecondSkinToneKey);
+        }
+
         Write(settings);
     }
 
