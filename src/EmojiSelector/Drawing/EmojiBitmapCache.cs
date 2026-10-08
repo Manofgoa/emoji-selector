@@ -236,6 +236,8 @@ internal sealed class EmojiBitmapCache : IDisposable
             $"font={fontStamp}",
             $"emojis={emojiHash}",
             $"renderer={EmojiRenderer.FontScale.ToString(System.Globalization.CultureInfo.InvariantCulture)};{EmojiRenderer.RaiseScale.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            // The flag images in use: another Twemoji version, embedded or downloaded, may draw the same flags otherwise.
+            $"flags={FlagImages.Version};{FlagImages.FolderImageCount}",
             "");
     }
 
