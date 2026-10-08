@@ -154,6 +154,15 @@ highlighted. One question emerged: what those keys do in the search box.
 Q&A #8: in the search box, the Menu key and Shift+F10 keep the box's own menu; the emoji menu opens
 from the grid only. No open question left.
 
+### Iteration 4 — 2026-10-08 — ✅ Implemented
+
+Go given: code, manual checks and documentation, in a worktree
+(`.claude/worktrees/remove-frequent-emoji`, branch `feature/remove-frequent-emoji`, from `main` at
+`13a4721`). Since the design, `main` merged the **frequent tab toggle** (`13a4721`: the frequent
+section can be hidden, `FirstCustomSection` is now `showFrequent ? 1 : 0`) and the **custom tray
+icon** (`e7ffd8d`: `Use as tray icon` then a separator head the emoji menu). The design holds:
+`IsFrequentSection` tests `showFrequent` as well, and the new item still comes after `Add to ▸`.
+
 ---
 
 ## Implementation Log
