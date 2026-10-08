@@ -179,6 +179,11 @@ when it targets this exe; failed deletions named in a warning, the restart done 
 of the *app* section; a failed restart warns then exits, while the emoji update's restart keeps
 running as before — `Restart` takes the failure's text and whether to exit. No open question left.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code, unit tests and documentation, in a worktree (`.claude/worktrees/reset-all-settings`,
+branch `feature/reset-all-settings`). The scope is frozen as the design sections stand above.
+
 ---
 
 ## Implementation Log
