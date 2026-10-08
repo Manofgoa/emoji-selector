@@ -425,6 +425,8 @@ internal sealed class MainForm : Form
         var menu = new ContextMenuStrip();
         menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
         menu.Items.Add(NewGroupText, image: null, (_, _) => this.NewGroup());
+        var showGroups = new ToolStripMenuItem(ShowGroupsText);
+        menu.Items.Add(showGroups);
         menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
         var showFrequentItem = new ToolStripMenuItem(ShowFrequentText);
         showFrequentItem.Click += (_, _) => this.SetShowFrequent(!this.showFrequent);
@@ -433,6 +435,7 @@ internal sealed class MainForm : Form
         // Hidden, the frequent tab still counts: its counters can still be cleared.
         menu.Opening += (_, _) =>
         {
+            this.FillShowGroups(showGroups);
             showFrequentItem.Checked = this.showFrequent;
             clearFrequent.Enabled = !this.usage.IsEmpty;
         };
@@ -462,6 +465,35 @@ internal sealed class MainForm : Form
                 this.grid.ReplaceCategory(0, this.CreateFrequentCategory());
             }
         }
+    }
+
+    // Show groups ▸ every group, in the user's order, checked while shown: a click hides it or shows it again. Greyed
+    // while there is no group.
+    private void FillShowGroups(ToolStripMenuItem showGroups)
+    {
+        while (showGroups.DropDownItems.Count > 0)
+        {
+            showGroups.DropDownItems[0].Dispose();
+        }
+
+        for (int group = 0; group < this.customGroups.Groups.Count; group++)
+        {
+            int target = group;
+            bool hidden = this.customGroups.Groups[group].Hidden;
+            var item = new ToolStripMenuItem(MenuName(this.customGroups.Groups[group].Name)) { Checked = !hidden };
+            item.Click += (_, _) => this.SetGroupHidden(target, !hidden);
+            showGroups.DropDownItems.Add(item);
+        }
+
+        showGroups.Enabled = this.customGroups.Groups.Count > 0;
+    }
+
+    // A group hidden or shown again, from its "…" button or Show groups; saved with the group.
+    private void SetGroupHidden(int group, bool hidden)
+    {
+        int replaced = this.FirstCustomSection + this.customSectionCount;
+        this.customGroups.SetHidden(group, hidden);
+        this.RebuildSections(replaced);
     }
 
     // The frequent tab hidden or shown again, from the settings menu or its section's "…" button; saved.
@@ -780,6 +812,7 @@ internal sealed class MainForm : Form
         moveUp.Enabled = shown > 0;
         ToolStripItem moveDown = menu.Items.Add(MoveDownText, image: null, (_, _) => this.MoveGroup(group, this.shownGroups[shown + 1]));
         moveDown.Enabled = shown < this.shownGroups.Count - 1;
+        menu.Items.Add(HideGroupText, image: null, (_, _) => this.SetGroupHidden(group, true));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(DeleteGroupText, image: null, (_, _) => this.DeleteGroup(group));
         return menu;
