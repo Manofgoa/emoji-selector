@@ -21,7 +21,7 @@ What it shows, from the embedded Emojibase data (`compact.en.json` / `compact.fr
 | The emoji, large and in colour | `unicode` | 😂 |
 | The English name, after a US flag | en `label`, capitalized | Face with tears of joy |
 | The English tags, **all of them** | en `tags` | crying, face, feels, funny, haha, happy, hehe, hilarious, joy, laugh, lmao, lol, rofl, roflmao, tear |
-| The French name, after a French flag — when the French column is on | fr `label`, capitalized | Visage riant aux larmes |
+| The French name, after a French flag — when the French row is on | fr `label`, capitalized | Visage riant aux larmes |
 | The French tags, all of them — same condition | fr `tags` | content, heureux, joie, larmes, lol, mdr, pleurer de joie, pleurer de rire, rire aux larmes, sourire, émoticône |
 | The emoticon, when there is one (49 emojis) | `emoticon` (a string or an array) | `:')` |
 | The first code point, on a button copying the emoji | `hexcode` | `U+1F602` (👨‍👩‍👧‍👦 → `U+1F468`) |
@@ -36,27 +36,33 @@ Out of scope: the search itself — English and French names and tags are alread
 
 ## Layout
 
-Design **B** (two columns), as in the mockup validated on 2026-10-08:
+**One row per language**, as in the mockup of 2026-10-08 (design B first, in two columns, then
+turned into rows — see Iterations 1 and 3):
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│ ┌────┐  🇺🇸 Face with tears of joy        🇫🇷 Visage riant aux larmes   [⧉ U+1F602] │
-│ │ 😂 │  crying, face, feels, funny,      content, heureux, joie,                 │
-│ └────┘  haha, happy, hehe, hi[la]rious,  [la]rmes, lol, mdr, pleurer             │
-│  :')    joy, [la]ugh, lmao, lol, rofl,   de joie, pleurer de rire,               │
-│         roflmao, tear                    rire aux [la]rmes, sourire, émoticône   │
-└──────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ ┌────┐  🇺🇸 Face with tears of joy                [⧉ U+1F602] │
+│ │ 😂 │  crying, face, feels, funny, haha, happy, hehe,         │
+│ └────┘  hi[la]rious, joy, [la]ugh, lmao, lol, rofl, roflmao,   │
+│  :')    tear                                                  │
+│         ─────────────────────────────────────                 │
+│         🇫🇷 Visage riant aux [la]rmes                           │
+│         content, heureux, joie, [la]rmes, lol, mdr, pleurer   │
+│         de joie, pleurer de rire, rire aux [la]rmes, sourire, │
+│         émoticône                                             │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 - **Left**: the emoji, large (≈ 48 logical px), drawn in colour; the emoticon(s) under it, small and
   grey, only when the emoji has one (an array shows every one, space-separated).
-- **Middle**: one column per language, equal widths.
-  - **EN column**, always shown: the US flag then the English name (bold), the English tags below.
+- **Middle**: one row per language, stacked, each one the whole middle width, a thin separator
+  between them.
+  - **EN row**, always shown: the US flag then the English name (bold), the English tags below.
+  - **FR row**, shown when the French row is on (default): the French flag then the French
+    name (bold, first letter capitalized — `Visage`, not `visage`), the French tags below.
+  - French row off → only the EN row; the panel is lower (see *Height*).
   - The flags are **images embedded in the exe** (US and French, two sizes for the DPI) — Segoe UI
     Emoji has no flag glyphs.
-  - **FR column**, shown when the French column is on (default): the French flag then the French
-    name (bold, first letter capitalized — `Visage`, not `visage`), the French tags below.
-  - French column off → the EN column takes the whole middle width.
   - Tags are joined with `, ` and **wrap** to as many lines as they need — never truncated, no `…`.
 - **Right**: a **button** reading the emoji's **first code point only** (`U+1F602`; 👨‍👩‍👧‍👦 →
   `U+1F468`), with a copy glyph. A click copies **the emoji itself** (its whole Unicode character
@@ -70,8 +76,8 @@ The grid's **tooltip** (the hovered emoji's name) is **removed**: the panel show
 ### Height
 
 **Fixed, sized to the longest content**: the panel height is the one the emoji with the most text
-needs at the current panel width (and French column state), computed over the whole catalog. Moving
-the selection never changes it; resizing the window or toggling the French column recomputes it.
+needs at the current panel width (and French row state), computed over the whole catalog. Moving
+the selection never changes it; resizing the window or toggling the French row recomputes it.
 
 - The window's minimum height and its default size (`MainForm.DefaultClientSize`) include it.
 
@@ -99,7 +105,7 @@ Two items join the settings menu (`MainForm.CreateSettingsMenu`), persisted in `
 
 | Item | Kind | Key | Default |
 |---|---|---|---|
-| `Show French names` | Check item, toggles the FR column | `showFrench` (bool) | on |
+| `Show French names` | Check item, toggles the FR row | `showFrench` (bool) | on |
 | `Highlight color…` | Opens the Windows colour dialog (`ColorDialog`) | `highlightColor` (`#RRGGBB`) | `#FFFF00` |
 
 An unreadable `highlightColor` falls back to the default.
@@ -143,7 +149,7 @@ on the running app.
 
 | Behaviour to pin | Test file | Create / Update |
 |---|---|---|
-| — none (checked by hand: panel follows hover and arrows, FR column on/off, tags wrapped and complete, fixed height while moving, `la` / `emoticone` / `oe` highlighted, colour change saved, copy button pastes the emoji) | — | — |
+| — none (checked by hand: panel follows hover and arrows, FR row on/off, tags wrapped and complete, fixed height while moving, `la` / `emoticone` / `oe` highlighted, colour change saved, copy button pastes the emoji) | — | — |
 
 ---
 
@@ -157,7 +163,7 @@ on the running app.
 - [x] ~~6. Panel height?~~ → Fixed, sized to the longest content
 - [x] ~~7. What does the copy button copy?~~ → The emoji itself
 - [x] ~~8. What is highlighted?~~ → Exactly the matched characters, in fluorescent yellow, colour customizable in the settings menu
-- [x] ~~9. French column?~~ → Optional, on by default
+- [x] ~~9. French row?~~ → Optional, on by default
 - [x] ~~10. How are the flags drawn? Segoe UI Emoji has no flag glyphs (see [TODO-FEATURES.md](TODO-FEATURES.md) *Flags tab*)~~ → Embedded PNG images
 - [x] ~~11. What does the button read for a multi-code-point emoji (👨‍👩‍👧‍👦 = `1F468-200D-1F469-200D-1F467-200D-1F466`)?~~ → The first code point only
 - [x] ~~12. Does the grid's tooltip (the hovered emoji's name) stay, now that the panel shows the name?~~ → Removed
@@ -191,6 +197,13 @@ code point only, the grid's tooltip removed, an empty panel when nothing is sele
 feedback after a copy, a copy neither hides the window nor counts as a use. *Layout* and *Technical
 Notes* updated.
 
+### Iteration 3 — 2026-10-08
+
+The user's request (Q&A #20): no more one column per language — **one row per language**, stacked:
+the EN row (flag, name, tags), then the FR row under it when it is on. The flags, the code point
+button on the right, the emoticon under the emoji stay. *Layout* rewritten; the "French column"
+setting becomes the "French row" (same menu item, `Show French names`).
+
 ---
 
 ## Implementation Log
@@ -223,16 +236,17 @@ Questions asked by the agent during design, with user responses.
 | 7 | Does the grid's tooltip stay once the panel exists? | Dismissed — asked again as Open Question 12 | 2026-10-08 |
 | 8 | What labels are available in the embedded data? | (user's question) — Inspired by Twitter: emoji large at the bottom left; no colour choice; list the available fields | 2026-10-08 |
 | 9 | (answer to #8: label, tags, emoticon, hexcode, group, skins) | All of them except `group` and `skins`; make layout mockups | 2026-10-08 |
-| 10 | Mockups A–D: which layout? | B, every tag shown with line wrapping (no `…`), search matches highlighted in fluorescent yellow (colour customizable in the settings menu), capital `Visage`, French column optional and on by default, `U+1F602` a button copying to the clipboard | 2026-10-08 |
+| 10 | Mockups A–D: which layout? | B, every tag shown with line wrapping (no `…`), search matches highlighted in fluorescent yellow (colour customizable in the settings menu), capital `Visage`, French row optional and on by default, `U+1F602` a button copying to the clipboard | 2026-10-08 |
 | 11 | What does the `U+1F602` button copy? | The emoji | 2026-10-08 |
 | 12 | Panel height with every tag shown? | Fixed, sized to the longest | 2026-10-08 |
 | 13 | What is highlighted: the matched part, the word, the whole tag? Simple or tricky subject? | The matched part; simple | 2026-10-08 |
-| 14 | (mid-exploration request) | B with the code point on the right, US flag before the English name, French flag before the French name when the French column is on; make the mockup | 2026-10-08 |
+| 14 | (mid-exploration request) | B with the code point on the right, US flag before the English name, French flag before the French name when the French row is on; make the mockup | 2026-10-08 |
 | 15 | How are the flags drawn? | Embedded images | 2026-10-08 |
 | 16 | Button label for a multi-code-point emoji? | The first code point only | 2026-10-08 |
 | 17 | Does the grid's tooltip stay? | Removed | 2026-10-08 |
 | 18 | Empty panel, copy feedback, copy hides the window / counts as a use? | OK for all: empty panel, `Copied` ~1 s, no hide, not a use | 2026-10-08 |
 | 19 | Mark the backlog row *Copy (UTF-8)* with this workfile? | | |
+| 20 | (request on the revised mockup B) | Not bad, but rows per language instead of columns | 2026-10-08 |
 
 ---
 
