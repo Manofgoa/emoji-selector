@@ -59,7 +59,12 @@ Components involved:
   - A frame larger than the working area (minus the margins) keeps its **top-left inside it** —
     the same clamping rule as `WindowPlacement.Place`.
 - **Placed twice**, like Win+; does it: once before `Show` (no flash at the old place), once after,
-  when the frame can be read and a move to a monitor of another DPI has resized the window.
+  when the frame can be read — `OnShown` for the launch, whose show is `Application.Run`'s.
+- **A change of DPI places it again**: Windows applies the DPI of a monitor of another scale *after*
+  the second placement, and resizes the window around its top-left corner — it would leave the
+  corner. `OnDpiChanged` calls `PlaceInCorner` again while the window is where `PlaceInCorner` put
+  it (`inCorner`, cleared by a user move or resize — `OnResizeBegin` —, Win+;'s `PlaceAt` and
+  `Reset window size`).
 - **Size**: unchanged — the remembered size, or the default one (RULES.md § Size). Only the
   position is computed; it is still never saved.
 
@@ -77,10 +82,10 @@ Components involved:
 | The user moves the window | Stays there | Stays there — until the next hidden → shown tray click |
 
 - **One show path**: the tray click's "hidden → placed in the corner, shown, activated" lives in
-  one `MainForm` method, so the second launch of `20261008-start-with-windows.md` calls it rather
-  than repeating it. That workfile is implemented in its own worktree, not merged: this run does
-  not touch it. Whichever branch is merged second makes the second launch's show go through that
-  method (a hidden window → the corner; covered → brought to the front, not moved).
+  one `MainForm` method, `ShowOrBringToFront`, which the second launch of
+  `20261008-start-with-windows.md` (`OnShowRequested`) calls too — that workfile was merged into
+  `main` before this run started, so the wiring is done here (a hidden window → the corner;
+  covered → brought to the front, not moved).
 - **`Reset window size`** clamps the **visible frame** into the working area of the monitor the
   window is on (`Screen.FromHandle`), the same frame measure as `PlaceAt`; a window already inside
   does not move.
@@ -114,6 +119,22 @@ rectangles. **No test file is created or updated.**
 | Taskbar on the top / left / right / none → top right / bottom left / bottom right / bottom right | — (reflection check) | — |
 | `Reset window size` from the corner → the frame stays inside the working area | — (script check) | — |
 | Win+; still places the window under the text cursor | — (script check) | — |
+
+**Checks run** (Iteration 4), on a 4-monitor setup — primary 3840×2160 at 120 DPI, left 2560×1440
+at 120 DPI, two side monitors at 96 DPI:
+
+| Check | Result |
+|---|---|
+| Reflection: `PlaceInCorner` for taskbar bottom / top / left / right / none, a second monitor at negative coordinates | ✅ 6 / 6 |
+| Reflection: a frame larger than the area; `KeepInside` moving and not moving | ✅ 3 / 3 |
+| Launch → frame 15 px (12 logical at 120 DPI) from the right and bottom of the primary's working area | ✅ |
+| Moved to 200,200, hidden, tray click → back in the corner | ✅ |
+| Hidden, pointer on a 96 DPI monitor → its corner, 12 px | ✅ (after the `OnDpiChanged` fix — see Iteration 4) |
+| Hidden, pointer back on the primary, then on the left monitor → each one's corner, 15 px | ✅ |
+| Covered, tray click → still shown, not moved | ✅ |
+| Hidden, second launch, pointer on a 96 DPI monitor → its corner | ✅ |
+| Win+. → shown near the previous window's text cursor, not in the corner | ✅ |
+| `Reset window size` at runtime | ❌ not run: the settings button cannot be clicked from a script (RULES § Emoji Data) — `KeepInside` checked by reflection only |
 
 ---
 
@@ -175,6 +196,35 @@ Go given: code, checks and documentation, in a worktree (`.claude/worktrees/tray
 branch `feature/tray-click-placement`, created from `main` after the start-with-windows merge). The
 second launch's show is therefore wired here (Q&A 7).
 
+### Iteration 4 — 2026-10-08 — 🧭 Implementation choices
+
+No rule broken. Choices the frozen design did not state:
+
+- **Re-placement on a DPI change** (divergent, the closest workable variant): "placed twice" did not
+  hold across monitors of different scales — the check showed the window shown on a 96 DPI monitor
+  from a 120 DPI one landing ~150 px off its corner, Windows resizing it after the second placement.
+  `OnDpiChanged` now places it again while it sits where `PlaceInCorner` put it (`inCorner`); a user
+  move or resize, Win+; and `Reset window size` clear that flag, so a window dragged to another
+  monitor is never pulled back to a corner.
+- **The launch's second placement** is in `OnShown` (`placeInCornerWhenShown`, set by `OnLoad`):
+  the launch's show is `Application.Run`'s, there is no call to place it after.
+  `StartPosition` became `Manual`.
+- **Names**: `WindowPlacement.CornerMargin`, `PlaceInCorner`, `TaskbarEdge` (with a nested `Edge`
+  enum), `KeepInside`; `MainForm.ShowOrBringToFront` (the tray's and the second launch's show),
+  `PlaceInCorner`, `FrameSize` and `MoveFrameTo` — the last two taken out of `PlaceAt`, which now
+  shares them.
+- **Taskbar edge on ties**: bottom, then right, top, left — the default taskbar's edge wins.
+- **Checks**: the tray icon sits in the overflow, out of UI Automation's reach: the script posts the
+  icon's callback message (`WM_USER + 1024`, `WM_LBUTTONDOWN` / `WM_LBUTTONUP`) to the app's hidden
+  `NotifyIcon` window, and runs Per-Monitor V2 aware — PowerShell is system aware and first gave
+  converted coordinates for the monitors of another scale. Such a click gives no foreground right:
+  the window shows without being in front, which a real click does not have. Documented in RULES §
+  *Corner*.
+- `Reset window size` is not checked at runtime (see *Checks run*).
+- **Observed, not fixed** (out of scope): the check instance, hidden, did not end after a `WM_CLOSE`
+  posted to its main window, contrary to RULES § Window and Tray Icon ("a `WM_CLOSE` sent by another
+  process ends the app"); it was ended with `Stop-Process`. Cause not investigated.
+
 ---
 
 ## Implementation Log
@@ -184,10 +234,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | |
-| README | | | |
-| RULES.md / GLOSSARY | | | |
+| Code | 3, 4 | 2026-10-08 | `WindowPlacement` (corner, taskbar edge, keep inside); `MainForm` (launch, tray, second launch, reset, DPI change) |
+| Unit tests | 4 | 2026-10-08 | None, as decided (Q&A 8): reflection and script checks, see *Checks run* |
+| README | 4 | 2026-10-08 | `README.md` and `README.fr.md`: tray icon bullet, `Reset window size` |
+| RULES.md / GLOSSARY | 4 | 2026-10-08 | RULES: new § *Corner*, tray and reset rows, § Size, later launch, § Shortcut *Placement*. GLOSSARY: no new term |
 
 ---
 
