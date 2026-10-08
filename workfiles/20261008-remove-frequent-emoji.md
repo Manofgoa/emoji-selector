@@ -51,12 +51,11 @@ frequently used`**, forgetting that emoji's counter alone.
 ## Right-Click Menu
 
 - On an emoji of the **frequent section only** (Q&A #2), `ShowEmojiMenu` adds
-  **`Remove from frequently used`** (Q&A #3, `MainForm.RemoveFrequentText`), after `Add to ▸` — the
-  place `Remove` takes in a custom group.
+  **`Remove from frequently used`** (Q&A #3, `MainForm.RemoveFrequentText`), last: after
+  `Use as tray icon`, the separator and `Add to ▸` — the place `Remove` takes in a custom group.
 - **Not in search mode**: the search results section is index 0 too. The test is one helper,
-  `MainForm.IsFrequentSection(int section)` — section 0 and the search box blank — so the frequent
-  tab toggle ([20261008-frequent-tab-toggle.md](20261008-frequent-tab-toggle.md), go given, run
-  deferred), which can take the frequent section out, adapts one place.
+  `MainForm.IsFrequentSection(int section)` — the frequent tab shown (`showFrequent`, from the
+  frequent tab toggle), section 0, and the search box blank.
 - **No confirmation** (Q&A #4): one counter, one click.
 - Clicked → `usage.Remove(emoji)`, then `grid.ReplaceCategory(0, CreateFrequentCategory())`: the
   next emoji moves up into the three rows, or the section reads `No emoji used yet` when it was the
@@ -77,11 +76,13 @@ The **Menu key** (`Keys.Apps`) and **Shift+F10** open the right-click menu **on 
 - **Grid focused**: `ProcessCmdKey` calls a new **`EmojiGrid.OpenSelectionMenu()`**: the selected
   cell is scrolled into view (the mouse wheel may have moved it out), then `EmojiRightClicked` is
   raised with the selection's section and emoji, the location at the **bottom-left corner of its
-  cell** — `MainForm.ShowEmojiMenu` stays the one place building the menu. No selection → nothing.
+  cell**, and `EmojiRightClick.FromKeyboard` set — `MainForm.ShowEmojiMenu` stays the one place
+  building the menu. No selection → nothing.
 - **Search box focused**: the keys keep the **box's own menu** (Cut, Copy, Paste…) (Q&A #8) —
   the emoji menu opens from the grid only.
-- Opened from the keyboard, the menu's **first enabled item is highlighted**, as Windows does for a
-  menu opened by the keyboard, so ↓ / Enter work at once.
+- Opened from the keyboard (`FromKeyboard`), the menu's **first enabled item is highlighted** — in
+  practice `Use as tray icon` —, as Windows does for a menu opened by the keyboard, so ↓ / Enter
+  work at once. From the mouse, nothing is highlighted, as before.
 - The menu closed, the keyboard is back where it was (WinForms gives the focus back to the control
   that had it).
 - In the **reorder mode**, it opens like the right click does there.
@@ -122,6 +123,11 @@ below are **checked by hand** in the running app.
   mouse only?~~ → The Menu key / Shift+F10 open the right-click menu on the selection
 - [x] ~~In the **search box**, do the Menu key / Shift+F10 keep the box's own menu, or open the
   emoji menu on the selection?~~ → The box's own menu
+- [ ] **Found during the run, not fixed (out of scope)**: with the frequent tab **hidden**,
+  `FirstCustomSection` is 0, so in **search mode** `MainForm.GroupOf(0)` returns the first shown
+  group — a right click on a search result then offers `Remove`, taking the emoji out of that group
+  (a no-op when it is not in it, but the item should not be there). `GroupOf` needs the same
+  search-mode guard as `IsFrequentSection`. Fix it in a follow-up?
 
 ---
 
@@ -163,6 +169,28 @@ section can be hidden, `FirstCustomSection` is now `showFrequent ? 1 : 0`) and t
 icon** (`e7ffd8d`: `Use as tray icon` then a separator head the emoji menu). The design holds:
 `IsFrequentSection` tests `showFrequent` as well, and the new item still comes after `Add to ▸`.
 
+### Iteration 5 — 2026-10-08 — 🧭 Implementation choices
+
+No rule broken.
+
+- **Starting point moved** (see Iteration 4): the menu now opens on `Use as tray icon` and a
+  separator, so the new item comes last; `IsFrequentSection` tests `showFrequent` too.
+- **Keyboard origin**: the design did not say how `ShowEmojiMenu` tells a keyboard opening — a
+  `FromKeyboard` flag, defaulting to false, was added to `EmojiGrid.EmojiRightClick`.
+- **Highlighted item**: the first enabled `ToolStripMenuItem` (separators skipped).
+- **Commits**: counters, menu item, keyboard opening, `RULES.md`, READMEs — five commits; the
+  menu-item commit was staged from a copy of `MainForm.cs` without the keyboard lines, so each
+  commit builds on its own.
+- **Checks**, on an instance launched from the worktree with a seeded `usage.json`: Menu key on the
+  first frequent emoji → menu under its cell, `Use as tray icon` focused, `Remove from frequently
+  used` last; invoked → gone from `usage.json`, the window stays, the grid keeps the focus; mouse
+  right click on a frequent emoji → same items, none highlighted; search `chat` → no such item from
+  the keyboard nor the mouse; the last one removed → `{}` and `No emoji used yet`.
+  **Shift+F10 was not checked**: posted messages cannot hold Shift down and global keystrokes are
+  ruled out (RULES.md § Search Box) — same code path as the Menu key. *Used again → count 1* not
+  checked either: `EmojiUsage.Record` is unchanged.
+- **Found, not fixed**: `GroupOf` in search mode with the frequent tab hidden (see *Open Questions*).
+
 ---
 
 ## Implementation Log
@@ -172,9 +200,9 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | No test project — manual checks (see *Test Impact*) |
-| README | | | |
+| Code | 5 | 2026-10-08 | `EmojiUsage.Remove`; the menu item; the Menu key / Shift+F10 — three commits |
+| Unit tests | 5 | 2026-10-08 | No test project — manual checks by script (see Iteration 5); Shift+F10 not scripted |
+| README | 5 | 2026-10-08 | `README.md` and `README.fr.md` in one commit; `RULES.md` in its own |
 
 ---
 
