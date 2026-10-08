@@ -34,6 +34,28 @@ To update the embedded copy, replace both files and `LICENSE` with those of the 
 `emojibase-data` version (`https://cdn.jsdelivr.net/npm/emojibase-data@<version>/<en|fr>/compact.json`),
 then update `version.txt` and the version above.
 
+## App icon
+
+The app icon — the exe's and the window's — is the *Slightly smiling face* of Microsoft's
+[Fluent Emoji](https://github.com/microsoft/fluentui-emoji), *Color* style (MIT, see
+[its LICENSE](src/EmojiSelector/AppIcon/LICENSE)), kept as published in `src/EmojiSelector/AppIcon/`:
+
+| File | Is |
+|---|---|
+| `slightly_smiling_face_color.svg` | The source, `assets/Slightly smiling face/Color/` of the Fluent Emoji repository |
+| `app.ico` | Generated from the SVG: 16, 20, 24, 32, 40, 48, 64 and 256 px, transparent, one PNG each |
+| `New-AppIcon.ps1` | The script generating `app.ico` |
+
+`app.ico` is committed: the build does not run the script. After a change to the SVG or the sizes,
+run it again — it renders the SVG with Microsoft Edge headless and downloads nothing:
+
+```powershell
+pwsh src/EmojiSelector/AppIcon/New-AppIcon.ps1
+```
+
+The tray icon is not this file: it is drawn at run time from Windows' emoji font, and shows the
+emoji the user chose.
+
 ## Before changing the code
 
 - [RULES.md](RULES.md) holds the rules every change follows. A change that breaks one of them
