@@ -505,13 +505,15 @@ One emoji of the grid is the **selection** (`UI/EmojiGrid.cs`), framed in the ac
 inserts it, wherever the keyboard is.
 
 The keyboard has **two places**: the search box, focused on every show, and the grid, which gets the
-focus only from a navigation key in the box — ↓, or any of the grid's while the box is empty — it is
+focus only from a navigation key in the box — ↓, ← / → at the text's edge, or any of the grid's while
+the box is empty — it is
 not selectable, a click never focuses it. `MainForm.ProcessCmdKey`
 routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
 
 | Focus | Key | Does |
 |---|---|---|
-| Search box, with text | ← / →, Home / End | The text caret |
+| Search box, with text | ← / →, Home / End | The text caret — ← / → at the text's edge aside, next row |
+| Search box, with text | ← with the caret at the start of the text, → at its end — no text selected, no modifier | As in the grid, from the selection, and the grid gets the keyboard — even when the selection cannot move; no result → nothing, the keyboard stays in the box |
 | Search box, with text | ↓ | The grid gets the keyboard, the selection on its first emoji; no result → nothing, the keyboard stays in the box |
 | Search box, with text | Page Up / Page Down, Tab / Shift+Tab | Ignored |
 | Search box, empty | ← / →, ↑ / ↓, Home / End, Ctrl+Home / Ctrl+End, Page Up / Page Down, Tab / Shift+Tab | As in the grid, from the selection, and the grid gets the keyboard — even when the selection cannot move. ↑ on the grid's first row → nothing, the keyboard stays in the box |
@@ -530,6 +532,10 @@ routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
 - **Empty** means no character at all (`TextLength == 0`): a box holding only spaces is *with text*,
   its caret still has somewhere to go. The empty box's keys are the ones `EmojiGrid.MoveSelection`
   answers (`EmojiGrid.IsNavigationKey`); Enter, Esc and the Menu key / Shift+F10 keep their rows.
+- **The text's edge**: the caret at the start (`SelectionStart == 0`) for ←, at the end
+  (`SelectionStart == TextLength`) for →, with `SelectionLength == 0`. A selected text first collapses
+  as Windows does it — the next press at the edge leaves the box. Shift+← / → and Ctrl+← / → never
+  leave it: they edit the text.
 - **Where the selection goes**: every show → the grid's first emoji, scrolled to the top; every
   change of the search text → the first result; emptying the box → the first emoji in view; a tab
   click or Tab → the category's first emoji. Anything else leaves it alone.
