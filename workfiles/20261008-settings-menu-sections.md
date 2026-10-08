@@ -86,10 +86,11 @@ Requested by the user (Iteration 2): a menu item choosing a colour **shows that 
   colour in use, 16 logical pixels, corners rounded at 3 logical pixels, a 1-pixel
   `SystemColors.ControlDark` outline, drawn antialiased (Q&A #6) — closer to Windows 11 than
   image-grid-fusion's plain square.
-- Drawn at the window's DPI (`LogicalToDeviceUnits`). Refreshed in the menu's **`Opening`**, with the
-  checked states: it then always shows the colour in use and the current DPI, without an
+- Drawn at the window's DPI (`LogicalToDeviceUnits`) with .NET's `Graphics.FillRoundedRectangle` /
+  `DrawRoundedRectangle` (a 6-pixel corner size, i.e. a 3-pixel radius). Refreshed in the menu's
+  **`Opening`**, with the checked states: it then always shows the colour in use and the current DPI, without an
   `OnDpiChanged` hook — the menu is never open while the colour changes nor across a DPI change. The
-  previous bitmap disposed when replaced, the last one with the menu.
+  previous bitmap disposed when replaced, the last one on the menu's `Disposed`.
 - The checked items keep their check mark: WinForms draws the check in the image margin **in place
   of** the image only on an item that has one; `Highlight color…` is never checked.
 
@@ -116,7 +117,7 @@ The same behaviour becomes a **rule shared by every mini-app**, in a **new file
 | Piece | Where |
 |---|---|
 | The items added section by section, a separator between two | `UI/MainForm.cs` — `CreateSettingsMenu` |
-| The highlight colour's swatch, refreshed on `Opening` | `UI/MainForm.cs` — `CreateSettingsMenu`, a `SetSwatch` helper drawing the rounded square |
+| The highlight colour's swatch, refreshed on `Opening` | `UI/MainForm.cs` — `CreateSettingsMenu`, `SetSwatch` drawing the rounded square |
 
 No new type, no new constant: the labels' constants are unchanged.
 
@@ -198,6 +199,25 @@ already follows it. The swatch is a rounded square (3 logical pixels of radius, 
 Go given: code, tests and documentation, in a worktree (`.claude/worktrees/settings-menu-sections`,
 branch `feature/settings-menu-sections`). The scope is frozen as Iteration 3 left it.
 
+### Iteration 5 — 2026-10-08 — 🧭 Implementation choices
+
+- **Rounded square**: drawn with `Graphics.FillRoundedRectangle` / `DrawRoundedRectangle` (.NET 9+),
+  a 6-logical-pixel corner size — no `GraphicsPath` by hand. The last swatch is disposed on the
+  menu's `Disposed`, no new field.
+- **Code comment**: `SetSwatch`'s comment describes the swatch without pointing to
+  `shared/RULES.md` — the repository is public, and that file lives outside it.
+- **Shared rule's wording**: besides what Iteration 3 states, it says the swatch never replaces the
+  item's label, and names image-grid-fusion's square and emoji-selector's rounded one as both
+  conforming.
+- **README**: the gear's paragraph lists the items section by section, joined by semicolons, and
+  says `Highlight color…` shows the colour in use; the cross gets its own sentence.
+- **Rule propagation**: `mini-apps/CLAUDE.md` changed (the import): the two other running sessions
+  of the workspace, *Menu contextuel explorateur résultats* (image-grid-fusion) and *Démarrage avec
+  Windows* (emoji-selector), were asked to re-read it; no title needed correcting.
+- **Not checked by script**: the settings button is custom-drawn, so no script can open the menu;
+  the sections and the swatch are checked by hand at the delivery launch.
+- No rule broken.
+
 ---
 
 ## Implementation Log
@@ -207,11 +227,11 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | Not applicable: no test project (see *Test Impact*) |
-| README | | | |
-| RULES | | | |
-| Shared rule | | | |
+| Code | 4 | 2026-10-08 | Sections (`bce46ec`), swatch (`af93045`) |
+| Unit tests | 4 | 2026-10-08 | Not applicable: no test project (see *Test Impact*) |
+| README | 4 | 2026-10-08 | `README.md` and `README.fr.md` (`fa14da5`) |
+| RULES | 4 | 2026-10-08 | `e243a0c` |
+| Shared rule | 4 | 2026-10-08 | `mini-apps/shared/RULES.md` created, imported by `mini-apps/CLAUDE.md` — not in a git repository, not committed |
 
 ---
 
