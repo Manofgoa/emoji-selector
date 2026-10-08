@@ -193,6 +193,11 @@ Answers to Q&A #5 and #6. The shared rule goes in a new `mini-apps/shared/RULES.
 already follows it. The swatch is a rounded square (3 logical pixels of radius, antialiased). Noted:
 `mini-apps/` and `shared/` are not git repositories — the two files are written, not committed.
 
+### Iteration 4 — 2026-10-08 — ✅ Implemented
+
+Go given: code, tests and documentation, in a worktree (`.claude/worktrees/settings-menu-sections`,
+branch `feature/settings-menu-sections`). The scope is frozen as Iteration 3 left it.
+
 ---
 
 ## Implementation Log
