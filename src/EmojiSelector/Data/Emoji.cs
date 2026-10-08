@@ -2,6 +2,23 @@ namespace EmojiSelector.Data;
 
 /// <summary>
 /// An <b>emoji</b>: its Unicode character sequence, its name (e.g. <c>Grinning face</c>) and the words of its
-/// <b>keywords</b>, in English and in French, normalized for the search box (see <see cref="EmojiSearch"/>).
+/// <b>keywords</b>, in English and in French, normalized for the search box (see <see cref="EmojiSearch"/>). The
+/// <b>details panel</b> shows the rest, as Emojibase gives it.
 /// </summary>
-internal sealed record Emoji(string Text, string Name, IReadOnlyList<EmojiKeyword> Keywords);
+internal sealed record Emoji(string Text, string Name, IReadOnlyList<EmojiKeyword> Keywords)
+{
+    /// <summary>Emojibase's hexcode: the code points, hyphen-separated (<c>1F602</c>, <c>1F468-200D-1F469</c>).</summary>
+    public string Hexcode { get; init; } = "";
+
+    /// <summary>The French name, capitalized like <see cref="Name"/>; empty when the French data lacks the emoji.</summary>
+    public string FrenchName { get; init; } = "";
+
+    /// <summary>The English tags, as written (<c>laugh</c>, <c>lol</c>).</summary>
+    public IReadOnlyList<string> EnglishTags { get; init; } = [];
+
+    /// <summary>The French tags, as written (<c>pleurer de rire</c>, <c>émoticône</c>).</summary>
+    public IReadOnlyList<string> FrenchTags { get; init; } = [];
+
+    /// <summary>The emoticons standing for the emoji (<c>:')</c>); most emojis have none.</summary>
+    public IReadOnlyList<string> Emoticons { get; init; } = [];
+}

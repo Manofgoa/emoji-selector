@@ -13,8 +13,8 @@ namespace EmojiSelector.Data;
 /// flags (Segoe UI Emoji has no flag glyphs), the skin-tone variants and the entries without a group (the regional
 /// indicator letters). An emoji newer than the system font is kept: it shows as a box.
 /// <para>
-/// The English data is the list; the French data, joined by hexcode, only adds <b>keywords</b> — an emoji missing
-/// from it keeps its English ones.
+/// The English data is the list; the French data, joined by hexcode, only adds <b>keywords</b> and the French name and
+/// tags the details panel shows — an emoji missing from it keeps its English ones.
 /// </para>
 /// </remarks>
 internal static class EmojiCatalog
@@ -55,11 +55,20 @@ internal static class EmojiCatalog
             .Select(tab => new EmojiCategory(tab.Name, tab.Icon, entries
                 .Where(entry => entry.Group is int group && tab.Groups.Contains(group))
                 .OrderBy(entry => entry.Order)
-                .Select(entry => new Emoji(entry.Unicode, Capitalize(entry.Label),
-                    Keywords(entry, french.GetValueOrDefault(entry.Hexcode))))
+                .Select(entry => CreateEmoji(entry, french.GetValueOrDefault(entry.Hexcode)))
                 .ToList()))
             .ToList();
     }
+
+    private static Emoji CreateEmoji(Entry english, Entry? french) =>
+        new(english.Unicode, Capitalize(english.Label), Keywords(english, french))
+        {
+            Hexcode = english.Hexcode,
+            FrenchName = french is null ? "" : Capitalize(french.Label),
+            EnglishTags = english.Tags ?? [],
+            FrenchTags = french?.Tags ?? [],
+            Emoticons = Emoticons(english.Emoticon),
+        };
 
     private static Entry[] ReadEntries(string resourceName)
     {
@@ -94,6 +103,17 @@ internal static class EmojiCatalog
         return words.Select(word => new EmojiKeyword(word.Key, word.Value)).ToList();
     }
 
+    // Emojibase's emoticon: one string, or an array of them ("xD", "XD").
+    private static IReadOnlyList<string> Emoticons(JsonElement? emoticon) => emoticon switch
+    {
+        { ValueKind: JsonValueKind.String } value => [value.GetString()!],
+        { ValueKind: JsonValueKind.Array } values => values.EnumerateArray()
+            .Where(value => value.ValueKind == JsonValueKind.String)
+            .Select(value => value.GetString()!)
+            .ToList(),
+        _ => [],
+    };
+
     // Emojibase's labels are lowercase: "grinning face" → "Grinning face".
     private static string Capitalize(string label) =>
         label.Length == 0 ? label : char.ToUpperInvariant(label[0]) + label[1..];
@@ -118,5 +138,9 @@ internal static class EmojiCatalog
 
         [JsonPropertyName("tags")]
         public string[]? Tags { get; init; }
+
+        // A string, or an array of strings.
+        [JsonPropertyName("emoticon")]
+        public JsonElement? Emoticon { get; init; }
     }
 }
