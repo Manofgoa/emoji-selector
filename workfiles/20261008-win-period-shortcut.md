@@ -47,8 +47,9 @@ Research (Chromium source, `ui/base/emoji/emoji_panel_helper_win.cc`):
   opens.
 - **Checked from a script** (design session, AZERTY foreground, the main checkout's Debug build):
   Chromium's exact four-key sequence showed the hidden window and brought a covered one to the
-  front. So the same keys do work when a script sends them — why the Edge menu does nothing is
-  Open Question 3.
+  front. So the same keys do work when a script sends them. Why the Edge menu of the capture did
+  nothing was not pursued (Q&A 7): on AZERTY, this change does not alter how those keys are handled,
+  so the gain is on QWERTY and in any app sending Win+Period with the `.` key.
 
 ---
 
@@ -56,7 +57,10 @@ Research (Chromium source, `ui/base/emoji/emoji_panel_helper_win.cc`):
 
 - **Win+;** — unchanged: the key typing `;` in the layout of the window in front.
 - **Win+.** — added, with the same handling: the key-down and key-up swallowed while a Windows key is
-  held, the dummy key `0xE8` injected, `Pressed` posted. Which key counts as `.` is Open Question 1.
+  held, the dummy key `0xE8` injected, `Pressed` posted. The `.` key is **`VK_OEM_PERIOD` whatever
+  the layout** — what Chromium injects and what Windows itself answers — with **Shift up**, Ctrl and
+  Alt up. On AZERTY it is the same key as Win+; (the `; .` key unshifted); Win+Shift+`; .` stays
+  untouched.
 - The change is local to `ShortcutHook`: `IsSemicolonKey` becomes a check over both keys (renamed),
   the layout read once per key event; the swallowing state (`swallowedKey`), the dummy key and
   `Pressed` work for any matching key as they are.
@@ -70,8 +74,10 @@ Research (Chromium source, `ui/base/emoji/emoji_panel_helper_win.cc`):
 ## Documentation
 
 - **RULES.md § Shortcut**: *Win+. is never touched* reversed; the two keys described.
-- **README.md / README.fr.md** (Shortcut bullet): Win+. opens the app too, and the menu entry with
-  it, within the limit of *How the Menus Open the Panel*.
+- **README.md / README.fr.md** (Shortcut bullet): Win+. opens the app too, and so does an app's
+  "Emoji — Windows+Period" menu entry when it sends those keys (Chrome, Edge, Electron apps); an app
+  opening Windows' panel by itself, without keys, still gets Windows' panel. *Win+. always does*
+  (open Windows' panel) removed: only when the app is not running.
 - **GLOSSARY.md / GLOSSARY.fr.md** — *Shortcut*: Win+; **and Win+.**.
 - `ShortcutHook`'s comments naming Win+; only.
 
@@ -82,31 +88,30 @@ Research (Chromium source, `ui/base/emoji/emoji_panel_helper_win.cc`):
 No test project exists, and no earlier workfile created one: the key recognition calls the Win32
 API directly (`GetForegroundWindow`, `GetKeyboardLayout`, `VkKeyScanExW`, `GetAsyncKeyState`).
 Checked **by hand** and from a script — `SendInput`, as RULES.md § Shortcut asks — not by unit tests
-(Open Question 4).
+(Q&A 8): **no test file is created or updated**.
 
 | Behaviour to pin | Test file | Create / Update |
 |---|---|---|
 | Win+. (`VK_OEM_PERIOD`) shows / hides the window, on AZERTY and on QWERTY | — (script check) | — |
 | Chromium's sequence (Win up before `.` up) shows the window, no Start menu opening | — (script check) | — |
 | Win+; unchanged on both layouts | — (script check) | — |
-| Ctrl or Alt held → neither key is the shortcut | — (script check) | — |
+| Win+Shift+. , Ctrl or Alt held → not the shortcut | — (script check) | — |
 
 ---
 
 ## Open Questions
 
-- [ ] **Which key is `.`?** (a) `VK_OEM_PERIOD` whatever the layout — what Chromium injects and what
-  Windows itself answers — Shift up; (b) the key typing `.` in the layout (`VkKeyScanExW('.')`, like
-  `;`) — on AZERTY that is Shift + the `; .` key, which Chromium never sends; (c) both.
-  Recommended: (a).
-- [ ] **Menus opening the panel through an API** (`CoreInputView.TryShow`): out of a keyboard hook's
-  reach. Accept the limit and say so in the README, or explore detecting Windows' panel window when
-  it appears, closing it and showing the app's (a hack, not researched)? Recommended: accept.
-- [ ] **Why does Edge's menu do nothing today**, when Chromium's keys sent from a script work on
-  AZERTY? Needs the user's test with the check instance running: window shown, shown behind Edge,
-  Windows' panel, or nothing — and the layout shown in the taskbar (FRA / ENG) at the time.
-- [ ] **Unit tests**: keep checking by hand (as every earlier workfile), or extract the key matching
-  into a pure function and create the first test project? Recommended: by hand.
+- [x] ~~**Which key is `.`?** (a) `VK_OEM_PERIOD` whatever the layout — what Chromium injects and
+  what Windows itself answers — Shift up; (b) the key typing `.` in the layout (`VkKeyScanExW('.')`,
+  like `;`) — on AZERTY that is Shift + the `; .` key, which Chromium never sends; (c) both.~~ →
+  (a) `VK_OEM_PERIOD`, whatever the layout, Shift up (Q&A 5).
+- [x] ~~**Menus opening the panel through an API** (`CoreInputView.TryShow`): accept the limit, or
+  explore detecting Windows' panel window?~~ → Accepted: out of reach, said in the README (Q&A 6).
+- [x] ~~**Why does Edge's menu do nothing today**, when Chromium's keys sent from a script work on
+  AZERTY?~~ → Not pursued: the user is not interested in Edge in particular (Q&A 7). The run checks
+  Chromium's injected sequence from a script, on both layouts.
+- [x] ~~**Unit tests**: by hand, or a first test project?~~ → By hand, as every earlier workfile
+  (Q&A 8).
 
 ---
 
@@ -123,6 +128,13 @@ Initial design from the user's request and the scoping pass: Win+. caught like W
 `ShortcutHook` only. Research shows Chromium-based menus inject Win+Period with `SendInput`, which
 the hook can see; API-based menus cannot be caught. On AZERTY the injected keys already match Win+;,
 and a script replaying them does open the window — the Edge failure is left to the user's test.
+
+### Iteration 2 — 2026-10-08
+
+Every open question answered (Q&A 5–8): the `.` key is `VK_OEM_PERIOD` whatever the layout, Shift
+up; API-based menus are an accepted limit, written in the README; the Edge failure of the capture is
+not pursued — the user is not interested in Edge in particular; checks by hand and by script, no test
+project.
 
 ---
 
@@ -150,10 +162,10 @@ Questions asked by the agent during design, with user responses.
 | 2 | With the app closed, does the menu's "Emoji — Windows+Point" open Windows' panel? | Yes, the panel opens | 2026-10-08 |
 | 3 | Which menus should open the app? | Every app that has this menu | 2026-10-08 |
 | 4 | Straightforward or tricky / long? | Straightforward | 2026-10-08 |
-| 5 | Which key is `.`? | | |
-| 6 | Menus opening the panel through an API? | | |
-| 7 | What does Edge's menu do with the check instance running, and which layout? | | |
-| 8 | Unit tests? | | |
+| 5 | Which key is `.`? | `VK_OEM_PERIOD` whatever the layout | 2026-10-08 |
+| 6 | Menus opening the panel through an API? | Accept the limit | 2026-10-08 |
+| 7 | What does Edge's menu do with the check instance running, and which layout? | "M'en fout de Edge" — not interested in Edge in particular; not tested | 2026-10-08 |
+| 8 | Unit tests? | By hand | 2026-10-08 |
 
 ---
 
