@@ -35,7 +35,8 @@ frequent one, the custom groups, the search results — like `Add to ▸`.
 | `Add to ▸`, `Remove` | Unchanged, after the separator | Unchanged | Unchanged |
 
 - Clicking it while it is checked changes nothing (the emoji already is the icon).
-- The window's state after the click: see *Open Questions*.
+- The window **stays open** after the click, like the settings menu's items: the icon is seen changing.
+- Choosing 🙂, the default, **saves it like any other emoji** (`trayEmoji` = 🙂): there is no reset that removes the key.
 - The emoji compared and saved is the **catalog's text** (`FE0F` included), as the custom groups do:
   the menu is only ever built on a grid emoji, so it always is one.
 
@@ -65,9 +66,9 @@ frequent one, the custom groups, the search results — like `Add to ▸`.
 |---|---|
 | Key | `trayEmoji`: the emoji's text |
 | Read | `SettingsFile.ReadTrayEmoji()`: a non-blank string, else null (missing key, wrong type, unreadable file) |
-| Write | `SettingsFile.WriteTrayEmoji(string)`: sets the key, keeps the other keys, through `settings.json.new` then a replace — like the size |
+| Write | `SettingsFile.WriteTrayEmoji(string)`: sets the key — the default 🙂 included —, keeps the other keys, through `settings.json.new` then a replace — like the size |
 | Readable | Written as the emoji itself, not `\uXXXX` escapes: the JSON goes through `EmojiUsage.ReadableEmojis`, as `usage.json` and `custom-groups.json` do |
-| Unknown emoji | An emoji the catalog does not have (a typo, an older catalog) → the default shown; what happens to the key: see *Open Questions* |
+| Unknown emoji | An emoji the catalog does not have (a typo, an older catalog) → the default shown; the key is **left as it is** until the next choice overwrites it |
 | Failure | A folder that cannot be written → the choice lasts until the app ends, never an error |
 
 ---
@@ -98,12 +99,12 @@ change by hand in the running app"). Checked by hand in the launched app:
 
 ## Open Questions
 
-- [ ] After a click on `Use as tray icon`, does the window stay open (like the settings menu's
-  items) or hide to the tray (like an insertion)? Proposed: stays open.
-- [ ] Choosing 🙂, the default: saved like any other emoji, or the `trayEmoji` key removed (a later
-  change of the default would then apply)? Proposed: the key removed.
-- [ ] A saved `trayEmoji` the catalog does not have: the default shown and the key left as it is
-  until the next choice, or removed at launch? Proposed: left as it is.
+- [x] ~~After a click on `Use as tray icon`, does the window stay open (like the settings menu's
+  items) or hide to the tray (like an insertion)?~~ → Stays open
+- [x] ~~Choosing 🙂, the default: saved like any other emoji, or the `trayEmoji` key removed (a later
+  change of the default would then apply)?~~ → Saved like any other emoji
+- [x] ~~A saved `trayEmoji` the catalog does not have: the default shown and the key left as it is
+  until the next choice, or removed at launch?~~ → Left as it is
 
 ---
 
@@ -122,6 +123,12 @@ checked on the current one; no dedicated reset, the right click choosing 🙂 ag
 `trayEmoji` in `settings.json`. No matching row in `TODO-FEATURES.md`. Single scout pass (the
 subject was rated straightforward): `TrayIcon.ShowEmoji` has one caller, `OnEmojiUsed`;
 `SettingsFile` holds the window size only; no test project.
+
+### Iteration 2 — 2026-10-08
+
+Open questions answered (Q&A 5–7): the window stays open after `Use as tray icon`; choosing 🙂 saves
+it like any other emoji (the agent proposed removing the key — declined); an unknown saved emoji
+shows the default and its key is left untouched. No open question remains.
 
 ---
 
@@ -150,9 +157,9 @@ Questions asked by the agent during design, with user responses.
 | 2 | How does the right-click item look? | `Use as tray icon`, at the top, checked when it is already the current icon | 2026-10-08 |
 | 3 | How to go back to the default icon? | Right click only — choosing the default emoji, no dedicated item | 2026-10-08 |
 | 4 | Is the subject straightforward or tricky / long? | Straightforward | 2026-10-08 |
-| 5 | After `Use as tray icon`, does the window stay open or hide? | | |
-| 6 | Choosing 🙂: saved, or the key removed? | | |
-| 7 | A saved emoji the catalog does not have: key left or removed? | | |
+| 5 | After `Use as tray icon`, does the window stay open or hide? | Stays open | 2026-10-08 |
+| 6 | Choosing 🙂: saved, or the key removed? | Saved like any other emoji | 2026-10-08 |
+| 7 | A saved emoji the catalog does not have: key left or removed? | Left as it is | 2026-10-08 |
 
 ---
 
