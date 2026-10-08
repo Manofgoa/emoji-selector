@@ -31,6 +31,8 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Show groups ▸` | Every custom group, checked while shown: a click hides it or shows it again (see *Custom Tab* below) |
 | Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept, and the saved size removed (see *Size* below); the window stays |
 | Settings button ⚙ → `Show frequently used` | Checked while the frequent tab is shown: a click hides it or shows it again (see *Frequent Tab* below) |
+| Settings button ⚙ → `Show French names` | Checked while the details panel shows its French row: a click hides it or shows it again (see *Details Panel* below) |
+| Settings button ⚙ → `Highlight color…` | Windows' colour dialog: the colour highlighting the search's matches in the details panel (see *Details Panel* below) |
 | Settings button ⚙ → `Check for emoji updates…` | The latest Emojibase version online; a newer one offered, downloaded, then a restart offered (see *Emoji Data* below) |
 | Tray icon, left click | Hidden → shown; covered by another window → brought to the front; already in front → hidden |
 | Tray icon, right click → `Exit` | Ends the app |
@@ -76,8 +78,8 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 - **Default size**, measured in emojis: **16 columns** wide, and high enough for a section's header
   then **8 full rows** when that section is scrolled to the top (`MainForm.DefaultColumns` /
   `DefaultRows`). Computed in `MainForm.OnLoad`, before the window is centred, from the grid's metrics
-  at the window's DPI (`EmojiGrid.SizeFor`) and the heights of the search bar and the tab strip —
-  never a hard-coded pixel size.
+  at the window's DPI (`EmojiGrid.SizeFor`) and the heights of the search bar, the tab strip and the
+  details panel (`EmojiDetailsPanel.HeightFor`) — never a hard-coded pixel size.
 - The window is sized through **`MainForm.SetClientArea`**, never the `ClientSize` setter: that one
   counts a caption, which is client area here (see *Frame*) — the window would come out a caption too
   tall. The borders are read from the window itself (`GetWindowRect` / `GetClientRect`).
@@ -86,7 +88,8 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   in place of the default. Not at exit: Windows shutting down or the Task Manager may end the app
   without running its code. A move, or a drag to a monitor of another scale, saves nothing.
 - `settings.json` is the app's **shared settings file** (`Data/SettingsFile.cs`): `{ "windowWidth":
-  …, "windowHeight": …, "trayEmoji": …, "showFrequent": … }`; a write keeps the keys it does not
+  …, "windowHeight": …, "trayEmoji": …, "showFrequent": …, "showFrench": …, "highlightColor": … }`;
+  a write keeps the keys it does not
   know. Written through `settings.json.new` then a replace, the emojis as themselves
   (`EmojiUsage.ReadableEmojis`).
 - **The size only**: the position is never saved — centred at launch, Win+; places it anyway.
@@ -368,11 +371,47 @@ routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
   Windows also sends `WM_MOUSEMOVE` when the content scrolls or the window appears under a still
   cursor, so `EmojiGrid` compares the cursor's screen position with the last one seen — reset on
   every show.
-- The tooltip names the emoji under the **mouse** only; a keyboard selection shows no name.
+- **No tooltip** on the grid's emojis: the details panel shows the selection's name, whether the
+  mouse or the keyboard moved it.
 - An agent checking the keys from a script **posts** `WM_KEYDOWN` to the focused control (`SendMessage`
   skips `ProcessCmdKey`); a window that is not in front has no focus — post it `WM_ACTIVATE` first
   rather than taking the foreground. The check instance also answers Win+;: while it runs, the
   user's Win+; may open it.
+
+## Details Panel
+
+Docked at the bottom of the window, under the grid (`UI/EmojiDetailsPanel.cs`), custom-drawn. It shows
+the grid's **selection**: `EmojiGrid.SelectedEmojiChanged` tells `MainForm`, raised whenever the
+selected emoji changes — the same cell may hold another emoji once the sections change.
+
+- **Left**: the emoji at 48 logical pixels, through the panel's own `EmojiRenderer` (the grid's cache
+  renders at the grid's size only); under it its **emoticons** (Emojibase `emoticon`, a string or an
+  array), only for the few emojis that have some.
+- **Middle**: one **row per language**, a thin line between them — the English row always, the
+  French one while `showFrench` (settings menu, `Show French names`; default on). A row: the flag,
+  then the name in bold (the French name capitalized like the English one), then **every tag**,
+  joined with `, ` and **wrapped** at spaces — never truncated, never an ellipsis. The names of both
+  rows line up after the widest flag.
+- **Flags**: images embedded in the exe (`UI/Flags/`, `us` and `fr`, 1× and `@2x`, the 2× one above
+  144 DPI), drawn at 12 logical pixels high with a thin edge — Segoe UI Emoji has no flag glyphs.
+  Generated from the public-domain flag designs, never downloaded.
+- **Right**: the **copy button**, the copy glyph only (Segoe Fluent Icons `E8C8`). Its tooltip is the
+  emoji's **first code point** (`U+1F602`; a sequence shows its first one). A click copies **the
+  emoji itself** to the clipboard as text (`Clipboard.SetText`); the glyph turns into a check mark
+  (`E73E`) for about a second. A copy neither hides the window nor counts as a use. A clipboard held
+  by another app copies nothing and shows no check mark.
+- **Height**: fixed, the one the emoji with the **most text** needs at the window's width, French row
+  included while shown (`EmojiDetailsPanel.HeightFor`, over the whole catalog, word widths cached):
+  moving the selection never moves the grid. `MainForm.OnLayout` fits it **before** the docking
+  places the controls — set during it, the grid would keep the old space. The window's minimum
+  height is 240 logical pixels plus the panel's height.
+- **Search highlight**: while the search box holds text, the characters it matches in the names and
+  tags are highlighted in `highlightColor` (settings menu, `Highlight color…`, `#RRGGBB` in
+  `settings.json`; default fluorescent yellow `#FFFF00`), the text keeping its colour. Exactly the
+  matched characters, every occurrence, matched as the search matches (`EmojiSearch.MatchSpans`:
+  accents and case ignored, inside one word).
+- **No selection** (a search with no result): the panel stays, empty, at the same height.
+- The panel is not selectable: a click on it leaves the keyboard where it was.
 
 ## Repository Docs
 

@@ -19,4 +19,6 @@ each.
 | Custom group (*groupe personnalisé*) | A list of emojis the user keeps at hand: created and named by the user, filled by right click, ordered as the user wants; one section of the custom tab each, kept in `custom-groups.json` next to the exe |
 | Emoji data (*données des émojis*) | Emojibase's files the emoji list, the emojis' names and their keywords come from: in the `emoji-data` folder next to the exe, written from the copy the exe carries, replaced by *Check for emoji updates…* |
 | Frequent (*fréquent*) | An emoji counted by its uses — each use adds 1 to its counter, kept in `usage.json` next to the exe; the most used are shown in the first tab, *Frequently used* |
+| Details panel (*panneau de détails*) | The band at the bottom of the window showing the **selection** large, with its names and tags in English and in French, its emoticon, and a button copying it to the clipboard |
+| Highlight (*surlignage*) | The colour behind the characters of the details panel's names and tags that the search box's text matches — fluorescent yellow by default |
 | Tray icon (*icône de notification*) | The app's icon in the notification area, shown as long as the app runs; it shows the emoji the user chose, 🙂 by default |

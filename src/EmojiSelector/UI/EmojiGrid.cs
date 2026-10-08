@@ -9,7 +9,7 @@ namespace EmojiSelector.UI;
 /// <see cref="EmojiGridLayout"/>). The emojis' bitmaps come from an <see cref="EmojiBitmapCache"/>, pre-rendered in
 /// the background: a cell whose emoji is not ready yet is filled with <see cref="MissingColor"/>. One emoji is the
 /// <b>selection</b>, framed in the accent colour: the mouse moving over an emoji selects it, the keyboard moves it
-/// (<see cref="MoveSelection"/>). The emoji under the mouse has its name as a tooltip; a click raises
+/// (<see cref="MoveSelection"/>), and <see cref="SelectedEmojiChanged"/> tells the details panel. A click raises
 /// <see cref="EmojiClicked"/>.
 /// While the search box holds text, the sections give way to one <c>Search results</c> section
 /// (<see cref="ShowSearchResults"/>), until <see cref="ShowCategories"/> brings them back where they were.
@@ -52,7 +52,6 @@ internal sealed class EmojiGrid : Control
 
     private readonly List<EmojiCategory> categories;
     private readonly VScrollBar scrollBar = new() { Dock = DockStyle.Right };
-    private readonly ToolTip toolTip = new();
     private readonly EmojiBitmapCache bitmaps;
 
     // A cell whose emoji is not pre-rendered yet: loud on purpose, so a missing emoji never passes for an empty slot.
@@ -69,6 +68,9 @@ internal sealed class EmojiGrid : Control
     private Font captionFont;
     private (int Section, int Index)? hovered;
     private (int Section, int Index)? selection;
+
+    // The emoji SelectedEmojiChanged last told of: the same cell may show another emoji once the sections change.
+    private Emoji? reportedEmoji;
 
     // Where the cursor was last seen, on the screen: a mouse message at the same place is not a move.
     private Point cursorPosition;
@@ -125,6 +127,9 @@ internal sealed class EmojiGrid : Control
 
     /// <summary>An emoji of the section in reorder mode was dragged to another place in it.</summary>
     public event EventHandler<EmojiMove>? EmojiMoved;
+
+    /// <summary>The selected emoji changed — to null included: see <see cref="SelectedEmoji"/>.</summary>
+    public event EventHandler? SelectedEmojiChanged;
 
     /// <summary>
     /// The scroll brought another category's section to the top: see <see cref="ActiveCategory"/>. Not raised while
@@ -641,7 +646,6 @@ internal sealed class EmojiGrid : Control
         if (disposing)
         {
             this.bitmaps.Dispose();
-            this.toolTip.Dispose();
             this.headerFont.Dispose();
             this.captionFont.Dispose();
         }
@@ -735,6 +739,13 @@ internal sealed class EmojiGrid : Control
             this.selection = cell;
             this.Invalidate();
         }
+
+        Emoji? selected = this.SelectedEmoji;
+        if (!ReferenceEquals(selected, this.reportedEmoji))
+        {
+            this.reportedEmoji = selected;
+            this.SelectedEmojiChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     // The first emoji whose cell is entirely in view; the first one partly in view otherwise.
@@ -781,7 +792,6 @@ internal sealed class EmojiGrid : Control
         }
 
         this.hovered = hit;
-        this.toolTip.SetToolTip(this, hit is (int section, int index) ? this.sections[section].Emojis[index].Name : null);
         this.Invalidate();
     }
 

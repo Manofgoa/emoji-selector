@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -7,7 +8,8 @@ namespace EmojiSelector.Data;
 
 /// <summary>
 /// The app's settings, in <see cref="FileName"/> next to the exe: the size the user resized the window to, its client
-/// area in logical pixels (96 DPI), the emoji the user chose for the tray icon, and whether the frequent tab is shown.
+/// area in logical pixels (96 DPI), the emoji the user chose for the tray icon, whether the frequent tab is shown, and
+/// the details panel's French row and highlight colour.
 /// A write keeps the keys it does not know, should later settings add some.
 /// </summary>
 /// <remarks>
@@ -22,6 +24,8 @@ internal static class SettingsFile
     private const string WindowHeightKey = "windowHeight";
     private const string TrayEmojiKey = "trayEmoji";
     private const string ShowFrequentKey = "showFrequent";
+    private const string ShowFrenchKey = "showFrench";
+    private const string HighlightColorKey = "highlightColor";
 
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, FileName);
 
@@ -80,6 +84,34 @@ internal static class SettingsFile
     {
         JsonObject settings = Read() ?? [];
         settings[ShowFrequentKey] = show;
+        Write(settings);
+    }
+
+    /// <summary>Whether the details panel shows its French row; true when the file, the key or a readable value is missing.</summary>
+    public static bool ReadShowFrench() =>
+        Read()?[ShowFrenchKey] is not JsonValue value || !value.TryGetValue(out bool show) || show;
+
+    /// <summary>Saves whether the details panel shows its French row.</summary>
+    public static void WriteShowFrench(bool show)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[ShowFrenchKey] = show;
+        Write(settings);
+    }
+
+    /// <summary>The colour highlighting the search's matches, <c>#RRGGBB</c>; null when there is none, or none that can be read.</summary>
+    public static Color? ReadHighlightColor() =>
+        Read()?[HighlightColorKey] is JsonValue value && value.TryGetValue(out string? text)
+            && text is ['#', .. string hex] && hex.Length == 6
+            && int.TryParse(hex, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out int rgb)
+            ? Color.FromArgb((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF)
+            : null;
+
+    /// <summary>Saves the colour highlighting the search's matches, as <c>#RRGGBB</c>.</summary>
+    public static void WriteHighlightColor(Color color)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[HighlightColorKey] = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
         Write(settings);
     }
 

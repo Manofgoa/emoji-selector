@@ -61,8 +61,11 @@ turned into rows — see Iterations 1 and 3):
   - **FR row**, shown when the French row is on (default): the French flag then the French
     name (bold, first letter capitalized — `Visage`, not `visage`), the French tags below.
   - French row off → only the EN row; the panel is lower (see *Height*).
-  - The flags are **images embedded in the exe** (US and French, two sizes for the DPI) — Segoe UI
-    Emoji has no flag glyphs.
+  - The flags are **images embedded in the exe** (`UI/Flags/`, US and French, 1× and `@2x`, the 2×
+    one above 144 DPI), 12 logical pixels high (US 23 wide, French 18), with a thin edge — Segoe UI
+    Emoji has no flag glyphs. Generated from the public-domain designs, not downloaded. Both names
+    start after the widest flag, so they line up.
+  - Names wrap too, like the tags, never truncated.
   - Tags are joined with `, ` and **wrap** to as many lines as they need — never truncated, no `…`.
 - **Right**: a small **icon button**, the copy glyph only — no text, so the tags get the width. Its
   **tooltip** gives the emoji's **first code point only** (`U+1F602`; 👨‍👩‍👧‍👦 → `U+1F468`). A click copies **the emoji itself** (its whole Unicode character
@@ -121,12 +124,14 @@ From the exploration (2026-10-08):
 | Data kept per emoji | `Data/Emoji.cs`, `Data/EmojiCatalog.cs` (`Entry`, `Load`) | `Emoji` gains `Hexcode`, `FrenchName` (capitalized like `Name`), `EnglishTags`, `FrenchTags` (raw text) and `Emoticons`. `Entry.Emoticon` parsed tolerantly — a string or an array. A missing French entry → empty French name and tags. Only one constructor call; `Emoji` equality is never used |
 | Highlight spans on raw text | `Data/EmojiSearch.cs` | New `MatchSpans(raw, query)`: normalizes the raw text char by char (`œ`/`æ` → 2 chars, marks dropped, punctuation → space) keeping a map back to the raw index, finds every occurrence of every query word inside a word, returns merged raw spans |
 | Selection change | `UI/EmojiGrid.cs` (`SetSelection`) | New public `SelectedEmojiChanged` event, raised when the selection changes — including to null |
-| Panel | new `UI/EmojiDetailsPanel.cs` | Custom-drawn, `Dock.Bottom`, added right after the grid in `MainForm` (docking order). Owns its own `EmojiRenderer` (the grid's cache renders at the grid size only), re-renders on selection change only |
-| Window size | `UI/MainForm.cs` (`MinimumSize`, `DefaultClientSize`) | Panel height added to both |
+| Panel | new `UI/EmojiDetailsPanel.cs` | Custom-drawn, `Dock.Bottom`, added right after the grid in `MainForm` (docking order). Owns its own `EmojiRenderer` (the grid's cache renders at the grid size only), re-renders on selection change only. Word widths and line heights cached for `HeightFor` |
+| Panel height | `UI/MainForm.cs` (`OnLayout`), `EmojiDetailsPanel.FitHeight` | Fitted to the client width **before** the docking runs: set during it, the grid kept the old space (a grey band, seen on the first check) |
+| Window size | `UI/MainForm.cs` (`MinimumSize`, `DefaultClientSize`) | Default size: panel height added. Minimum height: 240 logical pixels plus the panel's height, updated when the panel's height changes |
 | Search text | `UI/MainForm.cs` (`OnSearchTextChanged`) | Passed to the panel to redraw the highlight |
 | Clipboard | — (none today) | `Clipboard.SetText` on the UI thread, `ExternalException` caught |
 | Flags | new embedded resources | Two PNGs per flag (US, FR) at 1× and 2×, the size picked by DPI; public-domain flag designs |
 | Grid tooltip | `UI/EmojiGrid.cs` (`toolTip`, `SetHovered`) | Removed |
+| Selection change | `UI/EmojiGrid.cs` | `SelectedEmojiChanged` compares the **emoji**, not the cell: a search keeps the selection on cell (0, 0) while its emoji changes |
 | Frame | `UI/WindowFrame.cs` | No clash: the bottom resize border is Windows' own, outside the client area |
 
 ---
@@ -223,6 +228,40 @@ tooltip, free of the width constraint, gives the whole sequence.
 Open Questions 14 and 15 answered (Q&A #24, #25): a check mark replaces the copy glyph for about a
 second after a copy; the tooltip keeps the first code point only. No open question left.
 
+### Iteration 7 — 2026-10-08 — ✅ Implemented
+
+Go given (Q&A #26): code, unit tests and documentation, in a worktree —
+`.claude/worktrees/emoji-details-panel`, branch `feature/emoji-details-panel`, created from `main`
+at `20a0199`. The scope is the design sections as they stand in Iteration 6.
+
+### Iteration 8 — 2026-10-08 — 🧭 Implementation choices
+
+Decisions the frozen design left open, taken during the run. No project rule broken.
+
+- **Flags generated, not downloaded**: a System.Drawing script (kept out of the repository) draws the
+  US flag (13 stripes, 50 stars) and the French tricolour from their public-domain specifications,
+  then scales them to 23 × 12 / 18 × 12 and their `@2x`. Downloading them would have needed the
+  user's approval in an unattended run.
+- **Panel height set by `MainForm.OnLayout`** (`EmojiDetailsPanel.FitHeight`), not by the panel's own
+  `OnSizeChanged`: the first check showed a grey band between the grid and the panel after a resize.
+- **Window minimum height** = 240 logical pixels plus the panel's height, following it.
+- **A size saved before this change** is reloaded as is: the panel takes its height from the grid
+  at the first launch. No migration.
+- **`Emoji`'s new fields are `init` properties** with defaults, not new positional parameters.
+- **Names wrap** like the tags; **tags in grey**, names in bold; the highlight on names too.
+- **Copy glyph** Segoe Fluent Icons `E8C8`, **check mark** `E73E` in the accent colour; a clipboard
+  held by another app copies nothing and shows no check mark.
+- **Emoticons** from the English entry (the French one carries the same).
+- **`Highlight color…`** opens `ColorDialog` fully open; written to `settings.json` only when the
+  colour changes. Menu labels in American English like the rest of the UI.
+- **README**: the flags in the details panel's paragraph are flagcdn images, never flag emojis
+  (`../CLAUDE.md` § French Versions).
+- **Checked by hand on the running app** (agent check, UI Automation and window captures): the panel
+  follows the selection; `armes`, `rire emoticone` highlight the exact characters, accents ignored
+  (`émoticône`), every occurrence, in names and tags; the panel grows when the window narrows and
+  shrinks when it widens, the grid following. **Not checked by the agent**: the copy button (it
+  would have overwritten the user's clipboard), the French row toggle and the colour dialog.
+
 ---
 
 ## Implementation Log
@@ -232,11 +271,11 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | No test project (see *Test Impact*) |
-| README | | | |
-| RULES | | | |
-| Glossary | | | |
+| Code | 7, 8 | 2026-10-08 | Catalog fields, `EmojiSearch.MatchSpans`, settings keys, grid event and tooltip removal, flag images, `EmojiDetailsPanel` and `MainForm` wiring |
+| Unit tests | 7 | 2026-10-08 | None: no test project (see *Test Impact*) — checked by hand |
+| README | 7 | 2026-10-08 | *Details panel* paragraph, settings menu items, *Planned* (English and French) |
+| RULES | 7 | 2026-10-08 | *Details Panel* section, settings keys, default size, grid tooltip gone |
+| Glossary | 7 | 2026-10-08 | *Details panel*, *Highlight* (English and French) |
 
 ---
 
@@ -271,6 +310,7 @@ Questions asked by the agent during design, with user responses.
 | 23 | (request) | The copy button is too big: no code shown, the copy icon is enough, the code in its tooltip — more room for the tags | 2026-10-08 |
 | 24 | Copy feedback with an icon-only button? | The icon turns into a check mark for about a second | 2026-10-08 |
 | 25 | Tooltip of a multi-code-point emoji: first code point or whole sequence? | The first code point only | 2026-10-08 |
+| 26 | Start the implementation? Scope / where | Code, unit tests and documentation / Worktree | 2026-10-08 |
 
 ---
 
