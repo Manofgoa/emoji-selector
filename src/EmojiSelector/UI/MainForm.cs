@@ -33,6 +33,10 @@ internal sealed class MainForm : Form
 
     public const string ResetWindowSizeText = "Reset window size";
 
+    public const string ShowFrequentText = "Show frequently used";
+
+    public const string HideFrequentText = "Hide frequently used";
+
     public const string ClearFrequentText = "Clear frequently used";
 
     public const string ClearFrequentQuestion =
@@ -71,6 +75,10 @@ internal sealed class MainForm : Form
 
     public const string MoveDownText = "Move down";
 
+    public const string HideGroupText = "Hide group";
+
+    public const string ShowGroupsText = "Show groups";
+
     public const string DeleteGroupText = "Delete group";
 
     public const string DeleteGroupQuestion = "Delete the group \"{0}\"? Its list of emojis cannot be brought back.";
@@ -81,11 +89,6 @@ internal sealed class MainForm : Form
 
     // The custom tab's glyph: Heart, in Segoe Fluent Icons and Segoe MDL2 Assets.
     private const char CustomIcon = '';
-
-    // The tabs: the frequent one, the custom one, then the catalog's. The sections: the frequent one, the custom groups'
-    // — one placeholder section while there is no group — then the catalog's.
-    private const int CustomTab = 1;
-    private const int FirstCustomSection = 1;
 
     private readonly TrayIcon trayIcon;
     private readonly ContextMenuStrip settingsMenu;
@@ -100,8 +103,15 @@ internal sealed class MainForm : Form
     private readonly EmojiUsage usage = EmojiUsage.Load();
     private readonly CustomGroups customGroups = CustomGroups.Load();
 
-    // How many sections the custom tab has in the grid: one per group, the placeholder alone while there is none.
+    // Whether the frequent tab is shown: its tab and its section first, or neither. The counters count either way.
+    private bool showFrequent = SettingsFile.ReadShowFrequent();
+
+    // How many sections the custom tab has in the grid: one per shown group, the placeholder alone while there is no
+    // group, none — and no custom tab — while every group is hidden.
     private int customSectionCount;
+
+    // The groups shown, in the user's order: the group of each custom section.
+    private List<int> shownGroups = [];
     private readonly ForegroundTracker foregroundTracker = new();
     private readonly ShortcutHook shortcutHook;
 
@@ -133,18 +143,18 @@ internal sealed class MainForm : Form
 
         // The search box on top, the tabs below it, the grid filling the rest. Docking runs from the last control
         // added: the search bar first, then the strip.
-        // The frequent tab first, the custom tab next, then the catalog's. The search box searches the catalog's only:
-        // the frequent section and the custom groups would give their emojis twice.
+        // The frequent tab first, the custom tab next, then the catalog's — the first two while shown. The search box
+        // searches the catalog's only: the frequent section and the custom groups would give their emojis twice.
         this.categories = EmojiCatalog.Load();
         this.emojisByText = this.categories.SelectMany(category => category.Emojis).ToDictionary(emoji => emoji.Text);
-        EmojiCategory frequent = this.CreateFrequentCategory();
         List<EmojiCategory> customSections = this.CreateCustomSections();
         this.customSectionCount = customSections.Count;
-        this.grid = new EmojiGrid([frequent, .. customSections, .. this.categories], this.categories.SelectMany(category => category.Emojis))
+        this.grid = new EmojiGrid([.. this.CreateFrequentSections(), .. customSections, .. this.categories],
+            this.categories.SelectMany(category => category.Emojis))
         {
             Dock = DockStyle.Fill,
         };
-        this.tabStrip = new CategoryTabStrip([frequent, new EmojiCategory(CustomHeader, CustomIcon, []), .. this.categories])
+        this.tabStrip = new CategoryTabStrip(this.CreateTabs())
         {
             Dock = DockStyle.Top,
         };
@@ -175,7 +185,7 @@ internal sealed class MainForm : Form
         this.grid.ActiveCategoryChanged += (_, _) => this.tabStrip.ActiveTab = this.TabOf(this.grid.ActiveCategory);
         this.grid.EmojiClicked += (_, emoji) => this.InsertEmoji(emoji);
         this.grid.EmojiRightClicked += (_, click) => this.ShowEmojiMenu(click);
-        this.grid.SectionMenuClicked += (_, request) => this.ShowGroupMenu(request);
+        this.grid.SectionMenuClicked += (_, request) => this.ShowSectionMenu(request);
         this.grid.EmojiMoved += (_, move) => this.MoveEmoji(move);
         ResumeLayout(performLayout: false);
 
@@ -202,7 +212,7 @@ internal sealed class MainForm : Form
     }
 
     // Every show, whatever its path: the search starts over, the box ready for typing, the grid back at the top — on
-    // the frequent tab — on its first emoji, the one Enter inserts.
+    // the first tab — on its first emoji, the one Enter inserts.
     protected override void OnVisibleChanged(EventArgs e)
     {
         base.OnVisibleChanged(e);
@@ -416,8 +426,16 @@ internal sealed class MainForm : Form
         menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
         menu.Items.Add(NewGroupText, image: null, (_, _) => this.NewGroup());
         menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
+        var showFrequentItem = new ToolStripMenuItem(ShowFrequentText);
+        showFrequentItem.Click += (_, _) => this.SetShowFrequent(!this.showFrequent);
+        menu.Items.Add(showFrequentItem);
         ToolStripItem clearFrequent = menu.Items.Add(ClearFrequentText, image: null, (_, _) => this.ClearFrequent());
-        menu.Opening += (_, _) => clearFrequent.Enabled = !this.usage.IsEmpty;
+        // Hidden, the frequent tab still counts: its counters can still be cleared.
+        menu.Opening += (_, _) =>
+        {
+            showFrequentItem.Checked = this.showFrequent;
+            clearFrequent.Enabled = !this.usage.IsEmpty;
+        };
         menu.Opened += (_, _) => this.tabStrip.SettingsMenuOpen = true;
         menu.Closed += (_, _) => this.tabStrip.SettingsMenuOpen = false;
         return menu;
@@ -439,8 +457,70 @@ internal sealed class MainForm : Form
         if (answer == DialogResult.Yes)
         {
             this.usage.Clear();
-            this.grid.ReplaceCategory(0, this.CreateFrequentCategory());
+            if (this.showFrequent)
+            {
+                this.grid.ReplaceCategory(0, this.CreateFrequentCategory());
+            }
         }
+    }
+
+    // The frequent tab hidden or shown again, from the settings menu or its section's "…" button; saved.
+    private void SetShowFrequent(bool show)
+    {
+        if (show == this.showFrequent)
+        {
+            return;
+        }
+
+        int replaced = this.FirstCustomSection + this.customSectionCount;
+        this.showFrequent = show;
+        SettingsFile.WriteShowFrequent(show);
+        this.RebuildSections(replaced);
+    }
+
+    // The frequent and custom sections and the tabs built again after one of them was hidden or shown: the grid back
+    // at the top on its first emoji — unless a search is shown — and the window's minimum width following the tabs.
+    // replaced: how many sections the frequent and custom ones were.
+    private void RebuildSections(int replaced)
+    {
+        this.grid.EndReorder();
+        List<EmojiCategory> customSections = this.CreateCustomSections();
+        this.customSectionCount = customSections.Count;
+        this.grid.ReplaceCategories(0, replaced, [.. this.CreateFrequentSections(), .. customSections]);
+        this.UpdateTabs();
+        if (string.IsNullOrWhiteSpace(this.searchBox.Text))
+        {
+            this.grid.ResetToTop();
+        }
+
+        this.tabStrip.ActiveTab = this.TabOf(this.grid.ActiveCategory);
+    }
+
+    // The tab strip given the tabs shown now, and the window never narrower than it needs — device pixels: the form
+    // is already scaled to its DPI.
+    private void UpdateTabs()
+    {
+        this.tabStrip.ReplaceTabs(this.CreateTabs());
+        this.MinimumSize = new Size(this.LogicalToDeviceUnits(this.tabStrip.LogicalMinimumWidth + 2 * LogicalSideBorder),
+            this.MinimumSize.Height);
+    }
+
+    // The tabs: the frequent one and the custom one while shown, then the catalog's.
+    private List<EmojiCategory> CreateTabs()
+    {
+        var tabs = new List<EmojiCategory>();
+        if (this.showFrequent)
+        {
+            tabs.Add(new EmojiCategory(FrequentHeader, FrequentIcon, []));
+        }
+
+        if (this.customSectionCount > 0)
+        {
+            tabs.Add(new EmojiCategory(CustomHeader, CustomIcon, []));
+        }
+
+        tabs.AddRange(this.categories);
+        return tabs;
     }
 
     // The folder holding the exe, in the File Explorer, the exe selected. The window stays as it is: the File Explorer
@@ -521,35 +601,45 @@ internal sealed class MainForm : Form
         this.FocusSearchBox();
     }
 
-    // The one place told an emoji was used: the tray icon shows it, its counter goes up.
+    // The one place told an emoji was used: the tray icon shows it, its counter goes up — the frequent tab hidden too.
     private void OnEmojiUsed(string emoji)
     {
         this.trayIcon.ShowEmoji(emoji);
         this.usage.Record(emoji);
-        this.grid.ReplaceCategory(0, this.CreateFrequentCategory());
+        if (this.showFrequent)
+        {
+            this.grid.ReplaceCategory(0, this.CreateFrequentCategory());
+        }
     }
 
+    // The frequent section while shown, none while hidden.
+    private List<EmojiCategory> CreateFrequentSections() => this.showFrequent ? [this.CreateFrequentCategory()] : [];
+
     // The frequent tab: the emojis used most, from the counters, each with its use count under it. One the catalog no
-    // longer has is left out.
+    // longer has is left out. Its "…" button hides it.
     private EmojiCategory CreateFrequentCategory()
     {
         List<Emoji> emojis = this.usage.MostUsed().Select(text => this.emojisByText.GetValueOrDefault(text)).OfType<Emoji>().ToList();
         List<string> counts = emojis.Select(emoji => this.usage.CountOf(emoji.Text))
             .Select(count => count > MaxShownCount ? $"{MaxShownCount}+" : count.ToString(CultureInfo.InvariantCulture))
             .ToList();
-        return new EmojiCategory(FrequentHeader, FrequentIcon, emojis, FrequentRows, NoFrequentText, counts);
+        return new EmojiCategory(FrequentHeader, FrequentIcon, emojis, FrequentRows, NoFrequentText, counts, HasMenu: true);
     }
 
-    // The custom tab's sections: one per group, under its name with a "…" button; the placeholder pointing to New
-    // group… while there is none.
+    // The custom tab's sections: one per shown group, under its name with a "…" button; the placeholder pointing to
+    // New group… while there is no group; none while every group is hidden. Notes which group each section shows.
     private List<EmojiCategory> CreateCustomSections()
     {
+        this.shownGroups = Enumerable.Range(0, this.customGroups.Groups.Count)
+            .Where(group => !this.customGroups.Groups[group].Hidden)
+            .ToList();
         if (this.customGroups.Groups.Count == 0)
         {
             return [new EmojiCategory(CustomHeader, CustomIcon, [], EmptyText: NoGroupText)];
         }
 
-        return this.customGroups.Groups
+        return this.shownGroups
+            .Select(group => this.customGroups.Groups[group])
             .Select(group => new EmojiCategory(group.Name, CustomIcon, this.ShownEmojis(group), EmptyText: EmptyGroupText, HasMenu: true))
             .ToList();
     }
@@ -558,31 +648,50 @@ internal sealed class MainForm : Form
     private List<Emoji> ShownEmojis(CustomGroup group) =>
         group.Emojis.Select(text => this.emojisByText.GetValueOrDefault(text)).OfType<Emoji>().ToList();
 
-    // The grid's custom sections built again after a change to the groups; the active tab follows the sections' new
-    // indices.
+    // The grid's custom sections built again after a change to the groups; the custom tab comes or goes when the first
+    // group is shown or the last one hidden; the active tab follows the sections' new indices.
     private void RefreshCustomSections()
     {
+        int customTabCount = this.CustomTabCount;
         List<EmojiCategory> sections = this.CreateCustomSections();
-        this.grid.ReplaceCategories(FirstCustomSection, this.customSectionCount, sections);
+        this.grid.ReplaceCategories(this.FirstCustomSection, this.customSectionCount, sections);
         this.customSectionCount = sections.Count;
+        if (this.CustomTabCount != customTabCount)
+        {
+            this.UpdateTabs();
+        }
+
         this.tabStrip.ActiveTab = this.TabOf(this.grid.ActiveCategory);
     }
 
-    // The tab of a section: every custom section is under the custom tab.
-    private int TabOf(int section) =>
-        section < FirstCustomSection ? section
-        : section < FirstCustomSection + this.customSectionCount ? CustomTab
-        : section - this.customSectionCount + CustomTab;
+    // The sections: the frequent one while shown, the custom ones next, then the catalog's. The tabs alike, every custom
+    // section under the custom tab — there while it has a section.
+    private int FirstCustomSection => this.showFrequent ? 1 : 0;
 
-    // The first section of a tab.
-    private int SectionOf(int tab) => tab <= CustomTab ? tab : tab - CustomTab + this.customSectionCount;
+    private int CustomTab => this.FirstCustomSection;
+
+    private int CustomTabCount => this.customSectionCount > 0 ? 1 : 0;
+
+    // The tab of a section.
+    private int TabOf(int section) =>
+        section < this.FirstCustomSection ? section
+        : section < this.FirstCustomSection + this.customSectionCount ? this.CustomTab
+        : section - this.customSectionCount + this.CustomTabCount;
+
+    // The first section of a tab: up to the custom tab, the tab's own index.
+    private int SectionOf(int tab) =>
+        tab < this.CustomTab + this.CustomTabCount ? tab : tab - this.CustomTabCount + this.customSectionCount;
 
     // The group shown in a section; null for a section that is not a group's.
     private int? GroupOf(int section)
     {
-        int group = section - FirstCustomSection;
-        return group >= 0 && group < this.customGroups.Groups.Count ? group : null;
+        int shown = section - this.FirstCustomSection;
+        return shown >= 0 && shown < this.shownGroups.Count ? this.shownGroups[shown] : null;
     }
+
+    // The section showing a group; null while it is hidden.
+    private int? SectionOfGroup(int group) =>
+        this.shownGroups.IndexOf(group) is int shown and >= 0 ? this.FirstCustomSection + shown : null;
 
     // A group's name in a menu: an & is shown, not taken for a mnemonic.
     private static string MenuName(string name) => name.Replace("&", "&&");
@@ -604,9 +713,9 @@ internal sealed class MainForm : Form
 
         this.customGroups.Add(name);
         this.RefreshCustomSections();
-        if (string.IsNullOrWhiteSpace(this.searchBox.Text))
+        if (string.IsNullOrWhiteSpace(this.searchBox.Text) && this.SectionOfGroup(this.customGroups.Groups.Count - 1) is int section)
         {
-            this.grid.SelectCategory(FirstCustomSection + this.customGroups.Groups.Count - 1);
+            this.grid.SelectCategory(section);
         }
     }
 
@@ -636,27 +745,44 @@ internal sealed class MainForm : Form
         ShowOnce(menu, this.grid, click.Location, ToolStripDropDownDirection.Default);
     }
 
-    // The menu of a group's "…" button, under it, its right edge on the button's.
-    private void ShowGroupMenu(EmojiGrid.SectionMenuRequest request)
+    // The menu of a section's "…" button, under it, its right edge on the button's: the frequent section's, or a
+    // group's.
+    private void ShowSectionMenu(EmojiGrid.SectionMenuRequest request)
     {
-        if (this.GroupOf(request.Section) is not int group)
+        ContextMenuStrip menu;
+        if (this.showFrequent && request.Section == 0)
+        {
+            menu = new ContextMenuStrip();
+            menu.Items.Add(HideFrequentText, image: null, (_, _) => this.SetShowFrequent(false));
+        }
+        else if (this.GroupOf(request.Section) is int group)
+        {
+            menu = this.CreateGroupMenu(group, request.Section);
+        }
+        else
         {
             return;
         }
 
-        int count = this.customGroups.Groups.Count;
-        var menu = new ContextMenuStrip();
-        menu.Items.Add(RenameGroupText, image: null, (_, _) => this.RenameGroup(group));
-        ToolStripItem reorder = menu.Items.Add(ReorderText, image: null, (_, _) => this.grid.StartReorder(request.Section));
-        reorder.Enabled = this.ShownEmojis(this.customGroups.Groups[group]).Count > 1;
-        ToolStripItem moveUp = menu.Items.Add(MoveUpText, image: null, (_, _) => this.MoveGroup(group, -1));
-        moveUp.Enabled = group > 0;
-        ToolStripItem moveDown = menu.Items.Add(MoveDownText, image: null, (_, _) => this.MoveGroup(group, 1));
-        moveDown.Enabled = group < count - 1;
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(DeleteGroupText, image: null, (_, _) => this.DeleteGroup(group));
         Rectangle button = request.ButtonBounds;
         ShowOnce(menu, this.grid, new Point(button.Right, button.Bottom), ToolStripDropDownDirection.BelowLeft);
+    }
+
+    // A group's menu. Moved up or down past the shown groups only: a hidden one in between keeps its place.
+    private ContextMenuStrip CreateGroupMenu(int group, int section)
+    {
+        int shown = this.shownGroups.IndexOf(group);
+        var menu = new ContextMenuStrip();
+        menu.Items.Add(RenameGroupText, image: null, (_, _) => this.RenameGroup(group));
+        ToolStripItem reorder = menu.Items.Add(ReorderText, image: null, (_, _) => this.grid.StartReorder(section));
+        reorder.Enabled = this.ShownEmojis(this.customGroups.Groups[group]).Count > 1;
+        ToolStripItem moveUp = menu.Items.Add(MoveUpText, image: null, (_, _) => this.MoveGroup(group, this.shownGroups[shown - 1]));
+        moveUp.Enabled = shown > 0;
+        ToolStripItem moveDown = menu.Items.Add(MoveDownText, image: null, (_, _) => this.MoveGroup(group, this.shownGroups[shown + 1]));
+        moveDown.Enabled = shown < this.shownGroups.Count - 1;
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(DeleteGroupText, image: null, (_, _) => this.DeleteGroup(group));
+        return menu;
     }
 
     // A menu built for one show, disposed once closed — after the click on its item is handled.
@@ -695,13 +821,16 @@ internal sealed class MainForm : Form
         }
     }
 
-    // Swapped with its neighbour, then kept in view.
-    private void MoveGroup(int group, int step)
+    // Swapped with its shown neighbour, then kept in view: it now stands where that one stood.
+    private void MoveGroup(int group, int neighbour)
     {
         this.grid.EndReorder();
-        this.customGroups.Swap(group, group + step);
+        this.customGroups.Swap(group, neighbour);
         this.RefreshCustomSections();
-        this.grid.SelectCategory(FirstCustomSection + group + step);
+        if (this.SectionOfGroup(neighbour) is int section)
+        {
+            this.grid.SelectCategory(section);
+        }
     }
 
     // A group holding emojis is deleted after a confirmation, No the default button; an empty one right away.
