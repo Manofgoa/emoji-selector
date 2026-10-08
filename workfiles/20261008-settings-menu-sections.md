@@ -26,14 +26,15 @@ Check for emoji updates…
 ```
 
 This workfile groups them into **sections**, one per feature, **separated by lines only** — no
-section title (Q&A #1). The items keep their labels (Q&A #3) and their behaviour: only their order
-and the separators change.
+section title (Q&A #1). The items keep their labels (Q&A #3) and their behaviour: their order and
+the separators change, and a colour item shows its colour (see *Colour Items* below, Iteration 2).
 
 | In scope | Out of scope |
 |---|---|
 | The order of the settings menu's items, the separators between sections | Any item's label, behaviour, enabled or checked state |
-| `RULES.md`, `README.md` / `README.fr.md` following the new order | The other menus: an emoji's right-click menu, a section's "…" menu, the tray icon's menu |
-| | New items |
+| `Highlight color…` showing its colour as a swatch | The other menus: an emoji's right-click menu, a section's "…" menu, the tray icon's menu |
+| A shared rule: a colour item shows its colour, in every mini-app | New items |
+| `RULES.md`, `README.md` / `README.fr.md` following the new order | Bringing image-grid-fusion in line — it already follows the rule |
 
 ---
 
@@ -76,11 +77,35 @@ the details panel at the bottom — then the window itself, then the app (Q&A #2
 
 ---
 
+## Colour Items
+
+Requested by the user (Iteration 2): a menu item choosing a colour **shows that colour**, like the
+⚙ menu's *Border color…* and *Arrow color…* in image-grid-fusion (`MainForm.SetSwatch`).
+
+- `Highlight color…` gets a **swatch** as its item image: a square of the highlight colour in use,
+  16 logical pixels, a 1-pixel `SystemPens.ControlDark` outline — image-grid-fusion's swatch
+  *(look pending, Open Question)*.
+- Drawn at the window's DPI (`LogicalToDeviceUnits`). Refreshed in the menu's **`Opening`**, with the
+  checked states: it then always shows the colour in use and the current DPI, without an
+  `OnDpiChanged` hook — the menu is never open while the colour changes nor across a DPI change. The
+  previous bitmap disposed when replaced, the last one with the menu.
+- The checked items keep their check mark: WinForms draws the check in the image margin **in place
+  of** the image only on an item that has one; `Highlight color…` is never checked.
+
+### Shared Rule
+
+The same behaviour becomes a **rule shared by every mini-app** *(where it lives pending, Open
+Question)*: a menu item that picks a colour shows the colour in use as its image, refreshed when the
+colour changes and at the monitor's DPI.
+
+---
+
 ## Code
 
 | Piece | Where |
 |---|---|
 | The items added section by section, a separator between two | `UI/MainForm.cs` — `CreateSettingsMenu` |
+| The highlight colour's swatch, refreshed on `Opening` | `UI/MainForm.cs` — `CreateSettingsMenu`, a `SetSwatch` helper like image-grid-fusion's |
 
 No new type, no new constant: the labels' constants are unchanged.
 
@@ -92,7 +117,9 @@ No new type, no new constant: the labels' constants are unchanged.
 |---|---|
 | `RULES.md` § Window and Tray Icon | The settings button's rows in the menu's new order; the missing `Clear frequently used` row added in its place, so the table lists the whole menu; one bullet describing the five sections and the separators |
 | `RULES.md` § Emoji Data | `Check for emoji updates…`: "last in the settings menu, in the app section after `Open app folder`" instead of "last … after a separator" |
+| `RULES.md` § Details Panel | *Search highlight*: the `Highlight color…` item shows the colour in use |
 | `README.md` § Window, `README.fr.md` same paragraph | The gear's items listed in the new order, grouped by section |
+| The shared rules *(file pending, Open Question)* | The colour items rule (see *Shared Rule*) |
 
 ---
 
@@ -116,8 +143,8 @@ not only the blocking ones.
 - [x] ~~Which sections, in which order?~~ → Five, in the window's order (Q&A #2)
 - [x] ~~Labels shortened under a section?~~ → Kept as they are (Q&A #3)
 - [x] ~~Exploration depth?~~ → Straightforward: one scout pass (Q&A #4)
-
-None left open.
+- [ ] Where does the shared colour-items rule live: a section of `mini-apps/CLAUDE.md`, or a new file under `shared/` imported by it? (Q&A #5)
+- [ ] The swatch's look: image-grid-fusion's (a 16-pixel square, grey outline), or another? (Q&A #6)
 
 ---
 
@@ -138,6 +165,15 @@ emoji data section) and in the *Window* paragraph of `README.md` / `README.fr.md
 The `RULES.md` table lacks a `Clear frequently used` row: added with the reorder, so the table lists
 the whole menu.
 
+### Iteration 2 — 2026-10-08
+
+User request: the colour items of the menu show their colour, as in image-grid-fusion; and that
+becomes a rule in `shared`. Added *Colour Items*: `Highlight color…` gets a swatch as its image,
+refreshed on the menu's `Opening`; the shared rule; the docs following. Read in image-grid-fusion:
+`MainForm.SetSwatch` (a 16-logical-pixel square, `ControlDark` outline), redrawn on `OnDpiChanged`
+and after each pick. Two open questions: where the shared rule lives — `shared/` holds only the
+plugin's skills today, the shared rules being `mini-apps/CLAUDE.md` — and the swatch's look.
+
 ---
 
 ## Implementation Log
@@ -151,6 +187,7 @@ says so rather than staying blank.
 | Unit tests | | | Not applicable: no test project (see *Test Impact*) |
 | README | | | |
 | RULES | | | |
+| Shared rule | | | |
 
 ---
 
@@ -164,6 +201,8 @@ Questions asked by the agent during design, with user responses.
 | 2 | Which sections, in which order: five by feature in the window's order, or three broad ones (Display / Content / App)? | Five sections, in the window's order | 2026-10-08 |
 | 3 | Under a section, are the items' labels shortened? | Kept as they are | 2026-10-08 |
 | 4 | Is the subject straightforward, or tricky / long? | Straightforward | 2026-10-08 |
+| 5 | Where does the shared colour-items rule live? | | 2026-10-08 |
+| 6 | Which look for the swatch? | | 2026-10-08 |
 
 ---
 
