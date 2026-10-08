@@ -204,6 +204,11 @@ the EN row (flag, name, tags), then the FR row under it when it is on. The flags
 button on the right, the emoticon under the emoji stay. *Layout* rewritten; the "French column"
 setting becomes the "French row" (same menu item, `Show French names`).
 
+### Iteration 4 — 2026-10-08
+
+Rows mockup validated as is (Q&A #21). The backlog row *Copy (UTF-8)* is marked with this workfile
+— the code point button copies the emoji (Q&A #19). No open question left.
+
 ---
 
 ## Implementation Log
@@ -245,8 +250,9 @@ Questions asked by the agent during design, with user responses.
 | 16 | Button label for a multi-code-point emoji? | The first code point only | 2026-10-08 |
 | 17 | Does the grid's tooltip stay? | Removed | 2026-10-08 |
 | 18 | Empty panel, copy feedback, copy hides the window / counts as a use? | OK for all: empty panel, `Copied` ~1 s, no hide, not a use | 2026-10-08 |
-| 19 | Mark the backlog row *Copy (UTF-8)* with this workfile? | | |
+| 19 | Mark the backlog row *Copy (UTF-8)* with this workfile? | Yes | 2026-10-08 |
 | 20 | (request on the revised mockup B) | Not bad, but rows per language instead of columns | 2026-10-08 |
+| 21 | Does the rows mockup suit as is? | Yes | 2026-10-08 |
 
 ---
 
