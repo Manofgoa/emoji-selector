@@ -47,9 +47,11 @@ an emoji's keywords and tags), `Data/Emoji.cs`, a new home for the characters, `
 An emoji's **characters** are the text it shows, as one types it: `1` for 1️⃣, `?` for ❓, `!?` for
 ⁉️, `OK` for 🆗. Most emojis have none; a few have two (➖ `-` and `−`).
 
-### Proposed list
+### The list
 
-Source to settle (see *Open Questions*). Draft, to be reviewed:
+**One list written by hand** (Q&A 5), every emoji in it — not computed from the keycap's base
+character nor from NFKC: one explicit place to read and to extend. Keyed by the emoji's text as the
+catalog gives it. An emoji the catalog does not have is ignored.
 
 | Emoji | Characters | Note |
 |---|---|---|
@@ -62,7 +64,7 @@ Source to settle (see *Open Questions*). Draft, to be reviewed:
 | ⁉️ | `!?` | Already a tag, erased |
 | ➕ | `+` | Already a tag, erased |
 | ➖ | `-`, `−` | Already tags, erased |
-| ✖️ | `×` | Already a tag, erased |
+| ✖️ | `×`, `x` | `×` a tag erased, `x` a tag |
 | ➗ | `÷` | Already a tag, erased |
 | 🟰 | `=` | Missing from Emojibase |
 | 💲 | `$` | Missing from Emojibase |
@@ -76,14 +78,13 @@ Source to settle (see *Open Questions*). Draft, to be reviewed:
 | Ⓜ️ | `M` | Already a tag |
 | 🆑 🆒 🆓 🆔 🆕 🆖 🆗 🆘 🆚 | `CL`, `COOL`, `FREE`, `ID`, `NEW`, `NG`, `OK`, `SOS`, `VS` | Already words |
 | 🆙 | `UP!` | Already a tag, erased |
-| 💯 | `100` | To confirm |
-| 🔞 | `18` | To confirm |
-| 🔠 🔡 🔢 🔤 | `ABCD`, `abcd`, `1234`, `abc` | To confirm — they show these |
-| 🈁 🈂️ 🈷️ 🈶 🈯️ 🉐 🈹 🈚️ 🈲 🉑 🈸 🈴 🈳 ㊗️ ㊙️ 🈺 🈵 | `ココ`, `サ`, `月`, `有`, `指`, `得`, `割`, `無`, `禁`, `可`, `申`, `合`, `空`, `祝`, `秘`, `営`, `満` | To confirm — Japanese buttons, their Unicode compatibility form (NFKC) |
+| 💯 | `100` | Already a tag |
+| 🔞 | `18` | Already a tag |
+| 🔠 🔡 🔢 🔤 | `ABCD`, `abcd`, `1234`, `abc` | They show these; already tags |
+| 🈁 🈂️ 🈷️ 🈶 🈯️ 🉐 🈹 🈚️ 🈲 🉑 🈸 🈴 🈳 ㊗️ ㊙️ 🈺 🈵 | `ココ`, `サ`, `月`, `有`, `指`, `得`, `割`, `無`, `禁`, `可`, `申`, `合`, `空`, `祝`, `秘`, `営`, `満` | Japanese buttons: their Unicode compatibility form (NFKC), written in the list |
 
-- Unicode's **compatibility form** (NFKC) gives only part of it: `!!`, `!?`, `TM`, `i`, `M` and the
-  Japanese ideographs. ❓, ➕, the keycaps and the letter buttons have none — a list written by hand
-  is needed either way.
+- Unicode's **compatibility form** (NFKC) would give only part of it — `!!`, `!?`, `TM`, `i`, `M` and
+  the Japanese ideographs; ❓, ➕, the keycaps and the letter buttons have none: hence the list.
 - Matched **case-insensitively**, like every keyword: `ok` finds 🆗, `a` finds 🅰️.
 
 ---
@@ -110,7 +111,7 @@ The typed text is split **at spaces** into typed words, as today. Each typed wor
 ### Ranking
 
 - **New tier `Character`**, above `Exact`: the typed word **equals** one of the emoji's characters, or
-  one of its emoticons (see *Open Questions*). `1` → 1️⃣ first, then the emojis with the whole word
+  one of its **emoticons** (Q&A 7) — `:)` → 🙂 first, `<3` → ❤️ first. `1` → 1️⃣ first, then the emojis with the whole word
   `1` (🕐…), as today.
 - Several typed words: the worst tier still decides (`? rouge` → ❓, its `?` a `Character`, `rouge` an
   `Exact`: tier `Exact`).
@@ -121,7 +122,8 @@ The typed text is split **at spaces** into typed words, as today. Each typed wor
 
 - The characters are **added to the tags** shown, so the panel shows what the search finds: 🟰 gains
   `=`, 💲 `$`, #️⃣ `#`. A character the row already holds as a tag is not repeated (❓ already has
-  `?`). Which row(s): see *Open Questions*.
+  `?`). **Both rows** (Q&A 8), at the end of the tags, each row skipping a character it already
+  holds — the English row too when the French one is hidden.
 - Added at the catalog's building, to `EnglishTags` / `FrenchTags`: the panel's height
   (`EmojiDetailsPanel.HeightFor`, over the whole catalog) counts them with no change.
 - **Highlight**: `EmojiSearch.MatchSpans` highlights a typed word with symbols too — today it
@@ -149,14 +151,14 @@ search on the built app, by reflection on the dll. The behaviours an assertion m
 
 ## Open Questions
 
-- [ ] **Source of the characters**: one list written by hand, every emoji in it (recommended:
-  explicit, one place) — or rules (the keycap's base character, NFKC) plus a hand list for the rest?
-- [ ] **The list itself** (*Characters* § Proposed list): keep, drop or add — especially 💯 `100`,
-  🔞 `18`, 🔠🔡🔢🔤, the Japanese ideographs, ✖️ also by `x`.
-- [ ] **Emoticons in the `Character` tier**: `:)` typed exactly ranks 🙂 first (recommended) — or as
-  a whole word only?
-- [ ] **Details panel row**: the characters added to both rows' tags, at the end, skipped where the
-  row already has them (recommended) — or to the English row only?
+- [x] ~~**Source of the characters**: one list written by hand, or rules (the keycap's base character,
+  NFKC) plus a hand list for the rest?~~ → One list written by hand, every emoji in it
+- [x] ~~**The list itself**: keep, drop or add — especially 💯 `100`, 🔞 `18`, 🔠🔡🔢🔤, the Japanese
+  ideographs, ✖️ also by `x`.~~ → All kept, ✖️ by `x` too
+- [x] ~~**Emoticons in the `Character` tier**: `:)` typed exactly ranks 🙂 first, or as a whole word
+  only?~~ → `Character` tier, first
+- [x] ~~**Details panel row**: the characters added to both rows' tags, or to the English row
+  only?~~ → Both rows, at the end, skipped where the row already has them
 - [ ] **Emoticon highlight**: highlight the emoticon under the emoji when the search matches it, like
   the names and tags (recommended) — or not?
 - [ ] **Tests**: checked on the built dll by reflection, no test project, like the previous workfiles
@@ -183,6 +185,13 @@ tags (`?`, `+`, `÷`, `✓`) and the keycaps their digit in their name; `=` (�
 are missing; NFKC covers only a few of them. Design: an emoji's *characters*, a symbol-keyword path
 for typed words holding a symbol, with today's matching as fallback, and a `Character` tier above
 `Exact`.
+
+### Iteration 2 — 2026-10-09
+
+Q&A 5–8 answered: the characters come from **one hand-written list** (no NFKC, no keycap rule); every
+uncertain row kept — 💯 `100`, 🔞 `18`, 🔠🔡🔢🔤, the 17 Japanese buttons, ✖️ by `x` as well as `×`;
+an emoticon typed exactly is in the `Character` tier; the characters are added to **both** rows of
+the details panel. Still open: the emoticon highlight, the tests.
 
 ---
 
@@ -211,6 +220,12 @@ Questions asked by the agent during design, with user responses.
 | 2 | When the typed text is exactly an emoji's character, how is it ranked? | First — a new tier above the whole word | 2026-10-09 |
 | 3 | Must the character appear in the details panel? | Yes, as a tag | 2026-10-09 |
 | 4 | Is the subject straightforward, or tricky / long? | Straightforward — one exploration pass | 2026-10-09 |
+| 5 | Source of the characters: one hand-written list, or rules (keycap base, NFKC) plus a list? | One hand-written list | 2026-10-09 |
+| 6 | Which of the uncertain rows of the proposed list are kept? | All: 💯 `100`, 🔞 `18`, 🔠🔡🔢🔤, the Japanese ideographs, ✖️ by `x` too | 2026-10-09 |
+| 7 | An emoticon typed exactly: `Character` tier, or whole word only? | `Character` tier — first | 2026-10-09 |
+| 8 | Details panel: the characters added to both rows, or the English one only? | Both rows | 2026-10-09 |
+| 9 | Highlight the emoticon under the emoji when the search matches it? | | 2026-10-09 |
+| 10 | Tests: by reflection on the built dll, or a new test project? | | 2026-10-09 |
 
 ---
 
