@@ -149,6 +149,7 @@ internal sealed class MainForm : Form
     private const char CustomIcon = '';
 
     private readonly TrayIcon trayIcon;
+    private readonly Icon appIcon;
     private readonly ContextMenuStrip settingsMenu;
     // The catalog's categories, without the frequent tab.
     private readonly IReadOnlyList<EmojiCategory> categories;
@@ -217,6 +218,9 @@ internal sealed class MainForm : Form
         this.startHidden = startHidden;
         this.singleInstance = singleInstance;
         this.Text = secondTitle is null ? AppTitle : $"{AppTitle} — {secondTitle}";
+        // The exe's icon, fixed: the emoji chosen for the tray icon never changes it.
+        this.appIcon = LoadAppIcon();
+        this.Icon = this.appIcon;
         // Sized in OnLoad, once the bars are laid out at the window's DPI, then placed in the corner of the mouse's
         // monitor (see PlaceInCorner).
         this.StartPosition = FormStartPosition.Manual;
@@ -533,6 +537,7 @@ internal sealed class MainForm : Form
             this.settingsMenu.Dispose();
             this.trayIcon.Dispose();
             this.foregroundTracker.Dispose();
+            this.appIcon.Dispose();
         }
 
         base.Dispose(disposing);
@@ -1519,6 +1524,16 @@ internal sealed class MainForm : Form
         }
 
         return Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
+    }
+
+    // The app icon embedded in the exe, every size of it: Windows picks the small and the large one. The Icon reads the
+    // whole stream.
+    private static Icon LoadAppIcon()
+    {
+        const string resourceName = "EmojiSelector.AppIcon.app.ico";
+        using Stream stream = typeof(MainForm).Assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Missing embedded resource {resourceName}.");
+        return new Icon(stream);
     }
 
     private static bool IsCloaked(IntPtr window) =>
