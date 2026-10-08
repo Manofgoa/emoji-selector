@@ -78,7 +78,8 @@ The **Menu key** (`Keys.Apps`) and **Shift+F10** open the right-click menu **on 
   cell is scrolled into view (the mouse wheel may have moved it out), then `EmojiRightClicked` is
   raised with the selection's section and emoji, the location at the **bottom-left corner of its
   cell** — `MainForm.ShowEmojiMenu` stays the one place building the menu. No selection → nothing.
-- **Search box focused**: see *Open Questions*.
+- **Search box focused**: the keys keep the **box's own menu** (Cut, Copy, Paste…) (Q&A #8) —
+  the emoji menu opens from the grid only.
 - Opened from the keyboard, the menu's **first enabled item is highlighted**, as Windows does for a
   menu opened by the keyboard, so ↓ / Enter work at once.
 - The menu closed, the keyboard is back where it was (WinForms gives the focus back to the control
@@ -119,8 +120,8 @@ below are **checked by hand** in the running app.
   another workfile
 - [x] ~~A keyboard way to remove the selected frequent emoji — the Menu key / Shift+F10, Delete — or
   mouse only?~~ → The Menu key / Shift+F10 open the right-click menu on the selection
-- [ ] In the **search box**, do the Menu key / Shift+F10 keep the box's own menu (Cut, Copy,
-  Paste… — proposed), or open the emoji menu on the selection, as Enter inserts it from there?
+- [x] ~~In the **search box**, do the Menu key / Shift+F10 keep the box's own menu, or open the
+  emoji menu on the selection?~~ → The box's own menu
 
 ---
 
@@ -147,6 +148,11 @@ Open questions answered (Q&A #6-7). The tray icon is out of scope: another sessi
 customizable. The Menu key and Shift+F10 open the right-click menu on the selection —
 `EmojiGrid.OpenSelectionMenu`, the menu still built by `ShowEmojiMenu` alone; first item
 highlighted. One question emerged: what those keys do in the search box.
+
+### Iteration 3 — 2026-10-08
+
+Q&A #8: in the search box, the Menu key and Shift+F10 keep the box's own menu; the emoji menu opens
+from the grid only. No open question left.
 
 ---
 
@@ -176,7 +182,7 @@ Questions asked by the agent during design, with user responses.
 | 5 | Straightforward or tricky / long? | Straightforward — one scout pass | 2026-10-08 |
 | 6 | Tray icon when its emoji is removed: kept, or back to 😊? | Ignored — the tray icon is made customizable in another session | 2026-10-08 |
 | 7 | A keyboard way to remove (Menu key / Shift+F10, Delete), or mouse only? | The Menu key / Shift+F10 | 2026-10-08 |
-| 8 | In the search box, the Menu key / Shift+F10: the box's own menu, or the emoji menu? | | |
+| 8 | In the search box, the Menu key / Shift+F10: the box's own menu, or the emoji menu? | The box's own menu | 2026-10-08 |
 
 ---
 
