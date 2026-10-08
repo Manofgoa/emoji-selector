@@ -35,6 +35,14 @@
     <EmbeddedResource Include="UI\Flags\fr@2x.png" LogicalName="EmojiSelector.UI.Flags.fr@2x.png" WithCulture="false" />
   </ItemGroup>
 
+  <!-- The flag images: the country and subdivision flags Segoe UI Emoji cannot draw, Twemoji's (CC-BY 4.0), its license
+       and its version, downloaded by Drawing\Twemoji\Update-FlagImages.ps1 and read by Drawing/FlagImages. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Drawing\Twemoji\*.svg" LogicalName="EmojiSelector.Drawing.Twemoji.%(Filename)%(Extension)" WithCulture="false" />
+    <EmbeddedResource Include="Drawing\Twemoji\LICENSE-GRAPHICS" LogicalName="EmojiSelector.Drawing.Twemoji.LICENSE-GRAPHICS" />
+    <EmbeddedResource Include="Drawing\Twemoji\version.txt" LogicalName="EmojiSelector.Drawing.Twemoji.version.txt" />
+  </ItemGroup>
+
   <!-- dotnet publish -c Release: one small .exe, precompiled for fast startup; needs the .NET 10 Desktop Runtime. -->
   <PropertyGroup>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
