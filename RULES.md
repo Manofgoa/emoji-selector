@@ -515,11 +515,23 @@ The **search box** sits above the tab strip (`UI/MainForm.cs`); the matching and
   `compact.en.json` is the list; `compact.fr.json`, joined by hexcode, only adds keywords. Both are
   embedded with `WithCulture="false"`: without it the `.en` / `.fr` in their names make MSBuild move
   them to satellite assemblies, out of the exe.
-- **Matching**: case and diacritics ignored (`é` → `e`, `œ` → `oe`); an emoji is a result when every
-  typed word is **contained** in a word of its keywords.
-- **Ranking**, in tiers: the whole word → its start → anywhere else; then the share of the word
-  covered; then a name before a tag. Several typed words: the worst tier, then the lowest coverage,
-  then the most name matches. Ties keep the catalog order. `caca` → 💩 before 🥜 *cacahuète*.
+- **Matching**: case and diacritics ignored (`é` → `e`, `œ` → `oe`); the typed text is split at
+  spaces, and an emoji is a result when every typed word is **contained** in a word of its keywords.
+  The keywords' words are their letters and digits: every other character splits them.
+- **Symbols**: a typed word holding a character neither a letter nor a digit (`?`, `:)`, `up!`) is
+  looked for, with its symbols, in the emoji's **symbol keywords** (`Emoji.SymbolKeywords`): the
+  words of its names and tags, split at spaces, that hold one (`?`, `+`, `up!`, `d’or`), and its
+  emoticons — folded by `EmojiSearch.Fold`, the symbols kept, `’` read as `'`. None holds it → its
+  letters-and-digits parts are looked for as if typed apart (`d'or` → `d`, `or`), as before symbols
+  were searched.
+- **Characters** (`Data/EmojiCharacters.cs`): the text an emoji shows, as typed — `1` for 1️⃣, `?`
+  for ❓, `=` for 🟰, `OK` for 🆗, `月` for 🈷️. **One list written by hand**, keyed by the emoji's
+  text without `FE0F`: Unicode's compatibility form gives only a few, and Emojibase lacks some
+  (`=`, `$`). The catalog adds them to the emoji's tags, in both languages (see *Details Panel*).
+- **Ranking**, in tiers: one of the emoji's **characters or emoticons**, typed whole (`Character`) →
+  the whole word → its start → anywhere else; then the share of the word covered; then a name before
+  a tag. Several typed words: the worst tier, then the lowest coverage, then the most name matches.
+  Ties keep the catalog order. `caca` → 💩 before 🥜 *cacahuète*; `1` → 1️⃣ first, `:)` → 🙂 first.
 - **Every show** clears the box and focuses it (`OnVisibleChanged`), and brings the grid back to the
   top on its first emoji (see *Keyboard*). The placeholder is the native
   cue banner shown while focused (`EM_SETCUEBANNER`): `PlaceholderText` hides on focus, and the box
@@ -600,6 +612,9 @@ selected emoji changes — the same cell may hold another emoji once the section
   then the name in bold (the French name capitalized like the English one), then **every tag**,
   joined with `, ` and **wrapped** at spaces — never truncated, never an ellipsis. The names of both
   rows line up after the widest flag.
+- **Characters among the tags**: the emoji's characters (see *Search Box*) end both rows' tags, each
+  row skipping one it already holds, case ignored (❓ already has `?`, 🆗 `ok`) — the French row only
+  when the French data has the emoji.
 - **Flags**: images embedded in the exe (`UI/Flags/`, `us` and `fr`, 1× and `@2x`, the 2× one above
   144 DPI), drawn at 12 logical pixels high with a thin edge — Segoe UI Emoji has no flag glyphs.
   Generated from the public-domain flag designs, never downloaded.
@@ -613,12 +628,13 @@ selected emoji changes — the same cell may hold another emoji once the section
   moving the selection never moves the grid. `MainForm.OnLayout` fits it **before** the docking
   places the controls — set during it, the grid would keep the old space. The window's minimum
   height is 240 logical pixels plus the panel's height.
-- **Search highlight**: while the search box holds text, the characters it matches in the names and
-  tags are highlighted in `highlightColor` (settings menu, `Highlight color…`, which shows it as a
+- **Search highlight**: while the search box holds text, the characters it matches in the names,
+  the tags and the emoticons are highlighted in `highlightColor` (settings menu, `Highlight color…`, which shows it as a
   swatch; `#RRGGBB` in `settings.json`; default fluorescent yellow `#FFFF00`), the text keeping its
   colour. Exactly the
   matched characters, every occurrence, matched as the search matches (`EmojiSearch.MatchSpans`:
-  accents and case ignored, inside one word).
+  accents and case ignored, inside one word). A typed word holding a symbol is highlighted whole
+  where the text holds it (`?`, `d’or`), its letters-and-digits parts elsewhere.
 - **No selection** (a search with no result): the panel stays, empty, at the same height.
 - The panel is not selectable: a click on it leaves the keyboard where it was.
 
