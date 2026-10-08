@@ -22,8 +22,10 @@ the reset's confirmation text, `RULES.md`, `README.md` / `README.fr.md`.
 - **`Window opacity ▸`**, in the settings menu's **window** section, after `Reset window size`
   (`MainForm.CreateSettingsMenu`) — the section of its feature, per RULES.md § Frame; the label
   says its subject on its own.
-- Its submenu: `100%`, `90%`, `80%`, `70%`, top to bottom, the value in use **checked**
-  (set at each opening of the menu, like the other check marks).
+- Its submenu: `100%`, `90%`, `80%`, `70%`, top to bottom (`MainForm.OpacityPercents`), the value
+  in use **checked** (set at each opening of the menu, like the other check marks). The `▸` is the
+  menu's own submenu arrow, not part of the label (`WindowOpacityText = "Window opacity"`).
+- A click goes through `MainForm.SetOpacity`: `Form.Opacity` set, `opacity` written.
 - A click on a value applies it **at once** and saves it; the window stays, the menu closes like
   any other item. A click on the checked value does nothing.
 - No confirmation: nothing is lost.
@@ -51,6 +53,7 @@ the reset's confirmation text, `RULES.md`, `README.md` / `README.fr.md`.
 - A new key **`opacity`** in `settings.json`: the **percentage**, an integer (`100`, `90`, `80`,
   `70`) — `SettingsFile.ReadOpacity` / `WriteOpacity`, like `showFrench` / `highlightColor`.
 - **Missing key, missing file, unreadable value** (not an integer) → 100 %.
+- `SettingsFile.ReadOpacity` returns any integer; `MainForm.NearestOpacity` maps it.
 - **An integer that is not one of the four** (written by hand) → the **nearest** of the four; a
   tie goes to the more opaque one: `85` → 90 %, `75` → 80 %, `50` → 70 %, `120` → 100 %. The key
   is left as it is until the next choice; the menu checks the value applied.
@@ -124,6 +127,28 @@ The three open questions answered: an `opacity` value that is not one of the fou
 **nearest** one, a tie to the more opaque (`85` → 90 %); the submenu is labelled **`Window opacity
 ▸`**, not `Opacity ▸`; the reset's confirmation names the opacity. No question left.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code, checks and documentation, in a worktree (`.claude/worktrees/window-opacity`, branch
+`feature/window-opacity`). Scope frozen on Iterations 1–2.
+
+### Iteration 4 — 2026-10-08 — 🧭 Implementation choices
+
+- **Where the four values live**: `MainForm.OpacityPercents` (`[100, 90, 80, 70]`), with
+  `MainForm.NearestOpacity` (`MinBy` over the distance — the first of equals is the more opaque);
+  `SettingsFile.ReadOpacity` only reads an integer, any one. The settings file stays a plain store.
+- **The field** `MainForm.opacityPercent` holds the percentage in use: the check marks and the "same
+  value → nothing" test compare integers, not `Form.Opacity`'s double.
+- **Labels**: `Window opacity` (the arrow is the submenu's own, like `Show groups`), the values
+  `100%`… without a space, as the request wrote them.
+- **The frame under the layered style** (the risk of Iteration 1): checked on a 70 % capture — the
+  rounded corners, the border and the colour emojis stay; the window's tool-window style (merged
+  from the taskbar workfile) keeps going through `CreateParams`, which `Form.Opacity`'s
+  `UpdateStyles` reads.
+- **Not checked by script**: a click in the submenu at run time — the settings button cannot be
+  clicked from a script; left to the user's hand test.
+- No rule broken.
+
 ---
 
 ## Implementation Log
@@ -133,10 +158,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | No test project — checked by hand |
-| RULES.md | | | |
-| README | | | |
+| Code | 4 | 2026-10-08 | `SettingsFile.ReadOpacity` / `WriteOpacity`; the submenu, `SetOpacity`, `NearestOpacity`, the opacity set in the constructor; the reset's confirmation |
+| Unit tests | 4 | 2026-10-08 | No test project — the saved value checked by script on check instances (`GetLayeredWindowAttributes`, 15 cases pass: none, 100/90/80/70, 85, 75, 50, −5, 120, 92, `"abc"`, 85.5, a `--background` launch); the frame on a capture; the submenu click left to the user |
+| RULES.md | 4 | 2026-10-08 | § Opacity, the menu tables, the `opacity` key, the reset's confirmation |
+| README | 4 | 2026-10-08 | English and French |
 
 ---
 

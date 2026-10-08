@@ -44,6 +44,12 @@ internal sealed class MainForm : Form
 
     public const string ResetWindowSizeText = "Reset window size";
 
+    public const string WindowOpacityText = "Window opacity";
+
+    // The opacities the settings menu offers, percent, the most opaque first: a saved value that is not one of them
+    // takes the nearest, a tie going to the more opaque (see NearestOpacity).
+    private static readonly int[] OpacityPercents = [100, 90, 80, 70];
+
     public const string ShowFrequentText = "Show frequently used";
 
     public const string HideFrequentText = "Hide frequently used";
@@ -85,7 +91,7 @@ internal sealed class MainForm : Form
         + "This deletes, and cannot be undone:\n"
         + "• the custom groups and their emojis\n"
         + "• the use counters of Frequently used\n"
-        + "• the window size, the tray emoji, the details panel's settings\n"
+        + "• the window size and opacity, the tray emoji, the details panel's settings\n"
         + "• Start with Windows\n"
         + "• the downloaded emoji data — back to version {0}\n"
         + "• the emoji image cache\n\n"
@@ -172,6 +178,9 @@ internal sealed class MainForm : Form
     // Whether the frequent tab is shown: its tab and its section first, or neither. The counters count either way.
     private bool showFrequent = SettingsFile.ReadShowFrequent();
 
+    // The window's opacity, percent: one of OpacityPercents, 100 when nothing is saved.
+    private int opacityPercent = NearestOpacity(SettingsFile.ReadOpacity() ?? 100);
+
     // How many sections the custom tab has in the grid: one per shown group, the placeholder alone while there is no
     // group, none — and no custom tab — while every group is hidden.
     private int customSectionCount;
@@ -229,6 +238,10 @@ internal sealed class MainForm : Form
         // the double-click on the drag area.
         this.MinimizeBox = false;
         this.MaximizeBox = false;
+
+        // Below 100 %, a layered window: the whole of it fades, in front or not. Set before the handle exists, so a
+        // --background launch shows it at its opacity from the first show.
+        this.Opacity = this.opacityPercent / 100.0;
 
         // The search box on top, the tabs below it, the details panel at the bottom, the grid filling the rest. Docking
         // runs from the last control added: the search bar first, then the strip, then the panel.
@@ -638,6 +651,15 @@ internal sealed class MainForm : Form
         menu.Items.Add(highlightColorItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
+        var windowOpacity = new ToolStripMenuItem(WindowOpacityText);
+        foreach (int percent in OpacityPercents)
+        {
+            var item = new ToolStripMenuItem($"{percent}%") { Tag = percent };
+            item.Click += (_, _) => this.SetOpacity(percent);
+            windowOpacity.DropDownItems.Add(item);
+        }
+
+        menu.Items.Add(windowOpacity);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
         var startWithWindowsItem = new ToolStripMenuItem(StartWithWindowsText);
@@ -653,6 +675,11 @@ internal sealed class MainForm : Form
             showFrequentItem.Checked = this.showFrequent;
             clearFrequent.Enabled = !this.usage.IsEmpty;
             showFrenchItem.Checked = this.detailsPanel.ShowFrench;
+            foreach (ToolStripMenuItem item in windowOpacity.DropDownItems)
+            {
+                item.Checked = (int)item.Tag! == this.opacityPercent;
+            }
+
             this.SetSwatch(highlightColorItem, this.detailsPanel.HighlightColor);
             // Read from the Startup folder each time: the user may delete the shortcut, or disable it in the Task
             // Manager.
@@ -696,6 +723,22 @@ internal sealed class MainForm : Form
             SettingsFile.WriteShowFrench(show);
         }
     }
+
+    // The window's opacity, from the settings menu: applied at once, saved.
+    private void SetOpacity(int percent)
+    {
+        if (percent != this.opacityPercent)
+        {
+            this.opacityPercent = percent;
+            this.Opacity = percent / 100.0;
+            SettingsFile.WriteOpacity(percent);
+        }
+    }
+
+    // The opacity of OpacityPercents nearest a saved one, which may have been written by hand: 85 → 90, 50 → 70.
+    // MinBy keeps the first of equals, the more opaque.
+    private static int NearestOpacity(int percent) =>
+        OpacityPercents.MinBy(offered => Math.Abs(offered - percent));
 
     // Start with Windows checked or unchecked, from the settings menu: the shortcut written — to this exe, started
     // hidden — or deleted. A failure is said, the item left as it was.
