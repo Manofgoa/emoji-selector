@@ -48,7 +48,7 @@ internal sealed class MainForm : Form
 
     // The opacities the settings menu offers, percent, the most opaque first: a saved value that is not one of them
     // takes the nearest, a tie going to the more opaque (see NearestOpacity).
-    private static readonly int[] OpacityPercents = [100, 90, 80, 70];
+    private static readonly int[] OpacityPercents = [100, 98, 96, 94, 92];
 
     public const string ShowFrequentText = "Show frequently used";
 
@@ -735,7 +735,7 @@ internal sealed class MainForm : Form
         }
     }
 
-    // The opacity of OpacityPercents nearest a saved one, which may have been written by hand: 85 → 90, 50 → 70.
+    // The opacity of OpacityPercents nearest a saved one, which may have been written by hand: 97 → 98, 90 → 92.
     // MinBy keeps the first of equals, the more opaque.
     private static int NearestOpacity(int percent) =>
         OpacityPercents.MinBy(offered => Math.Abs(offered - percent));
