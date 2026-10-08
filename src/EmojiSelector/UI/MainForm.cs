@@ -183,6 +183,10 @@ internal sealed class MainForm : Form
     // OnLoad placed the window in the corner before its frame could be measured: OnShown places it there again.
     private bool placeInCornerWhenShown;
 
+    // The window is where PlaceInCorner put it, not moved since: a change of DPI places it there again (see
+    // OnDpiChanged).
+    private bool inCorner;
+
     /// <summary>The second title given with <see cref="TitleArgument"/>, null without one.</summary>
     public string? SecondTitle { get; }
 
@@ -444,6 +448,19 @@ internal sealed class MainForm : Form
     {
         base.OnResizeBegin(e);
         this.sizeBeforeResize = this.LogicalClientSize();
+        // The user moves or resizes the window: it leaves its corner.
+        this.inCorner = false;
+    }
+
+    // Windows applies the DPI of a monitor of another scale once the window is shown there, after the placement that
+    // brought it: resized around its top-left corner, the window would leave its corner, so it is placed there again.
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        if (this.inCorner && this.Visible)
+        {
+            this.PlaceInCorner();
+        }
     }
 
     // Saved when the user finishes a resize, not at exit: Windows shutting down or the Task Manager may end the app
@@ -781,6 +798,7 @@ internal sealed class MainForm : Form
     {
         SettingsFile.WriteWindowSize(null);
         this.SetClientArea(this.DefaultClientSize());
+        this.inCorner = false;
         Size frameSize = this.FrameSize();
         var frame = new Rectangle(this.Left + this.frameMargins.Left, this.Top + this.frameMargins.Top, frameSize.Width, frameSize.Height);
         this.MoveFrameTo(WindowPlacement.KeepInside(frame, Screen.FromHandle(this.Handle).WorkingArea));
@@ -1361,6 +1379,7 @@ internal sealed class MainForm : Form
     // Moves the window so its visible frame sits against the anchor, as WindowPlacement computes it.
     private void PlaceAt(Rectangle anchor)
     {
+        this.inCorner = false;
         Size frameSize = this.FrameSize();
         Rectangle workingArea = Screen.FromPoint(anchor.Location).WorkingArea;
         int gap = WindowPlacement.Gap * this.DeviceDpi / 96;
@@ -1375,6 +1394,7 @@ internal sealed class MainForm : Form
         Screen screen = Screen.FromPoint(Cursor.Position);
         int margin = WindowPlacement.CornerMargin * this.DeviceDpi / 96;
         this.MoveFrameTo(WindowPlacement.PlaceInCorner(frameSize, screen.Bounds, screen.WorkingArea, margin));
+        this.inCorner = true;
     }
 
     // The size of the window's visible frame: the invisible resize borders and the shadow left out. The margins between
