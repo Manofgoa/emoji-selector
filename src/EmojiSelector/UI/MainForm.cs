@@ -75,6 +75,8 @@ internal sealed class MainForm : Form
 
     public const string DeleteGroupQuestion = "Delete the group \"{0}\"? Its list of emojis cannot be brought back.";
 
+    public const string UseAsTrayIconText = "Use as tray icon";
+
     public const string AddToText = "Add to";
 
     public const string RemoveText = "Remove";
@@ -179,7 +181,9 @@ internal sealed class MainForm : Form
         this.grid.EmojiMoved += (_, move) => this.MoveEmoji(move);
         ResumeLayout(performLayout: false);
 
-        this.trayIcon = new TrayIcon(this.Text);
+        // The emoji the user chose, while the catalog still has it; the setting is left as it is otherwise.
+        string? trayEmoji = SettingsFile.ReadTrayEmoji();
+        this.trayIcon = new TrayIcon(this.Text, trayEmoji is not null && this.emojisByText.ContainsKey(trayEmoji) ? trayEmoji : TrayIcon.DefaultEmoji);
         this.trayIcon.Clicked += this.OnTrayIconClicked;
         this.trayIcon.ExitRequested += (_, _) => Application.Exit();
 
@@ -521,10 +525,9 @@ internal sealed class MainForm : Form
         this.FocusSearchBox();
     }
 
-    // The one place told an emoji was used: the tray icon shows it, its counter goes up.
+    // The one place told an emoji was used: its counter goes up.
     private void OnEmojiUsed(string emoji)
     {
-        this.trayIcon.ShowEmoji(emoji);
         this.usage.Record(emoji);
         this.grid.ReplaceCategory(0, this.CreateFrequentCategory());
     }
@@ -610,11 +613,15 @@ internal sealed class MainForm : Form
         }
     }
 
-    // The menu of a right-clicked emoji: Add to ▸ every group, the ones holding it checked — a click on one of those
-    // takes it out; Remove when it was right-clicked in a group.
+    // The menu of a right-clicked emoji: Use as tray icon, checked when the icon shows it; Add to ▸ every group, the
+    // ones holding it checked — a click on one of those takes it out; Remove when it was right-clicked in a group.
     private void ShowEmojiMenu(EmojiGrid.EmojiRightClick click)
     {
         var menu = new ContextMenuStrip();
+        var useAsTrayIcon = new ToolStripMenuItem(UseAsTrayIconText) { Checked = this.trayIcon.Emoji == click.Emoji.Text };
+        useAsTrayIcon.Click += (_, _) => this.UseAsTrayIcon(click.Emoji.Text);
+        menu.Items.Add(useAsTrayIcon);
+        menu.Items.Add(new ToolStripSeparator());
         var addTo = new ToolStripMenuItem(AddToText) { Enabled = this.customGroups.Groups.Count > 0 };
         for (int group = 0; group < this.customGroups.Groups.Count; group++)
         {
@@ -634,6 +641,19 @@ internal sealed class MainForm : Form
         }
 
         ShowOnce(menu, this.grid, click.Location, ToolStripDropDownDirection.Default);
+    }
+
+    // The tray icon shows the emoji from now on, and at the next launches: saved like any other, the default included.
+    // The window stays.
+    private void UseAsTrayIcon(string emoji)
+    {
+        if (this.trayIcon.Emoji == emoji)
+        {
+            return;
+        }
+
+        this.trayIcon.ShowEmoji(emoji);
+        SettingsFile.WriteTrayEmoji(emoji);
     }
 
     // The menu of a group's "…" button, under it, its right edge on the button's.
