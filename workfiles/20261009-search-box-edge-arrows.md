@@ -92,6 +92,11 @@ keyboard over — even when the selection cannot move; no result → stays in th
 variants and a selected text keep Windows' behaviour. One branch added to `MainForm.ProcessCmdKey`;
 the grid and the layout untouched. No test project: checked on the built app.
 
+### Iteration 2 — 2026-10-09 — ✅ Implemented
+
+Go given: code, unit tests and documentation, in a worktree (`.claude/worktrees/search-box-edge-arrows`,
+branch `feature/search-box-edge-arrows`).
+
 ---
 
 ## Implementation Log
