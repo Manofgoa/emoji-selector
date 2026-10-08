@@ -62,23 +62,27 @@ menu item, the hidden start, the restart, the show asked by a second launch), a 
   elsewhere — and **deletes the Task Manager's value**, so Windows runs it again. Checked → a click
   **deletes** the shortcut and that value. No confirmation: nothing is lost.
 - A Startup folder that cannot be written (or a shortcut that cannot be deleted) → a warning,
-  `Could not change the startup shortcut`, the item left as it was.
+  `Could not change the startup shortcut: <reason>`, the item left as it was.
 - The window stays open after the click, like the other toggles.
 
 ## Hidden Start — `--background`
 
 - **`--background`** (`MainForm.BackgroundArgument`), parsed in `Program.Main` with `--title`: the
   app starts **without showing its window** — the tray icon, the shortcut hook, the pre-render and
-  the data loading start as on a normal launch.
+  the data loading start as on a normal launch; the window's handle is not created until the first
+  show (`MainForm.SetVisibleCore` skips `Application.Run`'s show).
 - The window's **first show** — Win+;, Win+. or the tray icon — runs what a normal launch's show
-  runs: sizing (`OnLoad`), centring, then Win+;'s placement under the text cursor.
+  runs: sizing (`OnLoad`), centring, then Win+;'s placement under the text cursor — placed again at
+  the end of `OnLoad` (`MainForm.showAnchor`), since the centring moved it after the first placement.
 - Given twice, or with other arguments: the same as once; anything else stays ignored (RULES.md
   § Command-Line Arguments).
 - **Restart after an emoji update** (`Restart now to use it?` → Yes): the user is looking at the
   window, so the restarted app is **shown** — `--title` kept, `--background` dropped.
   `Application.Restart` reuses the arguments as they are: the restart starts the exe itself with the
   filtered arguments, then exits — **after releasing the single instance** (below), or the new
-  process would find the old one and exit.
+  process would find the old one and exit (`MainForm.Restart`). The exe failing to start → a warning,
+  `Could not restart the app: <reason>`; the app keeps running, without the single instance, the new
+  data used at the next launch.
 
 ## Single Instance
 
@@ -98,7 +102,9 @@ menu item, the hidden start, the restart, the show asked by a second launch), a 
   it, the second instance calls `AllowSetForegroundWindow(ASFW_ANY)`: it is the app the user just
   launched, the one allowed to hand the foreground over.
 - A mutex or an event that cannot be created (an unexpected Win32 error) → the app runs as before,
-  without the single instance — never an error.
+  without the single instance — never an error. A later launch finding no event exits all the same.
+- An agent's check instance of an exe holds the single instance: it is ended before the delivery
+  launch of the same exe, which would only show its window.
 
 ---
 
@@ -164,6 +170,44 @@ this workfile.
 Go given: code, unit tests and documentation, in a worktree (`.claude/worktrees/start-with-windows`,
 branch `feature/start-with-windows`). The scope is frozen as the sections above stand.
 
+### Iteration 4 — 2026-10-08 — 🧭 Implementation choices
+
+No project rule broken. Choices the frozen design did not state:
+
+- **Failure messages carry the reason**: `Could not change the startup shortcut: <reason>`, like the
+  other warnings of the settings menu (`Could not update the emoji data: {0}`).
+- **The restart failing to start the exe** (not in the design): a warning `Could not restart the app:
+  <reason>`, the app kept running without the single instance, already released.
+- **No handle at a hidden start**: `SetVisibleCore` skips the show without creating the window's
+  handle — nothing needs it before the first show; the hook and the single instance post through the
+  UI thread's synchronization context. The first show by Win+; places the window again at the end of
+  `OnLoad` (`showAnchor`), the centring having moved it.
+- **`StartupShortcut.Enable` takes the arguments** (`--background` passed by `MainForm`): `Data/` does
+  not reference `UI/`.
+- **`SingleInstance.cs` at the project root**, next to `Program.cs`: it belongs to the process, not to
+  a folder's domain.
+- **Glossary**: *Startup shortcut* (*raccourci de démarrage*) added — *Shortcut* already names Win+;,
+  and the docs needed a distinct word for the `.lnk`. Not in the Implementation Log's planned steps.
+- **RULES.md agent notes**: the check instance holding the single instance is ended before the
+  delivery launch; the startup shortcut is checked by reflection, since the settings button cannot be
+  clicked from a script.
+- **Commits**: the shortcut classes, then `SingleInstance`, then the wiring in `Program` and `MainForm`
+  in one commit — the constructor's new signature carries the single instance and the hidden start
+  together.
+
+Checked by hand, from scripts:
+
+| Check | Result |
+|---|---|
+| `--background`: process alive, no window | ✅ |
+| First Win+. after it: shown, foreground, sized as a normal launch (866 × 736), under the text cursor | ✅ |
+| Launched again with `--background`: exits (code 0), the first instance unchanged | ✅ |
+| Launched again by hand: exits (code 0), the first instance's window shown | ✅ — not brought to the front from the script: its launcher, a background shell, has no foreground right to hand over. To check with a double-click in the File Explorer |
+| One instance of the exe after those launches; a copy in another folder runs side by side | ✅ |
+| `StartupShortcut` by reflection: written (target, `--background`, folder, icon), checked; disabled in the Task Manager → unchecked; re-enabled by `Enable`, its value removed; a shortcut to another exe → unchecked, repointed by `Enable`; `Disable` deletes the shortcut and the value, twice without error | ✅ — the Startup folder and the registry left clean |
+| Win+. hiding the window once shown | ⚠️ Not conclusive: the Claude window comes back above the app's while the checks run, and another session's check instance answers Win+. too — `main`'s build behaves the same in the same conditions |
+| Restart after an emoji update | Not checked: it needs a newer Emojibase version online |
+
 ---
 
 ## Implementation Log
@@ -173,10 +217,11 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | Not applicable: no test project |
-| RULES.md | | | § Command-Line Arguments, § Window and Tray Icon, a § Start with Windows (the single instance in it) |
-| README (English and French) | | | |
+| Code | 4 | 2026-10-08 | `Data/ShellLinkInterop.cs`, `Data/StartupShortcut.cs`, `SingleInstance.cs`, `Program.cs`, `UI/MainForm.cs` — three commits |
+| Unit tests | 4 | 2026-10-08 | Not applicable: no test project. Checked by hand from scripts, see Iteration 4 |
+| RULES.md | 4 | 2026-10-08 | § Command-Line Arguments, § Window and Tray Icon, § Emoji Data (the restart), a § Start with Windows with its § Single Instance |
+| README (English and French) | 4 | 2026-10-08 | A *Start with Windows* bullet, the gear's menu sentence |
+| Glossary (English and French) | 4 | 2026-10-08 | *Startup shortcut* — added: *Shortcut* already means Win+; |
 
 ---
 
