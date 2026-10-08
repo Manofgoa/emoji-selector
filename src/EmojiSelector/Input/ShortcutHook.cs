@@ -3,9 +3,11 @@ using System.Runtime.InteropServices;
 namespace EmojiSelector.Input;
 
 /// <summary>
-/// The <b>shortcut</b> Win+;, caught by a low-level keyboard hook: Windows takes Win+; for its own emoji panel, so
-/// <c>RegisterHotKey</c> cannot have it. The hook swallows the <c>;</c> key while a Windows key is held, so Windows
-/// never sees the shortcut; when the app ends, Windows removes the hook and its own panel answers Win+; again.
+/// The <b>shortcut</b> Win+; — and Win+., the same — caught by a low-level keyboard hook: Windows takes both for its
+/// own emoji panel, so <c>RegisterHotKey</c> cannot have them. The hook swallows the <c>;</c> or <c>.</c> key while a
+/// Windows key is held, so Windows never sees the shortcut; when the app ends, Windows removes the hook and its own
+/// panel answers them again. An app's "Emoji — Windows+Period" menu entry that injects Win+. (Chromium) is caught
+/// too; one that opens the panel through an API sends no key, and gets Windows' panel.
 /// The hook runs on a thread of its own, with its own message loop: on the UI thread, every key typed in any app
 /// would wait whenever the UI is busy, and Windows silently removes a hook too slow to answer
 /// (<c>LowLevelHooksTimeout</c>). Must be created on the UI thread, after a control: <see cref="Pressed"/> is posted
@@ -26,7 +28,7 @@ internal sealed class ShortcutHook : IDisposable
     private readonly Thread thread;
     private uint threadId;
 
-    // The virtual-key code of the `;` key being swallowed, from its key-down to its key-up; 0 when none.
+    // The virtual-key code of the `;` or `.` key being swallowed, from its key-down to its key-up; 0 when none.
     private uint swallowedKey;
 
     public ShortcutHook()
@@ -35,12 +37,12 @@ internal sealed class ShortcutHook : IDisposable
             ?? throw new InvalidOperationException("The shortcut hook must be created on the UI thread.");
         this.callback = this.OnKey;
         using var started = new ManualResetEventSlim();
-        this.thread = new Thread(() => this.Run(started)) { IsBackground = true, Name = "Win+; hook" };
+        this.thread = new Thread(() => this.Run(started)) { IsBackground = true, Name = "Win+; and Win+. hook" };
         this.thread.Start();
         started.Wait();
     }
 
-    /// <summary>Win+; was pressed. Raised on the UI thread, once per press: auto-repeat raises nothing.</summary>
+    /// <summary>Win+; or Win+. was pressed. Raised on the UI thread, once per press: auto-repeat raises nothing.</summary>
     public event EventHandler? Pressed;
 
     public void Dispose()
@@ -90,7 +92,7 @@ internal sealed class ShortcutHook : IDisposable
     {
         if (message is WmKeyUp or WmSysKeyUp)
         {
-            // The `;` key-up matching a swallowed key-down is swallowed too; the Windows key's never is.
+            // The `;` or `.` key-up matching a swallowed key-down is swallowed too; the Windows key's never is.
             if (virtualKey == this.swallowedKey)
             {
                 this.swallowedKey = 0;
@@ -111,7 +113,7 @@ internal sealed class ShortcutHook : IDisposable
             return true;
         }
 
-        if ((!IsDown(VkLWin) && !IsDown(VkRWin)) || !IsSemicolonKey(virtualKey))
+        if ((!IsDown(VkLWin) && !IsDown(VkRWin)) || !IsShortcutKey(virtualKey))
         {
             return false;
         }
@@ -119,12 +121,19 @@ internal sealed class ShortcutHook : IDisposable
         this.swallowedKey = virtualKey;
 
         // Windows opens the Start menu when the Windows key goes down then up with no key between — what it sees
-        // once `;` is swallowed. A dummy key between them prevents it; sent by this app, it also lets the app take
+        // once `;` or `.` is swallowed. A dummy key between them prevents it; sent by this app, it also lets the app take
         // the foreground.
         InjectDummyKey();
         this.context.Post(_ => this.Pressed?.Invoke(this, EventArgs.Empty), null);
         return true;
     }
+
+    private static bool IsShortcutKey(uint virtualKey) => IsPeriodKey(virtualKey) || IsSemicolonKey(virtualKey);
+
+    // VK_OEM_PERIOD whatever the layout — the key Windows answers Win+. on, and the one Chromium's "Emoji" menu
+    // entry injects — Shift, Ctrl and Alt up. On AZERTY it is the `; .` key unshifted, Win+; itself.
+    private static bool IsPeriodKey(uint virtualKey) =>
+        virtualKey == VkOemPeriod && !IsDown(VkShift) && !IsDown(VkControl) && !IsDown(VkMenu);
 
     // The key typing `;` in the keyboard layout of the window in front — VK_OEM_1 on QWERTY, the `; .` key on
     // AZERTY — with the very modifiers that layout needs for it (none on both). Ctrl and Alt never.
@@ -175,6 +184,7 @@ internal sealed class ShortcutHook : IDisposable
     private const int VkMenu = 0x12;
     private const int VkLWin = 0x5B;
     private const int VkRWin = 0x5C;
+    private const uint VkOemPeriod = 0xBE;
 
     // A virtual-key code Windows assigns to nothing: the dummy key means nothing to any app.
     private const ushort VkUnassigned = 0xE8;

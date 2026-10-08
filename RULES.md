@@ -33,7 +33,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Show frequently used` | Checked while the frequent tab is shown: a click hides it or shows it again (see *Frequent Tab* below) |
 | Tray icon, left click | Hidden → shown; covered by another window → brought to the front; already in front → hidden |
 | Tray icon, right click → `Exit` | Ends the app |
-| Win+; | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
+| Win+; or Win+. — or an app's "Emoji — Windows+Period" menu entry that sends it | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
 | Emoji clicked in the grid — not one of the group in reorder mode | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below); its use counted (see *Frequent Tab* below) |
 | Emoji right-clicked in the grid — or the Menu key / Shift+F10 on the grid's selection | Its menu: `Use as tray icon`, then `Add to ▸` the custom groups, `Remove` in a group (see *Custom Tab* below), `Remove from frequently used` in the frequent section (see *Frequent Tab* below) |
 | Enter, in the search box or the grid | Inserts the **selection**, like a click on it (see *Keyboard* below) — never an emoji of the group in reorder mode |
@@ -97,17 +97,23 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 
 ## Shortcut
 
-- **Win+;** is caught by a **low-level keyboard hook** (`Input/ShortcutHook.cs`): Windows owns it,
-  `RegisterHotKey` cannot have it. The hook swallows the `;` key-down and key-up while a Windows key
-  is held, so Windows never sees the shortcut — and its own panel answers Win+; again as soon as the
-  app ends. Win+. is never touched.
+- **Win+;** and **Win+.**, the same shortcut, are caught by a **low-level keyboard hook**
+  (`Input/ShortcutHook.cs`): Windows owns both, `RegisterHotKey` cannot have them. The hook swallows
+  the `;` or `.` key-down and key-up while a Windows key is held, so Windows never sees the shortcut —
+  and its own panel answers both again as soon as the app ends.
 - The `;` key is the one typing `;` in the keyboard layout of the window in front (`VkKeyScanEx`),
-  with the modifiers that layout needs for it: `VK_OEM_1` on QWERTY, the `; .` key on AZERTY. Ctrl or
-  Alt held → not the shortcut.
+  with the modifiers that layout needs for it: `VK_OEM_1` on QWERTY, the `; .` key on AZERTY.
+- The `.` key is **`VK_OEM_PERIOD` whatever the layout**, Shift up — the key Windows answers Win+. on.
+  On AZERTY it is the `; .` key unshifted, Win+; itself; Win+Shift+`; .` is not the shortcut.
+- Ctrl or Alt held → not the shortcut, for either key.
+- **Menus**: an app's "Emoji — Windows+Period" entry opens the app when it **injects** Win+. —
+  Chromium does (Chrome, Edge, Electron apps): `VK_LWIN` then `VK_OEM_PERIOD` with `SendInput`, the
+  Windows key released first. An app calling `CoreInputView.TryShow` sends no key: no hook can see
+  it, Windows' panel opens.
 - The hook runs on **its own thread**, with its own message loop, and does nothing but recognise the
   keys and post `Pressed` to the UI thread: every key typed in any app waits on the hook, and Windows
   silently removes one too slow to answer (`LowLevelHooksTimeout`). Never on the UI thread.
-- Swallowing `;` leaves the Windows key going down then up with nothing between — Windows opens the
+- Swallowing `;` or `.` leaves the Windows key going down then up with nothing between — Windows opens the
   Start menu. The hook injects a **dummy key** right away (`0xE8`, unassigned), marked in
   `dwExtraInfo` so it lets it through; being the last app to send input also lets the app take the
   foreground.
@@ -119,8 +125,11 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   click never moves the window.
 - UI Automation and MSAA are declared by hand (`Input/AccessibilityInterop.cs`), like Direct2D: no
   new dependency.
-- An agent checking Win+; from a script sends it with `SendInput` — injected keys go through the
-  hook: the Windows key, then the layout's `;` key.
+- An agent checking Win+; or Win+. from a script sends it with `SendInput` — injected keys go
+  through the hook: the Windows key, then the layout's `;` key or `VK_OEM_PERIOD`. The `;` key depends
+  on the layout of the window in front: a check of another layout activates it there
+  (`ActivateKeyboardLayout`, `KLF_SETFORPROCESS`) once that window is in front — the layout may be
+  global, and comes back as soon as the window loses the front — and restores the user's at the end.
 
 ## Categories and Insertion
 

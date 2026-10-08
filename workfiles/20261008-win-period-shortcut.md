@@ -61,9 +61,10 @@ Research (Chromium source, `ui/base/emoji/emoji_panel_helper_win.cc`):
   the layout** — what Chromium injects and what Windows itself answers — with **Shift up**, Ctrl and
   Alt up. On AZERTY it is the same key as Win+; (the `; .` key unshifted); Win+Shift+`; .` stays
   untouched.
-- The change is local to `ShortcutHook`: `IsSemicolonKey` becomes a check over both keys (renamed),
-  the layout read once per key event; the swallowing state (`swallowedKey`), the dummy key and
-  `Pressed` work for any matching key as they are.
+- The change is local to `ShortcutHook`: `IsShortcutKey` = `IsPeriodKey || IsSemicolonKey`, the
+  `.` check first — it reads no layout; `IsSemicolonKey` is unchanged. The swallowing state
+  (`swallowedKey`), the dummy key and `Pressed` work for any matching key as they are. The hook's
+  thread is named `Win+; and Win+. hook`.
 - The exact-Shift rule stays per key: on AZERTY `;` and `.` share one key, unshifted / shifted, and
   the Shift state is what tells them apart.
 - Consequence: while the app runs, **neither** Win+; nor Win+. reaches Windows' panel (its GIF,
@@ -73,7 +74,10 @@ Research (Chromium source, `ui/base/emoji/emoji_panel_helper_win.cc`):
 
 ## Documentation
 
-- **RULES.md § Shortcut**: *Win+. is never touched* reversed; the two keys described.
+- **RULES.md § Shortcut**: *Win+. is never touched* reversed; the two keys described, the menus
+  injecting Win+. and the API-based ones out of reach; the agents' script check of another layout
+  (activate it in the window in front, `KLF_SETFORPROCESS`, restore the user's). § Window and Tray
+  Icon: the Win+; row reads *Win+; or Win+. — or an app's "Emoji — Windows+Period" menu entry*.
 - **README.md / README.fr.md** (Shortcut bullet): Win+. opens the app too, and so does an app's
   "Emoji — Windows+Period" menu entry when it sends those keys (Chrome, Edge, Electron apps); an app
   opening Windows' panel by itself, without keys, still gets Windows' panel. *Win+. always does*
@@ -136,6 +140,32 @@ up; API-based menus are an accepted limit, written in the README; the Edge failu
 not pursued — the user is not interested in Edge in particular; checks by hand and by script, no test
 project.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code, tests and documentation, in a worktree (`.claude/worktrees/win-period-shortcut`,
+branch `feature/win-period-shortcut`). The design above is the frozen scope.
+
+### Iteration 4 — 2026-10-08 — 🧭 Implementation choices
+
+No rule broken. Choices the frozen design did not state:
+
+- **`IsShortcutKey`** = `IsPeriodKey || IsSemicolonKey`, the `.` check first since it reads no
+  layout; `IsSemicolonKey` untouched. The hook's thread renamed `Win+; and Win+. hook`.
+- **RULES.md** got two lines the design did not list: the window table's Win+; row now names Win+. and
+  the menu entry, and § Shortcut tells agents how to check another layout from a script.
+- **Script check** (scratchpad, not committed): a test form in front, its layout activated with
+  `ActivateKeyboardLayout(…, KLF_SETFORPROCESS)` **after** it takes the front — the layout is global
+  on this machine and came back to `040C` as soon as the form lost the front, which first made the
+  "QWERTY" cases run on AZERTY. The user's layout was restored at the end (`040C` checked).
+- **Results**, every case passed on visibility:
+  - QWERTY: Win+. in Chromium's order and in the natural order → shown and in front; Win+;
+    (`VK_OEM_1`) → shown and in front; Win+Shift+. and Ctrl+Win+. → nothing.
+  - AZERTY: the `; .` key → shown; Win+Shift+`; .` → nothing; pressed again with the window in front
+    → hidden, the form back in front.
+  - No Start menu opened. One AZERTY run showed the window without bringing it in front: another
+    window (`Chrome_WidgetWin_1`) had just taken the foreground — probably the user's own activity during the
+    check; an earlier run of the same case put it in front.
+
 ---
 
 ## Implementation Log
@@ -145,10 +175,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | |
-| README | | | |
-| RULES.md / GLOSSARY | | | |
+| Code | 3 | 2026-10-08 | `ShortcutHook`: `IsPeriodKey`, `IsShortcutKey` |
+| Unit tests | 3 | 2026-10-08 | None, as decided (Q&A 8): checked from a script, see Iteration 4 |
+| README | 3 | 2026-10-08 | `README.md` and `README.fr.md`, Shortcut bullet |
+| RULES.md / GLOSSARY | 3 | 2026-10-08 | RULES § Shortcut and § Window and Tray Icon; *Shortcut* row of both glossaries |
 
 ---
 
