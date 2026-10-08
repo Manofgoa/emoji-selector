@@ -253,6 +253,7 @@ Questions asked by the agent during design, with user responses.
 | 19 | Mark the backlog row *Copy (UTF-8)* with this workfile? | Yes | 2026-10-08 |
 | 20 | (request on the revised mockup B) | Not bad, but rows per language instead of columns | 2026-10-08 |
 | 21 | Does the rows mockup suit as is? | Yes | 2026-10-08 |
+| 22 | Start the implementation? Scope / where | No — the gate holds (Worktree chosen, ignored) | 2026-10-08 |
 
 ---
 
