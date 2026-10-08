@@ -92,6 +92,25 @@ keyboard over — even when the selection cannot move; no result → stays in th
 variants and a selected text keep Windows' behaviour. One branch added to `MainForm.ProcessCmdKey`;
 the grid and the layout untouched. No test project: checked on the built app.
 
+### Iteration 2 — 2026-10-09 — ✅ Implemented
+
+Go given: code, unit tests and documentation, in a worktree (`.claude/worktrees/search-box-edge-arrows`,
+branch `feature/search-box-edge-arrows`).
+
+### Iteration 3 — 2026-10-09 — 🧭 Implementation choices
+
+No divergent choice: the code does what the frozen design describes, no rule broken.
+
+- The edge test is a local `atEdge` in `ProcessCmdKey`, right after the empty box's branch — no helper.
+- **Checked on the built app** (posted `WM_KEYDOWN`, caret placed with `EM_SETSEL`, focus read with
+  `GetGUIThreadInfo`), 16 checks passed: → mid-text and ← mid-text move the caret and stay; → at the
+  end and ← at the start hand the keyboard to the grid; ↑ on the first row comes back, caret at the
+  end; a whole selected text collapses first, the next → leaves; no result → stays, both arrows; the
+  empty box unchanged.
+- **Not checked from a script**: Shift / Ctrl + ← / → — a posted `WM_KEYDOWN` carries no modifier
+  state; the code compares `keyData` to the plain keys, so a modifier never matches. The selection's
+  move itself is `EmojiGrid.MoveSelection`, unchanged.
+
 ---
 
 ## Implementation Log
@@ -101,10 +120,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | No test project — see *Test Impact* |
-| README | | | |
-| RULES.md | | | |
+| Code | 2 | 2026-10-09 | `MainForm.ProcessCmdKey`, checked on the built app (Iteration 3) |
+| Unit tests | 2 | 2026-10-09 | Does not apply: no test project — see *Test Impact* |
+| README | 2 | 2026-10-09 | `README.md` and `README.fr.md` § Keyboard |
+| RULES.md | 2 | 2026-10-09 | § Keyboard: the intro, a new row, *The text's edge* note |
 
 ---
 
