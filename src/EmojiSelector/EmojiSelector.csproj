@@ -17,6 +17,14 @@
     <EmbeddedResource Include="Data\Emojibase\compact.fr.json" LogicalName="EmojiSelector.Data.Emojibase.compact.fr.json" WithCulture="false" />
   </ItemGroup>
 
+  <!-- The details panel's flags, 1× and 2× (public-domain designs), read by UI/EmojiDetailsPanel. -->
+  <ItemGroup>
+    <EmbeddedResource Include="UI\Flags\us.png" LogicalName="EmojiSelector.UI.Flags.us.png" WithCulture="false" />
+    <EmbeddedResource Include="UI\Flags\us@2x.png" LogicalName="EmojiSelector.UI.Flags.us@2x.png" WithCulture="false" />
+    <EmbeddedResource Include="UI\Flags\fr.png" LogicalName="EmojiSelector.UI.Flags.fr.png" WithCulture="false" />
+    <EmbeddedResource Include="UI\Flags\fr@2x.png" LogicalName="EmojiSelector.UI.Flags.fr@2x.png" WithCulture="false" />
+  </ItemGroup>
+
   <!-- dotnet publish -c Release: one small .exe, precompiled for fast startup; needs the .NET 10 Desktop Runtime. -->
   <PropertyGroup>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
