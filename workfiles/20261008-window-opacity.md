@@ -159,6 +159,9 @@ of four (`MainForm.OpacityPercents`). Everything else holds: the label, the near
 tie to the more opaque), the key and its integer percentage. A value saved by the first version
 (`90`, `80`, `70`) maps to `92%`. RULES.md § Opacity and the READMEs follow the new values.
 
+Go given: code, checks and documentation, on `main` — the user's deliberate choice at the branch
+question. Implemented as designed: no divergent choice, no rule broken.
+
 ---
 
 ## Implementation Log
@@ -168,10 +171,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | 4 | 2026-10-08 | `SettingsFile.ReadOpacity` / `WriteOpacity`; the submenu, `SetOpacity`, `NearestOpacity`, the opacity set in the constructor; the reset's confirmation |
-| Unit tests | 4 | 2026-10-08 | No test project — the saved value checked by script on check instances (`GetLayeredWindowAttributes`, 15 cases pass: none, 100/90/80/70, 85, 75, 50, −5, 120, 92, `"abc"`, 85.5, a `--background` launch); the frame on a capture; the submenu click left to the user |
-| RULES.md | 4 | 2026-10-08 | § Opacity, the menu tables, the `opacity` key, the reset's confirmation |
-| README | 4 | 2026-10-08 | English and French |
+| Code | 4, 5 | 2026-10-08 | Iteration 5: `OpacityPercents` = `[100, 98, 96, 94, 92]`. `SettingsFile.ReadOpacity` / `WriteOpacity`; the submenu, `SetOpacity`, `NearestOpacity`, the opacity set in the constructor; the reset's confirmation |
+| Unit tests | 4, 5 | 2026-10-08 | Iteration 5: 17 cases pass by script (none, 100/98/96/94/92, the ties 99/97/95/93, the old 90/80/70 → 92, 120, `"abc"`, a `--background` launch). No test project — the saved value checked by script on check instances (`GetLayeredWindowAttributes`, 15 cases pass: none, 100/90/80/70, 85, 75, 50, −5, 120, 92, `"abc"`, 85.5, a `--background` launch); the frame on a capture; the submenu click left to the user |
+| RULES.md | 4, 5 | 2026-10-08 | Iteration 5: the new levels. § Opacity, the menu tables, the `opacity` key, the reset's confirmation |
+| README | 4, 5 | 2026-10-08 | English and French; iteration 5: the new levels |
 
 ---
 
