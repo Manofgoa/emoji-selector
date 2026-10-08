@@ -26,8 +26,9 @@ Relevant components: `UI/MainForm.cs` (window creation), `UI/WindowFrame.cs` (fr
 
 ## Taskbar and Alt+Tab
 
-- `MainForm` becomes a **tool window**: `CreateParams` adds `WS_EX_TOOLWINDOW` to the extended style.
-  An **unowned** tool window has no taskbar button, no Alt+Tab entry, no Task View (Win+Tab) entry.
+- `MainForm` becomes a **tool window**: `CreateParams` adds `WS_EX_TOOLWINDOW` to the extended style, and
+  takes out `WS_EX_APPWINDOW`, which would force a taskbar button. An **unowned** tool window has no
+  taskbar button, no Alt+Tab entry, no Task View (Win+Tab) entry.
 - **Not `ShowInTaskbar = false`**: WinForms implements it by making the form **owned** by a hidden parking
   window. An owned window still appears in Alt+Tab, and .NET's `Process.MainWindowHandle` skips owned
   windows — the agents' survival check (`Get-Process EmojiSelector` → `MainWindowTitle`, see `CLAUDE.md`
@@ -36,12 +37,11 @@ Relevant components: `UI/MainForm.cs` (window creation), `UI/WindowFrame.cs` (fr
   showing / hiding it (tray click, Win+;, Win+., a later launch), the foreground handling.
 - **The second title** is now seen in the **tray icon's tooltip** only — and by scripts through
   `MainWindowTitle`. The window has no title bar, no taskbar button, no Alt+Tab entry.
-- **Frame to check at implementation**: the frame is Windows' own (RULES § Frame — `WM_NCCALCSIZE`, the
-  side / bottom resize borders, the shadow, the rounded corners). A tool window with `WS_THICKFRAME` keeps
-  the sizing frame (`SM_CXSIZEFRAME`, so `WindowFrame.ResizeBorder` holds), but Windows 11 may draw its
-  corners differently: if the corners come out square, `DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE,
-  DWMWCP_ROUND)` forces them round. The shadow, the resize borders, the drag area (`HTCAPTION`, snap,
-  system menu on right click) are checked the same way.
+- **Frame**: Windows' own (RULES § Frame — `WM_NCCALCSIZE`, the side / bottom resize borders, the
+  shadow, the rounded corners). A tool window with `WS_THICKFRAME` keeps the sizing frame and the shadow
+  (the frame measured the same, 843 × 717 before and after the corner fix), but Windows 11 gives it a **menu's small corner
+  radius**: `OnHandleCreated` asks `DWMWCP_ROUND` with `DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE)`,
+  the corners of an app window — its result ignored, Windows 10 refuses it and has no rounded corners.
 - `GroupNameDialog` already has `ShowInTaskbar = false`; the message boxes are owned by the window: no
   taskbar button either. Nothing to change there.
 
@@ -73,7 +73,8 @@ Relevant components: `UI/MainForm.cs` (window creation), `UI/WindowFrame.cs` (fr
 - **Generation** — `New-AppIcon.ps1`, committed and re-runnable: the SVG rendered at each size with a
   transparent background, then the PNGs packed into the `.ico` (an `ICONDIR` header, one `ICONDIRENTRY` per
   size, the PNGs after them). Only what Windows ships — no download, no new dependency: the renderer is
-  chosen at implementation (Microsoft Edge headless, shipped with Windows 11, is the first candidate). The
+  **Microsoft Edge headless** (`--headless=new`, one page per size, `--default-background-color=00000000`,
+  a temporary profile of its own so an Edge already running does not take the render). The
   script reads the committed SVG; it never fetches it. `CONTRIBUTING.md` § App icon says how to run it and
   where the SVG comes from. The script is not part of the build: `app.ico` is committed.
 
@@ -89,7 +90,7 @@ Relevant components: `UI/MainForm.cs` (window creation), `UI/WindowFrame.cs` (fr
 | `README.md` / `README.fr.md` § Features | *Second title*: tray tooltip only. *Window*: no taskbar button, not in Alt+Tab, like Windows' emoji panel. The exe's 🙂 icon |
 | `README.md` / `README.fr.md` § Tech | The icon is Fluent Emoji's (MIT), link to `CONTRIBUTING.md` § App icon |
 | `CONTRIBUTING.md` § App icon | New: source, license, sizes, how to run `New-AppIcon.ps1` |
-| `GLOSSARY.md` / `GLOSSARY.fr.md` | New term **App icon** (*icône de l'application*): the 🙂 icon of the exe — File Explorer, the startup shortcut, the Task Manager — and of the window, Fluent Emoji's design, fixed; not the **tray icon**, which can show another emoji |
+| `GLOSSARY.md` / `GLOSSARY.fr.md` | New term **App icon** (*icône de l'application*): the 🙂 icon of the exe — File Explorer, the startup shortcut, the Task Manager — and of the window, Fluent Emoji's design, fixed; not the **tray icon**, which can show another emoji. The **Tray icon** row no longer says "the app's icon": "the icon the app shows in the notification area" |
 
 `CLAUDE.md` § Launch is unchanged: the survival check by `MainWindowTitle` keeps working on an unowned
 window.
@@ -139,18 +140,45 @@ Q&A 5–6: the `app.ico` generation script is committed (`AppIcon/New-AppIcon.ps
 own tools only, reading the committed SVG), and the glossary gets the term **App icon**, in English and in
 French. No open question left.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code, tests and documentation, in a worktree (`.claude/worktrees/taskbar-and-exe-icon`, branch
+`feature/taskbar-and-exe-icon`). The scope is the design sections as they stand at iteration 2.
+
+### Iteration 4 — 2026-10-08 — 🧭 Implementation choices
+
+No rule broken. Choices the frozen design did not state:
+
+- **Corners**: the design forced `DWMWCP_ROUND` if the corners came out **square**; they came out
+  **rounded with a menu's small radius** instead — not Windows' app-window corners the frame had. Forced
+  round anyway, the closest reading of "the frame stays Windows' own"; checked on a zoomed capture.
+- **`WS_EX_APPWINDOW` taken out** of the extended style, on top of adding `WS_EX_TOOLWINDOW`: it forces a
+  taskbar button, and WinForms may set it on a form shown in the taskbar.
+- **Renderer of `New-AppIcon.ps1`**: Microsoft Edge headless, its own temporary profile. Each PNG entry
+  checked (size, transparent corner, colour centre), and the built exe's icon read back at 256 px.
+- **Glossary**: the existing **Tray icon** row said "the app's icon" (English) / "l'icône de
+  l'application" (French) — the new term's own words. Reworded "the icon the app shows in the
+  notification area", so each term keeps one meaning.
+- **Commits**: the icon and the tool window are two code commits; the corner fix went with the tool
+  window.
+- **Checks**: tool window style present, `WS_EX_APPWINDOW` absent, no owner; `Get-Process` still finds the
+  `MainWindowTitle` with the second title; no `Emoji Selector` button on the taskbar while the window is
+  shown; the window's big and small icons set. A check instance launched through the Bash tool's
+  background task ended at once (`Out of memory.` from the shell, then exit code 45) — launched through
+  PowerShell's instead.
+
 ---
 
 ## Implementation Log
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | No test project — nothing to create (see *Test Impact*) |
-| README | | | |
-| RULES | | | |
-| CONTRIBUTING | | | |
-| GLOSSARY | | | |
+| Code | 3 | 2026-10-08 | `AppIcon/` (SVG, LICENSE, script, `app.ico`), csproj, `MainForm` (icon, tool window, corners) |
+| Unit tests | 3 | 2026-10-08 | No test project — nothing to create (see *Test Impact*); scripted checks instead (Iteration 4) |
+| README | 3 | 2026-10-08 | English and French |
+| RULES | 3 | 2026-10-08 | Command-Line Arguments, Window and Tray Icon, Frame |
+| CONTRIBUTING | 3 | 2026-10-08 | New § App icon |
+| GLOSSARY | 3 | 2026-10-08 | *App icon*, English and French; *Tray icon* reworded |
 
 ---
 
