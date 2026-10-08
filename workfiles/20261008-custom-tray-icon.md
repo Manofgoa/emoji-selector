@@ -130,6 +130,11 @@ Open questions answered (Q&A 5–7): the window stays open after `Use as tray ic
 it like any other emoji (the agent proposed removing the key — declined); an unknown saved emoji
 shows the default and its key is left untouched. No open question remains.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code, unit tests and documentation, in a worktree (`.claude/worktrees/custom-tray-icon`,
+branch `feature/custom-tray-icon`). The scope is the design above as it stands.
+
 ---
 
 ## Implementation Log
