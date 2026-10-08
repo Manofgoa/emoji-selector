@@ -12,7 +12,7 @@ Les mots utilisés dans le code, la documentation, les workfiles et la conversat
 | Catégorie (*category*) | Un groupe d'émojis par thème (Smileys & People, Animals & Nature, Food & Drink…), que l'on parcourt sans rien taper : un onglet et une section de la grille chacune |
 | Fenêtre précédente (*previous window*) | La fenêtre d'une autre application qui était devant avant celle de l'application — celle où un émoji cliqué est inséré |
 | Sélection (*selection*) | L'unique émoji de la grille encadré dans la couleur d'accentuation, déplacé par le clavier et par la souris — celui qu'Entrée insère |
-| Raccourci (*shortcut*) | Win+;, le raccourci clavier global qui affiche la fenêtre depuis n'importe quelle application — à la place du panneau d'émojis de Windows tant que l'application tourne |
+| Raccourci (*shortcut*) | Win+; ou Win+., le raccourci clavier global qui affiche la fenêtre depuis n'importe quelle application — à la place du panneau d'émojis de Windows tant que l'application tourne |
 | Curseur de texte (*text cursor*) | Le point d'insertion clignotant de la fenêtre précédente, là où va le texte tapé — Win+; affiche la fenêtre juste en dessous |
 | Onglet personnalisé (*custom tab*) | Le deuxième onglet, un cœur, juste après *Frequently used* : il contient tous les **groupes personnalisés** |
 | Groupe personnalisé (*custom group*) | Une liste d'émojis que l'utilisateur garde sous la main : créée et nommée par l'utilisateur, remplie par clic droit, ordonnée comme il le veut ; une section de l'onglet personnalisé chacune, gardée dans `custom-groups.json` à côté de l'exe |

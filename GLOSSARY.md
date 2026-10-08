@@ -13,7 +13,7 @@ each.
 | Category (*catégorie*) | A group of emojis by theme (Smileys & People, Animals & Nature, Food & Drink…), browsed without typing: one tab and one section of the grid each |
 | Previous window (*fenêtre précédente*) | The window of another app that was in front before the app's window — the one a clicked emoji is inserted into |
 | Selection (*sélection*) | The one emoji of the grid framed in the accent colour, moved by the keyboard and by the mouse — the one Enter inserts |
-| Shortcut (*raccourci*) | Win+;, the global keyboard shortcut showing the window from any app — in place of Windows' own emoji panel while the app runs |
+| Shortcut (*raccourci*) | Win+; or Win+., the global keyboard shortcut showing the window from any app — in place of Windows' own emoji panel while the app runs |
 | Text cursor (*curseur de texte*) | The blinking insertion point of the previous window, where typed text goes — Win+; shows the window just under it |
 | Custom tab (*onglet personnalisé*) | The second tab, a heart, right after *Frequently used*: it holds every **custom group** |
 | Custom group (*groupe personnalisé*) | A list of emojis the user keeps at hand: created and named by the user, filled by right click, ordered as the user wants; one section of the custom tab each, kept in `custom-groups.json` next to the exe |
