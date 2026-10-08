@@ -82,9 +82,10 @@ the details panel at the bottom — then the window itself, then the app (Q&A #2
 Requested by the user (Iteration 2): a menu item choosing a colour **shows that colour**, like the
 ⚙ menu's *Border color…* and *Arrow color…* in image-grid-fusion (`MainForm.SetSwatch`).
 
-- `Highlight color…` gets a **swatch** as its item image: a square of the highlight colour in use,
-  16 logical pixels, a 1-pixel `SystemPens.ControlDark` outline — image-grid-fusion's swatch
-  *(look pending, Open Question)*.
+- `Highlight color…` gets a **swatch** as its item image: a **rounded square** of the highlight
+  colour in use, 16 logical pixels, corners rounded at 3 logical pixels, a 1-pixel
+  `SystemColors.ControlDark` outline, drawn antialiased (Q&A #6) — closer to Windows 11 than
+  image-grid-fusion's plain square.
 - Drawn at the window's DPI (`LogicalToDeviceUnits`). Refreshed in the menu's **`Opening`**, with the
   checked states: it then always shows the colour in use and the current DPI, without an
   `OnDpiChanged` hook — the menu is never open while the colour changes nor across a DPI change. The
@@ -94,9 +95,19 @@ Requested by the user (Iteration 2): a menu item choosing a colour **shows that 
 
 ### Shared Rule
 
-The same behaviour becomes a **rule shared by every mini-app** *(where it lives pending, Open
-Question)*: a menu item that picks a colour shows the colour in use as its image, refreshed when the
-colour changes and at the monitor's DPI.
+The same behaviour becomes a **rule shared by every mini-app**, in a **new file
+`mini-apps/shared/RULES.md`** — the shared UI rules — imported by `mini-apps/CLAUDE.md` with
+`@shared/RULES.md` (Q&A #5).
+
+- The rule: a menu item that picks a colour shows **the colour in use** as its image — a swatch,
+  outlined so a colour close to the menu's background still shows — drawn at the monitor's DPI and
+  up to date whenever the menu opens.
+- The rule does **not** impose the swatch's shape: image-grid-fusion's plain square already follows
+  it, emoji-selector's rounded one too.
+- `mini-apps/` and `shared/` are not git repositories: these two files are written, **not
+  committed**.
+- Changing `mini-apps/CLAUDE.md` (the import) is a rule change: the other **running** sessions of the
+  workspace are told to re-read it, per the user's global instructions.
 
 ---
 
@@ -105,7 +116,7 @@ colour changes and at the monitor's DPI.
 | Piece | Where |
 |---|---|
 | The items added section by section, a separator between two | `UI/MainForm.cs` — `CreateSettingsMenu` |
-| The highlight colour's swatch, refreshed on `Opening` | `UI/MainForm.cs` — `CreateSettingsMenu`, a `SetSwatch` helper like image-grid-fusion's |
+| The highlight colour's swatch, refreshed on `Opening` | `UI/MainForm.cs` — `CreateSettingsMenu`, a `SetSwatch` helper drawing the rounded square |
 
 No new type, no new constant: the labels' constants are unchanged.
 
@@ -119,7 +130,8 @@ No new type, no new constant: the labels' constants are unchanged.
 | `RULES.md` § Emoji Data | `Check for emoji updates…`: "last in the settings menu, in the app section after `Open app folder`" instead of "last … after a separator" |
 | `RULES.md` § Details Panel | *Search highlight*: the `Highlight color…` item shows the colour in use |
 | `README.md` § Window, `README.fr.md` same paragraph | The gear's items listed in the new order, grouped by section |
-| The shared rules *(file pending, Open Question)* | The colour items rule (see *Shared Rule*) |
+| `mini-apps/shared/RULES.md` (new) | The colour items rule (see *Shared Rule*) |
+| `mini-apps/CLAUDE.md` | `@shared/RULES.md` imported, one line saying what the file holds |
 
 ---
 
@@ -143,8 +155,8 @@ not only the blocking ones.
 - [x] ~~Which sections, in which order?~~ → Five, in the window's order (Q&A #2)
 - [x] ~~Labels shortened under a section?~~ → Kept as they are (Q&A #3)
 - [x] ~~Exploration depth?~~ → Straightforward: one scout pass (Q&A #4)
-- [ ] Where does the shared colour-items rule live: a section of `mini-apps/CLAUDE.md`, or a new file under `shared/` imported by it? (Q&A #5)
-- [ ] The swatch's look: image-grid-fusion's (a 16-pixel square, grey outline), or another? (Q&A #6)
+- [x] ~~Where does the shared colour-items rule live: a section of `mini-apps/CLAUDE.md`, or a new file under `shared/` imported by it?~~ → A new `shared/RULES.md`, imported by `mini-apps/CLAUDE.md` (Q&A #5)
+- [x] ~~The swatch's look: image-grid-fusion's (a 16-pixel square, grey outline), or another?~~ → A rounded square (Q&A #6)
 
 ---
 
@@ -174,6 +186,13 @@ refreshed on the menu's `Opening`; the shared rule; the docs following. Read in 
 and after each pick. Two open questions: where the shared rule lives — `shared/` holds only the
 plugin's skills today, the shared rules being `mini-apps/CLAUDE.md` — and the swatch's look.
 
+### Iteration 3 — 2026-10-08
+
+Answers to Q&A #5 and #6. The shared rule goes in a new `mini-apps/shared/RULES.md`, imported by
+`mini-apps/CLAUDE.md`; it requires a swatch of the colour in use, not its shape, so image-grid-fusion
+already follows it. The swatch is a rounded square (3 logical pixels of radius, antialiased). Noted:
+`mini-apps/` and `shared/` are not git repositories — the two files are written, not committed.
+
 ---
 
 ## Implementation Log
@@ -201,8 +220,8 @@ Questions asked by the agent during design, with user responses.
 | 2 | Which sections, in which order: five by feature in the window's order, or three broad ones (Display / Content / App)? | Five sections, in the window's order | 2026-10-08 |
 | 3 | Under a section, are the items' labels shortened? | Kept as they are | 2026-10-08 |
 | 4 | Is the subject straightforward, or tricky / long? | Straightforward | 2026-10-08 |
-| 5 | Where does the shared colour-items rule live? | | 2026-10-08 |
-| 6 | Which look for the swatch? | | 2026-10-08 |
+| 5 | Where does the shared colour-items rule live? | A new file under `shared/` | 2026-10-08 |
+| 6 | Which look for the swatch? | A rounded square | 2026-10-08 |
 
 ---
 
