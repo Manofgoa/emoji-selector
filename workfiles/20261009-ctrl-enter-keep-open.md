@@ -24,8 +24,8 @@ Components:
 |---|---|
 | `UI/MainForm.cs` | `ProcessCmdKey` (Ctrl+Enter), `InsertEmoji` (a keep-open variant), `OnEmojiUsed` unchanged |
 | `UI/EmojiGrid.cs` | `OnMouseClick` (Ctrl+click), `ReplaceCategory` (keeps the selection on its emoji) |
-| `Input/EmojiInserter.cs` | Typing with Ctrl held (see *Modifiers* below) |
-| `Input/ShortcutHook.cs` | Only if *Keys During the Hand-Back* is answered "swallowed" |
+| `Input/EmojiInserter.cs` | Typing with Ctrl held (see *Modifiers* below), its injected keys marked |
+| `Input/ShortcutHook.cs` | Swallows the keys pressed during the hand-back (see *Keys During the Hand-Back* below) |
 
 ---
 
@@ -48,8 +48,9 @@ Components:
 
 `MainForm.InsertEmoji(emoji, keepOpen: true)`:
 
-1. **Topmost** — *pending, see Open Questions*: the window is made `HWND_TOPMOST` for the duration,
-   so the previous window brought to the front does not cover it for an instant.
+1. **Topmost** (Q&A #6): the window is made `HWND_TOPMOST` (`SetWindowPos`, no move, no size, no
+   activation) for the duration, so the previous window brought to the front never covers it, not
+   even for an instant. The hook starts swallowing (see *Keys During the Hand-Back*).
 2. `EmojiInserter.Activate(previous)` — as today, while the app is still in front (only the
    foreground app may hand the foreground over).
 3. **No `Hide()`**.
@@ -60,7 +61,8 @@ Components:
    right after it could route the injected keys to this window. A short delay, one constant
    (`KeepOpenHandBackDelay`, ~50 ms, a WinForms timer — never a `Thread.Sleep` on the UI thread),
    separates the two.
-6. Topmost removed (step 1).
+6. Topmost removed (`HWND_NOTOPMOST`, the window staying above the previous one), the hook stops
+   swallowing.
 7. `OnEmojiUsed(emoji.Text)` — the counter, the frequent section rebuilt **at once** (Q&A #2), see
    *Selection and View*.
 
@@ -75,17 +77,32 @@ Components:
 ### Modifiers
 
 Ctrl is **physically held** while the characters are typed: the previous window would see
-`Ctrl` down with each `VK_PACKET` — some apps read it as a shortcut. *Pending, see Open Questions*:
-the injection releases the held Ctrl keys (left / right, an injected key-up each) before the
-characters and presses them again (an injected key-down) after, so the target sees plain
-characters and the keyboard state matches the user's fingers once done.
+`Ctrl` down with each `VK_PACKET` — some apps read it as a shortcut. The injection (Q&A #7)
+**releases the held Ctrl keys** — left and right, each one held (`GetAsyncKeyState`) getting an
+injected key-up — before the characters, and **presses them again** (an injected key-down each)
+after, in the same `SendInput` call: the target sees plain characters, and the keyboard state
+matches the user's fingers once done, ready for the next Ctrl+Enter. Shift and Alt are never held
+here (the triggers exclude them). A plain Enter or click types as today: nothing is held.
 
 ### Keys During the Hand-Back
 
 Between the activation of the previous window (step 2) and the hand-back (step 5), the keyboard
 goes to the previous window: a key pressed in that gap — a second Ctrl+Enter in quick succession,
-Enter's auto-repeat while held — lands **there** (Ctrl+Enter sends a message in many chat apps).
-*Pending, see Open Questions*.
+Enter's auto-repeat while held — would land **there** (Ctrl+Enter sends a message in many chat
+apps). The shortcut's low-level hook (`Input/ShortcutHook.cs`, already on its own thread)
+**swallows them** (Q&A #8):
+
+- While a keep-open insertion runs (steps 1 to 6), the hook swallows every **physical** key-down
+  and key-up **except the modifiers** (Ctrl, Shift, Alt, Windows keys — their state must keep
+  following the user's fingers). Those keys are **lost**: never typed into the previous window,
+  nor into this one.
+- The insertion's own keys — the characters and the Ctrl up / down of *Modifiers* — are injected
+  with the hook's marker in `dwExtraInfo` (`ShortcutHook.InjectedMarker`, shared), so the hook
+  lets them through, like its dummy key.
+- The flag is set and cleared from the UI thread, read by the hook's thread (a `volatile` field or
+  `Interlocked`): the hook still does nothing but read it and answer.
+- A safety: the flag is cleared in a `finally`, and expires on its own after a bound (one second)
+  should the hand-back never run — the keyboard is never left swallowed.
 
 ---
 
@@ -106,11 +123,12 @@ today puts the selection back on the first emoji in view — the keep-open inser
   It applies to every call — *Remove from frequently used* and *Clear* included —, with no visible
   change for them: the emoji they act on is gone. After a plain Enter or click, the window hides,
   and every show resets the selection anyway.
-- **The view** — *pending, see Open Questions*: while the frequent section grows (its first 3 rows),
-  the sections below it move down. A Ctrl+click repeated at the same place would then hit another
-  emoji. Proposed: when the selection is **outside** the replaced section, the view moves with the
-  change of height so the selected emoji keeps its place on screen — under the mouse for a
-  Ctrl+click. In the frequent section itself, the view stays: the emoji moves inside it.
+- **The view** (Q&A #5): while the frequent section grows (its first 3 rows), the sections below it
+  move down — a Ctrl+click repeated at the same place would hit another emoji. When the selection is
+  **outside** the replaced section, the view moves with the change of height (`SetOffset`, as
+  `ReplaceCategories` does for the sections below it), so the selected emoji keeps its place on
+  screen — under the mouse for a Ctrl+click —, even when the view was at the very top. In the
+  frequent section itself, the view stays: the emoji moves inside it.
 - **Search mode**: unchanged — the frequent section is not shown, `ReplaceCategory` only stores it;
   the results and their selection do not move.
 - The details panel follows `SelectedEmojiChanged`, as today.
@@ -133,15 +151,15 @@ front (`GetForegroundWindow`), the box's text kept.
 
 ## Open Questions
 
-- [ ] **View on a repeated Ctrl+click**: while the frequent section grows, keep the selected emoji
-      at its place on screen when it is outside that section (proposed), or let the view stay where
-      it is?
-- [ ] **Topmost during the insertion**: make the window topmost from the activation of the previous
-      window to the hand-back, so it is never covered for an instant (proposed), or accept a flicker?
-- [ ] **Modifiers**: release the held Ctrl keys around the typed characters and press them again
-      after (proposed), or type as Enter does today?
-- [ ] **Keys during the hand-back**: the shortcut hook swallows the keys pressed in the ~50 ms gap
-      (lost, never typed into the previous window — proposed), or they go to the previous window?
+- [x] ~~**View on a repeated Ctrl+click**: while the frequent section grows, keep the selected emoji
+      at its place on screen when it is outside that section, or let the view stay where it is?~~
+      → The selected emoji keeps its place on screen (Q&A #5)
+- [x] ~~**Topmost during the insertion**: make the window topmost from the activation of the
+      previous window to the hand-back, or accept a flicker?~~ → Topmost for the insertion (Q&A #6)
+- [x] ~~**Modifiers**: release the held Ctrl keys around the typed characters and press them again
+      after, or type as Enter does today?~~ → Released then pressed again (Q&A #7)
+- [x] ~~**Keys during the hand-back**: the shortcut hook swallows the keys pressed in the ~50 ms gap,
+      or they go to the previous window?~~ → Swallowed by the hook, modifiers excepted (Q&A #8)
 
 ---
 
@@ -159,6 +177,14 @@ Ctrl+click insert without hiding, the window takes the foreground back, the keyb
 was, the frequent section is rebuilt at once with the selection kept on its emoji. No row of
 `TODO-FEATURES.md` matches the request. Four technical points left open: the view on a repeated
 Ctrl+click, topmost during the insertion, the held Ctrl key, the keys pressed during the hand-back.
+
+### Iteration 2 — 2026-10-09
+
+The four open points answered (Q&A #5–8), each as proposed: the selected emoji keeps its place on
+screen when the frequent section grows; the window topmost for the insertion; the held Ctrl keys
+released around the typed characters then pressed again; the keys pressed during the hand-back
+swallowed by the shortcut hook, the modifiers and the insertion's own marked keys let through, the
+flag bounded to one second. No open question left.
 
 ---
 
@@ -186,10 +212,10 @@ Questions asked by the agent during design, with user responses.
 | 2 | The frequent section may reorder after each use: update it on hide, or at once? | At once — the selection put back on the same emoji | 2026-10-09 |
 | 3 | After a Ctrl+Enter, where is the keyboard? | Where it was (search box or grid), the selection unmoved, the search text kept | 2026-10-09 |
 | 4 | Is the subject straightforward or tricky? | Straightforward — a single exploration pass | 2026-10-09 |
-| 5 | View on a repeated Ctrl+click while the frequent section grows | | |
-| 6 | Topmost during the insertion | | |
-| 7 | Modifiers: release the held Ctrl around the typed characters | | |
-| 8 | Keys pressed during the hand-back gap | | |
+| 5 | View on a repeated Ctrl+click while the frequent section grows | The selected emoji keeps its place on screen (under the mouse) | 2026-10-09 |
+| 6 | Topmost during the insertion | Yes, topmost for the insertion | 2026-10-09 |
+| 7 | Modifiers: release the held Ctrl around the typed characters | Released, then pressed again | 2026-10-09 |
+| 8 | Keys pressed during the hand-back gap | Swallowed by the hook (lost), modifiers excepted | 2026-10-09 |
 
 ---
 
