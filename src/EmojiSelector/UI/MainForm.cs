@@ -42,6 +42,21 @@ internal sealed class MainForm : Form
     public const string ClearFrequentQuestion =
         "Clear the frequently used emojis? Their counts are deleted and cannot be brought back.";
 
+    public const string CheckEmojiUpdatesText = "Check for emoji updates…";
+
+    public const string UpToDateText = "Emoji data is up to date (Emojibase {0}).";
+
+    public const string CheckFailedText = "Could not check for emoji updates: {0}";
+
+    public const string UpdateAvailableQuestion =
+        "Emojibase {0} is available (in use: {1}). Update the emoji list, names and keywords?";
+
+    public const string UpdateFailedText = "Could not update the emoji data: {0}";
+
+    public const string InvalidDownloadText = "the downloaded files are not valid emoji data.";
+
+    public const string RestartQuestion = "Emoji data updated to Emojibase {0}. Restart now to use it?";
+
     public const string FrequentHeader = "Frequently used";
 
     public const string NoFrequentText = "No emoji used yet";
@@ -101,6 +116,9 @@ internal sealed class MainForm : Form
 
     // The Emojibase version the categories come from.
     private readonly Version emojiDataVersion;
+
+    // The Emojibase version Check for emoji updates wrote to emoji-data\, used from the next launch; null until then.
+    private Version? downloadedEmojiDataVersion;
     private readonly Dictionary<string, Emoji> emojisByText;
     private readonly TableLayoutPanel searchBar;
     private readonly TextBox searchBox;
@@ -450,6 +468,9 @@ internal sealed class MainForm : Form
         showFrequentItem.Click += (_, _) => this.SetShowFrequent(!this.showFrequent);
         menu.Items.Add(showFrequentItem);
         ToolStripItem clearFrequent = menu.Items.Add(ClearFrequentText, image: null, (_, _) => this.ClearFrequent());
+        menu.Items.Add(new ToolStripSeparator());
+        ToolStripItem checkEmojiUpdates = menu.Items.Add(CheckEmojiUpdatesText, image: null, null);
+        checkEmojiUpdates.Click += async (_, _) => await this.CheckEmojiUpdatesAsync(checkEmojiUpdates);
         // Hidden, the frequent tab still counts: its counters can still be cleared.
         menu.Opening += (_, _) =>
         {
@@ -461,6 +482,74 @@ internal sealed class MainForm : Form
         menu.Closed += (_, _) => this.tabStrip.SettingsMenuOpen = false;
         return menu;
     }
+
+    // Check for emoji updates: the latest emojibase-data on npm, compared with the version in use — or the one already
+    // downloaded. A newer one is offered, downloaded, validated, written to emoji-data\, then a restart is offered to use
+    // it. The item is greyed while it runs; every failure is said, the folder left as it was.
+    private async Task CheckEmojiUpdatesAsync(ToolStripItem item)
+    {
+        item.Enabled = false;
+        try
+        {
+            Version current = this.downloadedEmojiDataVersion ?? this.emojiDataVersion;
+            Version latest;
+            try
+            {
+                latest = await EmojiDataUpdate.GetLatestVersionAsync();
+            }
+            catch (Exception exception) when (EmojiDataUpdate.IsFailure(exception))
+            {
+                this.ShowWarning(string.Format(CheckFailedText, exception.Message));
+                return;
+            }
+
+            if (latest <= current)
+            {
+                MessageBox.Show(this, string.Format(UpToDateText, current), AppTitle, MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            if (MessageBox.Show(this, string.Format(UpdateAvailableQuestion, latest, current), AppTitle,
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                EmojiDataFolder.FileSet files = await EmojiDataUpdate.DownloadAsync(latest);
+                if (EmojiDataFolder.Parse(files) is null)
+                {
+                    throw new InvalidDataException(InvalidDownloadText);
+                }
+
+                EmojiDataFolder.Write(files);
+            }
+            catch (Exception exception) when (EmojiDataUpdate.IsFailure(exception)
+                || exception is IOException or UnauthorizedAccessException)
+            {
+                this.ShowWarning(string.Format(UpdateFailedText, exception.Message));
+                return;
+            }
+
+            this.downloadedEmojiDataVersion = latest;
+            if (MessageBox.Show(this, string.Format(RestartQuestion, latest), AppTitle, MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question) == DialogResult.Yes)
+            {
+                // Ends the app — not a user close, the window is not hidden to the tray — then starts it again with
+                // the same arguments, --title included.
+                Application.Restart();
+            }
+        }
+        finally
+        {
+            item.Enabled = true;
+        }
+    }
+
+    private void ShowWarning(string text) =>
+        MessageBox.Show(this, text, AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
     // Back to the default size right away, its top-left corner where it is, and at the next launch too: the saved size
     // is removed. The window stays shown.
