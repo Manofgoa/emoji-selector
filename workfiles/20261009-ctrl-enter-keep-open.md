@@ -186,6 +186,11 @@ released around the typed characters then pressed again; the keys pressed during
 swallowed by the shortcut hook, the modifiers and the insertion's own marked keys let through, the
 flag bounded to one second. No open question left.
 
+### Iteration 3 — 2026-10-09 — ✅ Implemented
+
+Go given: code, unit tests and documentation, in a worktree (`.claude/worktrees/ctrl-enter-keep-open`,
+branch `feature/ctrl-enter-keep-open`). The scope is the design above, as of Iteration 2.
+
 ---
 
 ## Implementation Log
