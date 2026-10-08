@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using EmojiSelector.Data;
@@ -510,7 +511,9 @@ internal sealed class MainForm : Form
         var showFrenchItem = new ToolStripMenuItem(ShowFrenchText);
         showFrenchItem.Click += (_, _) => this.SetShowFrench(!this.detailsPanel.ShowFrench);
         menu.Items.Add(showFrenchItem);
-        menu.Items.Add(HighlightColorText, image: null, (_, _) => this.ChooseHighlightColor());
+        var highlightColorItem = new ToolStripMenuItem(HighlightColorText);
+        highlightColorItem.Click += (_, _) => this.ChooseHighlightColor();
+        menu.Items.Add(highlightColorItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
         menu.Items.Add(new ToolStripSeparator());
@@ -524,10 +527,35 @@ internal sealed class MainForm : Form
             showFrequentItem.Checked = this.showFrequent;
             clearFrequent.Enabled = !this.usage.IsEmpty;
             showFrenchItem.Checked = this.detailsPanel.ShowFrench;
+            this.SetSwatch(highlightColorItem, this.detailsPanel.HighlightColor);
         };
         menu.Opened += (_, _) => this.tabStrip.SettingsMenuOpen = true;
         menu.Closed += (_, _) => this.tabStrip.SettingsMenuOpen = false;
+        menu.Disposed += (_, _) => highlightColorItem.Image?.Dispose();
         return menu;
+    }
+
+    // A colour item's image becomes a swatch of the colour in use: a rounded square, outlined so a colour close to the
+    // menu's background still shows, at the window's DPI. Drawn again on every opening of the menu, so it follows the
+    // colour and the monitor.
+    private void SetSwatch(ToolStripMenuItem item, Color color)
+    {
+        int size = this.LogicalToDeviceUnits(16);
+        int corner = this.LogicalToDeviceUnits(6);
+        var swatch = new Bitmap(size, size);
+        using (Graphics graphics = Graphics.FromImage(swatch))
+        using (var fill = new SolidBrush(color))
+        using (var outline = new Pen(SystemColors.ControlDark))
+        {
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            var bounds = new Rectangle(0, 0, size - 1, size - 1);
+            graphics.FillRoundedRectangle(fill, bounds, new Size(corner, corner));
+            graphics.DrawRoundedRectangle(outline, bounds, new Size(corner, corner));
+        }
+
+        Image? previous = item.Image;
+        item.Image = swatch;
+        previous?.Dispose();
     }
 
     // The details panel's French row hidden or shown again, from the settings menu; saved.
