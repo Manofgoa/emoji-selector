@@ -17,4 +17,6 @@ Les mots utilisés dans le code, la documentation, les workfiles et la conversat
 | Onglet personnalisé (*custom tab*) | Le deuxième onglet, un cœur, juste après *Frequently used* : il contient tous les **groupes personnalisés** |
 | Groupe personnalisé (*custom group*) | Une liste d'émojis que l'utilisateur garde sous la main : créée et nommée par l'utilisateur, remplie par clic droit, ordonnée comme il le veut ; une section de l'onglet personnalisé chacune, gardée dans `custom-groups.json` à côté de l'exe |
 | Fréquent (*frequent*) | Un émoji compté selon ses utilisations — chaque utilisation ajoute 1 à son compteur, gardé dans `usage.json` à côté de l'exe ; les plus utilisés sont affichés dans le premier onglet, *Frequently used* |
+| Panneau de détails (*details panel*) | La bande en bas de la fenêtre qui montre la **sélection** en grand, avec ses noms et ses étiquettes en anglais et en français, son émoticône, et un bouton qui la copie dans le presse-papiers |
+| Surlignage (*highlight*) | La couleur derrière les caractères des noms et des étiquettes du panneau de détails que le texte de la zone de recherche trouve — jaune fluo par défaut |
 | Icône de notification (*tray icon*) | L'icône de l'application dans la zone de notification, affichée tant que l'application tourne ; elle montre l'émoji choisi par l'utilisateur, 🙂 par défaut |
