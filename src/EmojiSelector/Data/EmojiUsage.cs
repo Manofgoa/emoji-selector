@@ -66,6 +66,17 @@ internal sealed partial class EmojiUsage
         this.Save();
     }
 
+    /// <summary>
+    /// <paramref name="emoji"/>'s counter forgotten, saved: used again, it starts over at 1. Nothing when it has none.
+    /// </summary>
+    public void Remove(string emoji)
+    {
+        if (this.entries.Remove(emoji))
+        {
+            this.Save();
+        }
+    }
+
     /// <summary>Every counter reset, the file rewritten empty.</summary>
     public void Clear()
     {

@@ -35,7 +35,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Tray icon, right click → `Exit` | Ends the app |
 | Win+; | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
 | Emoji clicked in the grid — not one of the group in reorder mode | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below); its use counted (see *Frequent Tab* below) |
-| Emoji right-clicked in the grid | Its menu: `Use as tray icon`, then `Add to ▸` the custom groups, `Remove` in a group (see *Custom Tab* below) |
+| Emoji right-clicked in the grid — or the Menu key / Shift+F10 on the grid's selection | Its menu: `Use as tray icon`, then `Add to ▸` the custom groups, `Remove` in a group (see *Custom Tab* below), `Remove from frequently used` in the frequent section (see *Frequent Tab* below) |
 | Enter, in the search box or the grid | Inserts the **selection**, like a click on it (see *Keyboard* below) — never an emoji of the group in reorder mode |
 | Esc, in the search box or the grid | Ends the reorder mode; otherwise clears the box; already empty → hides the window to the tray |
 | Any other close reason — Windows shutting down, the Task Manager, a `WM_CLOSE` sent by another process | Ends the app, never blocked |
@@ -184,6 +184,11 @@ and the grid, built from the counters (`MainForm.CreateFrequentCategory`), not f
   section reuses their bitmaps, and the disk cache's key never changes with the counters.
 - **Clear frequently used**, in the settings menu: a Yes / No confirmation, *No* the default, then
   every counter reset and `usage.json` rewritten empty. Greyed while there is no counter.
+- **Remove from frequently used**, in the emoji's right-click menu (see *Custom Tab*), on the
+  frequent section only — never in search mode, whose results are the grid's first section too
+  (`MainForm.IsFrequentSection`). No confirmation: the emoji's counter is **forgotten**
+  (`EmojiUsage.Remove`) and `usage.json` written; the next emoji moves up into the section, which
+  reads `No emoji used yet` once empty. Used again, the emoji starts over at 1.
 - **Hidden**: `Show frequently used` in the settings menu, checked while shown, and `Hide frequently
   used` in the section's **"…" button** — the same setting, saved as `showFrequent` in
   `settings.json` (`SettingsFile.ReadShowFrequent`; missing or unreadable → shown). No confirmation:
@@ -223,7 +228,9 @@ section reading `Create a group from ⚙ → New group…`; while every group is
   (see *Window and Tray Icon*), `Add to ▸` lists every
   group, the ones holding the emoji **checked**; a click adds it at the end of the group, or takes
   it out when checked. Greyed while there is no group. In a group's section, `Remove` takes it out
-  of that group. The menus are built for one show (`MainForm.ShowOnce`).
+  of that group; in the frequent section, `Remove from frequently used` (see *Frequent Tab*). The
+  menus are built for one show (`MainForm.ShowOnce`); `MainForm.ShowEmojiMenu` alone builds the
+  emoji's, from the mouse and the keyboard alike (see *Keyboard*).
 - **"…" button**, at the right end of a section's header when its `EmojiCategory.HasMenu` is set —
   the groups' and the frequent section's (see *Frequent Tab*); the header's name ends before it. A
   group's menu (`MainForm.CreateGroupMenu`): `Rename…`, `Reorder` (greyed under two emojis shown),
@@ -286,6 +293,7 @@ routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
 | Search box | ← / →, Home / End | The text caret |
 | Search box | ↓ | The grid gets the keyboard, the selection on its first emoji; no result → nothing, the keyboard stays in the box |
 | Search box | Page Up / Page Down, Tab / Shift+Tab | Ignored |
+| Search box | Menu key, Shift+F10 | The box's own menu (Cut, Copy, Paste…) |
 | Grid | ← / → | Previous / next emoji, across rows and categories |
 | Grid | ↑ / ↓ | One row up / down, same column, across categories; a shorter row → its last emoji. ↑ on the grid's first row → back to the search box |
 | Grid | Home / End | First / last emoji of the selection's category |
@@ -293,6 +301,7 @@ routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
 | Grid | Page Up / Page Down | As many rows as the viewport holds, stopping on the first / last row |
 | Grid | Tab / Shift+Tab | First emoji of the next / previous category, its header at the top; wraps around. Ignored in search mode |
 | Grid | A character, Backspace | Back to the search box, the key typed into it |
+| Grid | Menu key, Shift+F10 | The selection's right-click menu, under its cell (scrolled into view first), its first enabled item highlighted (`EmojiGrid.OpenSelectionMenu`) |
 | Both | Enter | Inserts the selection (nothing when there is none, or when it is in the group in reorder mode) |
 | Both | Esc | Ends the reorder mode; otherwise clears the box; already empty → hides the window |
 

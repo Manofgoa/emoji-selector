@@ -46,6 +46,8 @@ internal sealed class MainForm : Form
 
     public const string NoFrequentText = "No emoji used yet";
 
+    public const string RemoveFrequentText = "Remove from frequently used";
+
     // The frequent tab's glyph: FavoriteStar, in Segoe Fluent Icons and Segoe MDL2 Assets.
     private const char FrequentIcon = '';
 
@@ -237,6 +239,13 @@ internal sealed class MainForm : Form
     {
         if (this.grid.Focused)
         {
+            // The selection's right-click menu. In the box, these keys keep the box's own menu.
+            if (keyData is Keys.Apps or (Keys.Shift | Keys.F10))
+            {
+                this.grid.OpenSelectionMenu();
+                return true;
+            }
+
             if (this.grid.MoveSelection(keyData))
             {
                 return true;
@@ -724,6 +733,11 @@ internal sealed class MainForm : Form
         return shown >= 0 && shown < this.shownGroups.Count ? this.shownGroups[shown] : null;
     }
 
+    // Whether a section is the frequent one: the first while shown — never in search mode, whose results are the
+    // first section too.
+    private bool IsFrequentSection(int section) =>
+        this.showFrequent && section == 0 && string.IsNullOrWhiteSpace(this.searchBox.Text);
+
     // The section showing a group; null while it is hidden.
     private int? SectionOfGroup(int group) =>
         this.shownGroups.IndexOf(group) is int shown and >= 0 ? this.FirstCustomSection + shown : null;
@@ -755,7 +769,9 @@ internal sealed class MainForm : Form
     }
 
     // The menu of a right-clicked emoji: Use as tray icon, checked when the icon shows it; Add to ▸ every group, the
-    // ones holding it checked — a click on one of those takes it out; Remove when it was right-clicked in a group.
+    // ones holding it checked — a click on one of those takes it out; Remove when it was right-clicked in a group,
+    // Remove from frequently used in the frequent section. Opened from the keyboard, its first enabled item is
+    // highlighted, as Windows does.
     private void ShowEmojiMenu(EmojiGrid.EmojiRightClick click)
     {
         var menu = new ContextMenuStrip();
@@ -780,8 +796,24 @@ internal sealed class MainForm : Form
         {
             menu.Items.Add(RemoveText, image: null, (_, _) => this.RemoveFromGroup(shownIn, click.Emoji.Text));
         }
+        else if (this.IsFrequentSection(click.Section))
+        {
+            menu.Items.Add(RemoveFrequentText, image: null, (_, _) => this.RemoveFromFrequent(click.Emoji.Text));
+        }
 
         ShowOnce(menu, this.grid, click.Location, ToolStripDropDownDirection.Default);
+        if (click.FromKeyboard)
+        {
+            menu.Items.OfType<ToolStripMenuItem>().FirstOrDefault(item => item.Enabled)?.Select();
+        }
+    }
+
+    // The emoji's counter forgotten: the next one moves up into the section, which reads No emoji used yet once empty.
+    // The window stays.
+    private void RemoveFromFrequent(string emoji)
+    {
+        this.usage.Remove(emoji);
+        this.grid.ReplaceCategory(0, this.CreateFrequentCategory());
     }
 
     // The tray icon shows the emoji from now on, and at the next launches: saved like any other, the default included.
