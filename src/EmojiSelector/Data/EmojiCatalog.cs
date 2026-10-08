@@ -4,8 +4,9 @@ using System.Text.Json.Serialization;
 namespace EmojiSelector.Data;
 
 /// <summary>
-/// The emojis the app offers, by <b>category</b>, read from the Emojibase data embedded in the exe
-/// (<c>Data/Emojibase/compact.en.json</c> and <c>compact.fr.json</c>, MIT — see the LICENSE next to them).
+/// The emojis the app offers, by <b>category</b>, built from Emojibase's data (<c>compact.en.json</c> and
+/// <c>compact.fr.json</c>, MIT — see the LICENSE next to them): the files of <see cref="EmojiDataFolder"/>, or the
+/// copy embedded in the exe.
 /// </summary>
 /// <remarks>
 /// The categories follow the Win+; panel: its order (Activities before Travel & Places, unlike Unicode's) and its
@@ -19,10 +20,6 @@ namespace EmojiSelector.Data;
 /// </remarks>
 internal static class EmojiCatalog
 {
-    public const string EnglishResourceName = "EmojiSelector.Data.Emojibase.compact.en.json";
-
-    public const string FrenchResourceName = "EmojiSelector.Data.Emojibase.compact.fr.json";
-
     // Emojibase's group numbers (its meta/groups.json).
     private const int SmileysEmotion = 0;
     private const int PeopleBody = 1;
@@ -45,28 +42,57 @@ internal static class EmojiCatalog
         ("Symbols", '', [Symbols]),
     ];
 
-    /// <summary>Reads the embedded data into the categories, in tab order, each one's emojis in Unicode order.</summary>
-    public static IReadOnlyList<EmojiCategory> Load()
+    /// <summary>
+    /// Builds the categories from the parsed data, in tab order, each one's emojis in Unicode order.
+    /// </summary>
+    /// <param name="english">The list: <c>compact.en.json</c>.</param>
+    /// <param name="french">The French keywords: <c>compact.fr.json</c>.</param>
+    public static IReadOnlyList<EmojiCategory> Build(Entry[] english, Entry[] french)
     {
-        Entry[] entries = ReadEntries(EnglishResourceName);
-        Dictionary<string, Entry> french = ReadEntries(FrenchResourceName).ToDictionary(entry => entry.Hexcode);
+        // An emoji given twice keeps its first entry: the app maps the emojis by their text.
+        Entry[] entries = english.DistinctBy(entry => entry.Unicode).ToArray();
+        Dictionary<string, Entry> frenchByHexcode = french
+            .GroupBy(entry => entry.Hexcode)
+            .ToDictionary(group => group.Key, group => group.First());
 
         return Tabs
             .Select(tab => new EmojiCategory(tab.Name, tab.Icon, entries
                 .Where(entry => entry.Group is int group && tab.Groups.Contains(group))
                 .OrderBy(entry => entry.Order)
                 .Select(entry => new Emoji(entry.Unicode, Capitalize(entry.Label),
-                    Keywords(entry, french.GetValueOrDefault(entry.Hexcode))))
+                    Keywords(entry, frenchByHexcode.GetValueOrDefault(entry.Hexcode))))
                 .ToList()))
             .ToList();
     }
 
-    private static Entry[] ReadEntries(string resourceName)
+    /// <summary>
+    /// Parses one <c>compact.json</c>; null when it is not a non-empty list of entries — or, for the
+    /// <paramref name="isList"/> one, when none of its emojis goes in a tab.
+    /// </summary>
+    public static Entry[]? Parse(byte[] json, bool isList)
     {
-        using Stream stream = typeof(EmojiCatalog).Assembly.GetManifestResourceStream(resourceName)
-            ?? throw new InvalidOperationException($"Missing embedded resource {resourceName}.");
-        return JsonSerializer.Deserialize<Entry[]>(stream)
-            ?? throw new InvalidOperationException($"Empty embedded resource {resourceName}.");
+        Entry[]? entries;
+        try
+        {
+            entries = JsonSerializer.Deserialize<Entry[]>(json);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        if (entries is null || entries.Length == 0
+            || entries.Any(entry => entry is null || entry.Hexcode is null || entry.Unicode is null || entry.Label is null))
+        {
+            return null;
+        }
+
+        if (isList && !entries.Any(entry => entry.Group is int group && Tabs.Any(tab => tab.Groups.Contains(group))))
+        {
+            return null;
+        }
+
+        return entries;
     }
 
     // The words of an emoji's names and tags, in English and in French, each once: a name's when a name has it.
@@ -98,8 +124,8 @@ internal static class EmojiCatalog
     private static string Capitalize(string label) =>
         label.Length == 0 ? label : char.ToUpperInvariant(label[0]) + label[1..];
 
-    // One entry of compact.json. Its skin-tone variants ("skins") are not read.
-    private sealed class Entry
+    /// <summary>One entry of <c>compact.json</c>. Its skin-tone variants (<c>skins</c>) are not read.</summary>
+    internal sealed class Entry
     {
         [JsonPropertyName("hexcode")]
         public string Hexcode { get; init; } = "";

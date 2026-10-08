@@ -24,11 +24,15 @@ published in `src/EmojiSelector/Data/Emojibase/` and embedded in the exe:
 | `compact.en.json` | `en/compact.json` | The list: categories, order, names, English keywords |
 | `compact.fr.json` | `fr/compact.json` | French keywords, joined by hexcode |
 
-`Data/EmojiCatalog` reads them.
+`version.txt` next to them holds the version, `LICENSE` and it embedded too. At launch,
+`Data/EmojiDataFolder` writes this embedded copy to `emoji-data\` next to the exe when that folder is
+missing, damaged or older, and reads the folder; `Data/EmojiCatalog` builds the categories. The
+app's *Check for emoji updates…* replaces the folder with a newer published version
+(`Data/EmojiDataUpdate`).
 
-To update them, replace both files and `LICENSE` with those of the new `emojibase-data` version
-(`https://cdn.jsdelivr.net/npm/emojibase-data@<version>/<en|fr>/compact.json`), then update the
-version above.
+To update the embedded copy, replace both files and `LICENSE` with those of the new
+`emojibase-data` version (`https://cdn.jsdelivr.net/npm/emojibase-data@<version>/<en|fr>/compact.json`),
+then update `version.txt` and the version above.
 
 ## Before changing the code
 

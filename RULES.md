@@ -31,6 +31,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Show groups ▸` | Every custom group, checked while shown: a click hides it or shows it again (see *Custom Tab* below) |
 | Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept, and the saved size removed (see *Size* below); the window stays |
 | Settings button ⚙ → `Show frequently used` | Checked while the frequent tab is shown: a click hides it or shows it again (see *Frequent Tab* below) |
+| Settings button ⚙ → `Check for emoji updates…` | The latest Emojibase version online; a newer one offered, downloaded, then a restart offered (see *Emoji Data* below) |
 | Tray icon, left click | Hidden → shown; covered by another window → brought to the front; already in front → hidden |
 | Tray icon, right click → `Exit` | Ends the app |
 | Win+; or Win+. — or an app's "Emoji — Windows+Period" menu entry that sends it | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
@@ -134,7 +135,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 ## Categories and Insertion
 
 - **Categories** come from `Data/EmojiCatalog.cs` only — the frequent and custom tabs aside (see *Frequent Tab*, *Custom Tab*): seven tabs in the Win+; order, the Emojibase
-  data embedded in the exe ([CONTRIBUTING.md § Emoji data](CONTRIBUTING.md#emoji-data)). Left out:
+  data of `emoji-data\` next to the exe (see *Emoji Data* below). Left out:
   components, flags, skin-tone variants. An emoji newer than the system font is kept (a box).
 - The grid and the tab strip are **custom-drawn** (`UI/EmojiGrid.cs`, `UI/CategoryTabStrip.cs`);
   where things sit is computed by `UI/EmojiGridLayout.cs` alone. The tab glyphs are monochrome
@@ -154,6 +155,52 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   the notification area are skipped, since a click on the tray icon goes through them. It is brought
   back to the foreground **before** the window hides (only the foreground app may hand it over),
   then the emoji is typed with `SendInput` / `KEYEVENTF_UNICODE` — never through the clipboard.
+
+## Emoji Data
+
+The **emoji data** — the list, the names, the keywords — is Emojibase's, read at launch from
+**`emoji-data\` next to the exe** (`Data/EmojiDataFolder.cs`), not from `cache\`: that folder is
+disposable. The embedded copy (`Data/Emojibase/`, [CONTRIBUTING.md § Emoji data](CONTRIBUTING.md#emoji-data))
+recreates it.
+
+- **A set of four files**, always written together: `compact.en.json` (the list, English keywords),
+  `compact.fr.json` (French keywords, joined by hexcode), `LICENSE` (Emojibase's, MIT) and
+  `version.txt` (the set's Emojibase version, `major.minor.patch`). Each one written through
+  `<name>.tmp` then a replace, `version.txt` last.
+- **At launch** (`EmojiDataFolder.Load`, in place of the embedded resources):
+
+  | The folder | Does |
+  |---|---|
+  | Missing, or a file of the set missing | The whole set written from the embedded copy, then used |
+  | A JSON not parsing into a non-empty entry list (the English one with emojis in the seven tabs), a `version.txt` not a version | Rewritten from the embedded copy, then used |
+  | Valid, older than the embedded copy (the exe was updated) | Rewritten from the embedded copy, then used |
+  | Valid, same version or newer | Used as it is |
+  | Cannot be written | The embedded copy used in memory — never an error |
+
+- "Valid" is checked by **parsing** (`EmojiDataFolder.Parse`): the parsed set is the one used, the
+  files are read once. `EmojiCatalog` keeps the parsing of an entry and the building of the
+  categories; an emoji given twice keeps its first entry.
+- **A new list** changes the pre-render cache's key (the emoji list is in it): rendered again, no
+  `FormatVersion` bump. Counters, custom groups and the tray emoji are kept by the emoji's text: an
+  emoji the new list no longer has stays in their files and is not shown.
+- **`Check for emoji updates…`**, last in the settings menu after a separator
+  (`MainForm.CheckEmojiUpdatesAsync`, `Data/EmojiDataUpdate.cs`): the app's **only network access**,
+  on that click only — no check at launch, no setting. The item is greyed while it runs; one
+  `HttpClient`, 15 s timeout.
+  1. The latest version: `https://registry.npmjs.org/emojibase-data/latest`'s `version` (never a
+     pre-release).
+  2. Not newer than the version in use — or the one already downloaded this run → `Emoji data is up to
+     date`. A network, HTTP or parse failure → `Could not check for emoji updates`, a warning.
+  3. Newer → `Update the emoji list, names and keywords?`, Yes / No, *Yes* the default.
+  4. Yes → `en/compact.json`, `fr/compact.json` and `LICENSE` from
+     `https://cdn.jsdelivr.net/npm/emojibase-data@<version>/`, parsed like the folder (any newer
+     major accepted when it parses), then written as a set. Any failure → `Could not update the emoji
+     data`, the folder left as it was.
+  5. `Restart now to use it?`, Yes / No, *Yes* the default: Yes → `Application.Restart()`, the same
+     arguments, `--title` included; No → used at the next launch.
+- An agent checking the update cannot click the settings button from a script (custom-drawn, no
+  accessibility): the network and the validation are checked by calling `EmojiDataUpdate` and
+  `EmojiDataFolder.Parse` by reflection on the built dll.
 
 ## Frequent Tab
 

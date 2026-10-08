@@ -58,8 +58,9 @@ embedded file).
 - "Valid" is checked by **parsing**: the parsed entries are kept and handed to the catalog, the files are read once.
 - Versions compare as `System.Version` (`major.minor.patch`).
 - Each file is written through `<name>.tmp` then a replace, like `usage.json`; `version.txt` last.
-- `EmojiCatalog` keeps the parsing and the categories; it reads from a `Stream`, the folder's file or the embedded
-  resource alike.
+- `EmojiCatalog` keeps the parsing (`Parse`, from the file's bytes) and the categories (`Build`), the folder's files
+  and the embedded resources alike. An entry without a hexcode, a text or a label makes the file invalid; an emoji
+  given twice keeps its first entry (the app maps the emojis by their text).
 
 ### What a new list changes elsewhere
 
@@ -82,7 +83,8 @@ embedded file).
 
 1. **Latest version**: `GET https://registry.npmjs.org/emojibase-data/latest` → its `version`. The `latest` tag never
    points at a pre-release.
-2. **Compared** with the version in use (the folder's, or the embedded one when the folder could not be written):
+2. **Compared** with the version in use (the folder's, or the embedded one when the folder could not be written) —
+   or, once an update was downloaded and the restart declined, with the downloaded version:
 
    | Result | Message (owned by `MainForm`) |
    |---|---|
@@ -127,8 +129,9 @@ or updated. The checks are manual, in the running app:
 | Folder missing → recreated, the app works | Delete `emoji-data\`, launch | — (manual) |
 | Broken file → set rewritten | Truncate `compact.fr.json`, launch | — (manual) |
 | Older version → replaced | Write `16.0.0` in `version.txt`, launch | — (manual) |
-| Up to date | `Check for emoji updates…` with 17.0.0 | — (manual) |
-| Newer version found | Write `16.0.0` in `version.txt` after launch, then check → offered, downloaded, restart | — (manual) |
+| Newer folder kept as it is | Write `99.0.0` in `version.txt`, launch | — (manual) |
+| Latest version, download, validation, broken set rejected | Reflection harness on the built dll (scratchpad), calling `EmojiDataUpdate` and `EmojiDataFolder.Parse` | — (manual) |
+| The menu flow: up to date, offered, restart | By hand in the running app — not scriptable (custom-drawn settings button); a newer version can only be offered once npm publishes one | — (manual) |
 
 ---
 
@@ -153,16 +156,38 @@ or updated. The checks are manual, in the running app:
 - Exploration: the pre-render cache key already follows the emoji list; `SECURITY.md` states the app never connects to
   a network — to be rewritten; no test project.
 
+### Iteration 2 — 2026-10-08 — ✅ Implemented
+
+- Go given: code, tests and documentation, in a worktree (`.claude/worktrees/emoji-data-file`, branch
+  `feature/emoji-data-file`). The design above is frozen as the scope.
+
+### Iteration 3 — 2026-10-08 — 🧭 Implementation choices
+
+No rule broken.
+
+- **Downloaded, not restarted**: a second check compares with the version already downloaded, not the one in memory —
+  otherwise the same update would be offered again (`MainForm.downloadedEmojiDataVersion`).
+- **Stricter validation**: an entry without a hexcode, a text or a label makes a file invalid; an emoji given twice
+  keeps its first entry, a French hexcode given twice its first one — a downloaded list must never break the launch.
+- **`EmojiCatalog.Load` replaced** by `Parse` (bytes → entries, or null) and `Build` (entries → categories);
+  `EmojiDataFolder.Load` returns the version with the categories (`EmojiData`).
+- **Test Impact's last check could not work as written**: the version in use is read at launch, so editing
+  `version.txt` while the app runs offers nothing. Replaced by a reflection harness on the built dll: npm gives
+  17.0.0, the three files download (571 441, 601 808, 1 075 bytes), the set parses into the seven tabs, a broken set is
+  rejected. The menu flow and the restart are left to the hand test: no newer version is published yet.
+- **RULES.md** got the way an agent checks the update (the harness), since the settings button cannot be clicked from
+  a script.
+
 ---
 
 ## Implementation Log
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | No test project — manual checks only |
-| README | | | |
-| RULES / SECURITY / CONTRIBUTING / GLOSSARY | | | |
+| Code | 2 | 2026-10-08 | Data folder, then the update check — two commits |
+| Unit tests | 2 | 2026-10-08 | No test project — manual checks and a reflection harness (see Iteration 3) |
+| README | 2 | 2026-10-08 | English and French, with the glossaries |
+| RULES / SECURITY / CONTRIBUTING / GLOSSARY | 2 | 2026-10-08 | |
 
 ---
 
