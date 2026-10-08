@@ -213,6 +213,12 @@ wait of Q&A #10, the user chose to **wait** (Q&A #15): nothing is written until
 [20261008-custom-tabs.md](20261008-custom-tabs.md) is delivered; the run starts then, on the user's
 signal, with the go already given. The *✅ Implemented* pivot entry is written when the run starts.
 
+### Iteration 7 — 2026-10-08 — ✅ Implemented
+
+The custom tabs are merged into `main` (`8b02c16`): the user gave the signal (Q&A #16). The run
+starts in the worktree `.claude/worktrees/frequent-tab-toggle`, branch `feature/frequent-tab-toggle`,
+created from the local `HEAD`; scope frozen as the sections above stand.
+
 ---
 
 ## Implementation Log
@@ -248,7 +254,8 @@ Questions asked by the agent during design, with user responses.
 | 12 | Custom groups: where is a hidden one shown again from? | A *Show groups* submenu in ⚙ | 2026-10-08 |
 | 13 | Does a hidden custom group still receive emojis from *Add to…*? | Yes |
 | 14 | Where is a custom group's hidden flag saved? | With the group, in the custom groups' file | 2026-10-08 |
-| 15 | Go given while the custom tabs are not delivered: frequent part now, with or without "…", or wait? | Wait: the run starts once the custom tabs are delivered | 2026-10-08 | 2026-10-08 |
+| 15 | Go given while the custom tabs are not delivered: frequent part now, with or without "…", or wait? | Wait: the run starts once the custom tabs are delivered | 2026-10-08 |
+| 16 | The custom tabs are in `main`: start the implementation now, in a worktree? | Yes, now | 2026-10-08 | 2026-10-08 |
 
 ---
 
