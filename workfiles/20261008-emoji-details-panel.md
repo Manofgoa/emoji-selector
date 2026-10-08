@@ -93,7 +93,7 @@ highlighted.
 - The same matching as the search ([20261007-search-box.md](20261007-search-box.md) § Matching):
   accent- and case-insensitive (`emoticone` highlights `émoticône`), every word of the query matched
   on its own, inside a single word (never across a space, an apostrophe or a hyphen).
-- **Every occurrence** is highlighted, in every name and tag of both columns.
+- **Every occurrence** is highlighted, in every name and tag of both rows.
 - Colour: **fluorescent yellow** by default (`#FFFF00`), the text keeps its colour.
 
 ---
@@ -158,12 +158,12 @@ on the running app.
 - [x] ~~1. Does the panel include the search in English and French?~~ → No: already delivered by [20261007-search-box.md](20261007-search-box.md)
 - [x] ~~2. Hovered or selected emoji?~~ → The selection: hovering selects since [20261007-keyboard-navigation.md](20261007-keyboard-navigation.md)
 - [x] ~~3. Which labels?~~ → All the data except `group` and `skins`: EN and FR names, EN and FR tags, emoticon, code points
-- [x] ~~4. Which layout?~~ → B (two columns), code point button on the right, US / French flag before each name
+- [x] ~~4. Which layout?~~ → B (two columns), code point button on the right, US / French flag before each name *(revised 2026-10-08, see Iteration 3: one row per language)*
 - [x] ~~5. Long tag lists?~~ → All tags shown, wrapped, never truncated
 - [x] ~~6. Panel height?~~ → Fixed, sized to the longest content
 - [x] ~~7. What does the copy button copy?~~ → The emoji itself
 - [x] ~~8. What is highlighted?~~ → Exactly the matched characters, in fluorescent yellow, colour customizable in the settings menu
-- [x] ~~9. French row?~~ → Optional, on by default
+- [x] ~~9. French column?~~ → Optional, on by default
 - [x] ~~10. How are the flags drawn? Segoe UI Emoji has no flag glyphs (see [TODO-FEATURES.md](TODO-FEATURES.md) *Flags tab*)~~ → Embedded PNG images
 - [x] ~~11. What does the button read for a multi-code-point emoji (👨‍👩‍👧‍👦 = `1F468-200D-1F469-200D-1F467-200D-1F466`)?~~ → The first code point only
 - [x] ~~12. Does the grid's tooltip (the hovered emoji's name) stay, now that the panel shows the name?~~ → Removed
@@ -236,11 +236,11 @@ Questions asked by the agent during design, with user responses.
 | 7 | Does the grid's tooltip stay once the panel exists? | Dismissed — asked again as Open Question 12 | 2026-10-08 |
 | 8 | What labels are available in the embedded data? | (user's question) — Inspired by Twitter: emoji large at the bottom left; no colour choice; list the available fields | 2026-10-08 |
 | 9 | (answer to #8: label, tags, emoticon, hexcode, group, skins) | All of them except `group` and `skins`; make layout mockups | 2026-10-08 |
-| 10 | Mockups A–D: which layout? | B, every tag shown with line wrapping (no `…`), search matches highlighted in fluorescent yellow (colour customizable in the settings menu), capital `Visage`, French row optional and on by default, `U+1F602` a button copying to the clipboard | 2026-10-08 |
+| 10 | Mockups A–D: which layout? | B, every tag shown with line wrapping (no `…`), search matches highlighted in fluorescent yellow (colour customizable in the settings menu), capital `Visage`, French column optional and on by default, `U+1F602` a button copying to the clipboard | 2026-10-08 |
 | 11 | What does the `U+1F602` button copy? | The emoji | 2026-10-08 |
 | 12 | Panel height with every tag shown? | Fixed, sized to the longest | 2026-10-08 |
 | 13 | What is highlighted: the matched part, the word, the whole tag? Simple or tricky subject? | The matched part; simple | 2026-10-08 |
-| 14 | (mid-exploration request) | B with the code point on the right, US flag before the English name, French flag before the French name when the French row is on; make the mockup | 2026-10-08 |
+| 14 | (mid-exploration request) | B with the code point on the right, US flag before the English name, French flag before the French name when the French column is on; make the mockup | 2026-10-08 |
 | 15 | How are the flags drawn? | Embedded images | 2026-10-08 |
 | 16 | Button label for a multi-code-point emoji? | The first code point only | 2026-10-08 |
 | 17 | Does the grid's tooltip stay? | Removed | 2026-10-08 |
