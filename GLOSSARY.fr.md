@@ -14,6 +14,7 @@ Les mots utilisés dans le code, la documentation, les workfiles et la conversat
 | Sélection (*selection*) | L'unique émoji de la grille encadré dans la couleur d'accentuation, déplacé par le clavier et par la souris — celui qu'Entrée insère |
 | Raccourci (*shortcut*) | Win+;, le raccourci clavier global qui affiche la fenêtre depuis n'importe quelle application — à la place du panneau d'émojis de Windows tant que l'application tourne |
 | Curseur de texte (*text cursor*) | Le point d'insertion clignotant de la fenêtre précédente, là où va le texte tapé — Win+; affiche la fenêtre juste en dessous |
-| Favori (*favorite*) | Un émoji que l'utilisateur a marqué pour l'avoir sous la main, affiché avant les autres |
+| Onglet personnalisé (*custom tab*) | Le deuxième onglet, un cœur, juste après *Frequently used* : il contient tous les **groupes personnalisés** |
+| Groupe personnalisé (*custom group*) | Une liste d'émojis que l'utilisateur garde sous la main : créée et nommée par l'utilisateur, remplie par clic droit, ordonnée comme il le veut ; une section de l'onglet personnalisé chacune, gardée dans `custom-groups.json` à côté de l'exe |
 | Fréquent (*frequent*) | Un émoji compté selon ses utilisations — chaque utilisation ajoute 1 à son compteur, gardé dans `usage.json` à côté de l'exe ; les plus utilisés sont affichés dans le premier onglet, *Frequently used* |
 | Icône de notification (*tray icon*) | L'icône de l'application dans la zone de notification, affichée tant que l'application tourne ; elle montre le dernier émoji utilisé |

@@ -89,8 +89,8 @@ internal sealed partial class EmojiUsage
     }
 
     // System.Text.Json escapes every character beyond the BMP — most emojis — even with the relaxed encoder: the
-    // escaped surrogate pairs are turned back into the emojis, so the file reads as it shows.
-    private static string ReadableEmojis(string json) => SurrogatePair().Replace(json, match => char.ConvertFromUtf32(
+    // escaped surrogate pairs are turned back into the emojis, so the file reads as it shows. Shared with CustomGroups.
+    internal static string ReadableEmojis(string json) => SurrogatePair().Replace(json, match => char.ConvertFromUtf32(
         char.ConvertToUtf32(
             (char)int.Parse(match.Groups[1].Value, NumberStyles.HexNumber),
             (char)int.Parse(match.Groups[2].Value, NumberStyles.HexNumber))));
