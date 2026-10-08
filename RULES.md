@@ -44,8 +44,10 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Tray icon, right click → `Exit` | Ends the app |
 | Win+; or Win+. — or an app's "Emoji — Windows+Period" menu entry that sends it | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
 | Emoji clicked in the grid — not one of the group in reorder mode | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below); its use counted (see *Frequent Tab* below) |
+| Emoji Ctrl+clicked in the grid — Ctrl alone, not one of the group in reorder mode | Inserted into the previous window, the window **kept open** (see *Keep-Open Insertion* below) |
 | Emoji right-clicked in the grid — or the Menu key / Shift+F10 on the grid's selection | Its menu: `Use as tray icon`, then `Add to ▸` the custom groups, `Remove` in a group (see *Custom Tab* below), `Remove from frequently used` in the frequent section (see *Frequent Tab* below) |
 | Enter, in the search box or the grid | Inserts the **selection**, like a click on it (see *Keyboard* below) — never an emoji of the group in reorder mode |
+| Ctrl+Enter, in the search box or the grid | Inserts the selection like Enter, the window **kept open** (see *Keep-Open Insertion* below) |
 | Esc, in the search box or the grid | Ends the reorder mode; otherwise clears the box; already empty → hides the window to the tray |
 | Any other close reason — Windows shutting down, the Task Manager, a `WM_CLOSE` sent by another process | Ends the app, never blocked |
 
@@ -249,6 +251,11 @@ launch the app at sign-in, hidden in the notification area. Off by default.
   Start menu. The hook injects a **dummy key** right away (`0xE8`, unassigned), marked in
   `dwExtraInfo` so it lets it through; being the last app to send input also lets the app take the
   foreground.
+- **During a keep-open insertion** (see *Keep-Open Insertion*), from `SwallowKeys` to
+  `StopSwallowing` — one second at most —, the hook swallows every physical key-down **but the
+  modifiers**: the previous window has the keyboard, and a quick second Ctrl+Enter or Enter's
+  auto-repeat would land there. Those keys are lost. A key-up is swallowed only when its key-down was:
+  one whose key-down went through must reach Windows, or the key would stay down.
 - **Placement**: `Input/CaretLocator.cs` looks for the text cursor of the previous window — the
   Win32 caret, the MSAA caret, the UI Automation caret range, the UI Automation focused element (of
   that window's app only) — else takes the mouse pointer. The sources asking the other app run off
@@ -286,6 +293,32 @@ launch the app at sign-in, hidden in the notification area. Off by default.
   the notification area are skipped, since a click on the tray icon goes through them. It is brought
   back to the foreground **before** the window hides (only the foreground app may hand it over),
   then the emoji is typed with `SendInput` / `KEYEVENTF_UNICODE` — never through the clipboard.
+  A Ctrl key held is released before the characters and pressed again after them, in the same call
+  (`EmojiInserter.Type`): the window sees plain characters, never a Ctrl shortcut. Every injected key
+  carries `ShortcutHook.InjectedMarker`.
+
+### Keep-Open Insertion
+
+**Ctrl+Enter** and **Ctrl+click** — Ctrl alone — insert the emoji as Enter and a click do, its use
+counted, but the window **stays open** (`MainForm.InsertKeepingOpen`): several emojis in a row, or the
+same one several times, without reopening it.
+
+- **Sequence**: the window made topmost (`HWND_TOPMOST`, no activation), so the previous window
+  brought to the front never covers it; the hook swallowing (see *Shortcut*); the previous window
+  activated, the emoji typed; then, `KeepOpenHandBackDelay` (50 ms) later — `SendInput` is
+  asynchronous, the characters must reach the previous window first —, `HandForegroundBack`: the
+  foreground taken back (`TakeForeground`), the topmost band left (`HWND_NOTOPMOST`), the hook stops
+  swallowing.
+- **Kept**: the keyboard where it was (search box or grid: the activation restores the focused
+  control), the selection on the emoji, the search text. No show, so no `OnVisibleChanged` reset.
+- The previous window stays the target: `ForegroundTracker` skips the app's own windows.
+- One started while a hand-back is pending is **ignored**. No previous window → nothing typed, the
+  window stays, the use counted.
+- The frequent section is rebuilt **at once**, the selection kept on its emoji (see *Frequent Tab*).
+- An agent cannot check it with posted messages: Ctrl is read from the keyboard's state. Real input
+  (`SendInput`) goes to whatever window is in front — another session's instance, which hooks Win+.
+  too, or the user's own apps, where Ctrl+Enter may send a message: on a desktop in use, it is checked
+  by hand.
 
 ## Emoji Data
 
@@ -392,8 +425,10 @@ and the grid, built from the counters (`MainForm.CreateFrequentCategory`), not f
   columns line up and the limit stays `3 × Columns`, taller to hold the count
   (`EmojiGridLayout.Section.RowHeight`).
 - **Selection** (see *Keyboard*): its frame follows the cell — a rectangle around the emoji and its
-  count. Replacing the section (`EmojiGrid.ReplaceCategory`, after a use or *Clear*) puts it back on
-  the first emoji in view: the cell it was on may be gone.
+  count. Replacing the section (`EmojiGrid.ReplaceCategory`, after a use, a removal or *Clear*) keeps
+  it on its emoji: wherever that one moved in the section, on its cell in another section — the view
+  then moving with the section's change of height, so the emoji keeps its place on screen (under the
+  mouse for a repeated Ctrl+click). Gone from the section, it goes back to the first emoji in view.
 - **Empty**: the tab stays, the section reads `No emoji used yet` (`EmojiCategory.EmptyText`, one row
   kept for it — the mechanism `No emoji found` uses too).
 - **Every show** scrolls the grid to the top, on the first section — this one while shown
@@ -527,6 +562,7 @@ routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
 | Grid | A character, Backspace | Back to the search box, the key typed into it |
 | Grid | Menu key, Shift+F10 | The selection's right-click menu, under its cell (scrolled into view first), its first enabled item highlighted (`EmojiGrid.OpenSelectionMenu`) |
 | Both | Enter | Inserts the selection (nothing when there is none, or when it is in the group in reorder mode) |
+| Both | Ctrl+Enter | As Enter, the window kept open, the keyboard staying where it is (see *Keep-Open Insertion*) |
 | Both | Esc | Ends the reorder mode; otherwise clears the box; already empty → hides the window |
 
 - **Empty** means no character at all (`TextLength == 0`): a box holding only spaces is *with text*,
