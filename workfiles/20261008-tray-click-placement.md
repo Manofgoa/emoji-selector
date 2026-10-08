@@ -169,6 +169,12 @@ Open questions answered (Q&A 5–8):
   launch to it. This run does not touch that workfile's branch.
 - No test project: script and reflection checks only.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code, checks and documentation, in a worktree (`.claude/worktrees/tray-click-placement`,
+branch `feature/tray-click-placement`, created from `main` after the start-with-windows merge). The
+second launch's show is therefore wired here (Q&A 7).
+
 ---
 
 ## Implementation Log
