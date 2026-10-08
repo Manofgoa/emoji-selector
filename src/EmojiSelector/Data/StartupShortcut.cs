@@ -87,6 +87,20 @@ internal static class StartupShortcut
         RemoveTaskManagerValue();
     }
 
+    /// <summary>
+    /// <see cref="Disable"/>, only when the shortcut targets this exe — enabled in the Task Manager or not. A shortcut to
+    /// another copy of the app, and its Task Manager's value, are left alone. Throws on a failure (see
+    /// <see cref="IsFailure"/>).
+    /// </summary>
+    public static void DisableForThisExe()
+    {
+        if (Environment.ProcessPath is string exe && ShortcutPath() is string path && File.Exists(path)
+            && ReadTarget(path) is string target && SamePath(target, exe))
+        {
+            Disable();
+        }
+    }
+
     /// <summary>The exceptions writing or reading the shortcut and the Task Manager's value can throw.</summary>
     public static bool IsFailure(Exception exception) =>
         exception is IOException or UnauthorizedAccessException or COMException or SecurityException
