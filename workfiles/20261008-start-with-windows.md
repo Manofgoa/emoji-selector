@@ -159,6 +159,11 @@ folders still run side by side, a second launch showing the first window (or exi
 `--background`), the restart releasing it first (*Single Instance*). The backlog row is marked with
 this workfile.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code, unit tests and documentation, in a worktree (`.claude/worktrees/start-with-windows`,
+branch `feature/start-with-windows`). The scope is frozen as the sections above stand.
+
 ---
 
 ## Implementation Log
