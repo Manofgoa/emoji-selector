@@ -505,14 +505,16 @@ One emoji of the grid is the **selection** (`UI/EmojiGrid.cs`), framed in the ac
 inserts it, wherever the keyboard is.
 
 The keyboard has **two places**: the search box, focused on every show, and the grid, which gets the
-focus only from ↓ in the box — it is not selectable, a click never focuses it. `MainForm.ProcessCmdKey`
+focus only from a navigation key in the box — ↓, or any of the grid's while the box is empty — it is
+not selectable, a click never focuses it. `MainForm.ProcessCmdKey`
 routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
 
 | Focus | Key | Does |
 |---|---|---|
-| Search box | ← / →, Home / End | The text caret |
-| Search box | ↓ | The grid gets the keyboard, the selection on its first emoji; no result → nothing, the keyboard stays in the box |
-| Search box | Page Up / Page Down, Tab / Shift+Tab | Ignored |
+| Search box, with text | ← / →, Home / End | The text caret |
+| Search box, with text | ↓ | The grid gets the keyboard, the selection on its first emoji; no result → nothing, the keyboard stays in the box |
+| Search box, with text | Page Up / Page Down, Tab / Shift+Tab | Ignored |
+| Search box, empty | ← / →, ↑ / ↓, Home / End, Ctrl+Home / Ctrl+End, Page Up / Page Down, Tab / Shift+Tab | As in the grid, from the selection, and the grid gets the keyboard — even when the selection cannot move. ↑ on the grid's first row → nothing, the keyboard stays in the box |
 | Search box | Menu key, Shift+F10 | The box's own menu (Cut, Copy, Paste…) |
 | Grid | ← / → | Previous / next emoji, across rows and categories |
 | Grid | ↑ / ↓ | One row up / down, same column, across categories; a shorter row → its last emoji. ↑ on the grid's first row → back to the search box |
@@ -525,6 +527,9 @@ routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
 | Both | Enter | Inserts the selection (nothing when there is none, or when it is in the group in reorder mode) |
 | Both | Esc | Ends the reorder mode; otherwise clears the box; already empty → hides the window |
 
+- **Empty** means no character at all (`TextLength == 0`): a box holding only spaces is *with text*,
+  its caret still has somewhere to go. The empty box's keys are the ones `EmojiGrid.MoveSelection`
+  answers (`EmojiGrid.IsNavigationKey`); Enter, Esc and the Menu key / Shift+F10 keep their rows.
 - **Where the selection goes**: every show → the grid's first emoji, scrolled to the top; every
   change of the search text → the first result; emptying the box → the first emoji in view; a tab
   click or Tab → the category's first emoji. Anything else leaves it alone.

@@ -66,14 +66,17 @@ hands the keyboard to the grid on the first result.
 ### Implementation sketch
 
 In `ProcessCmdKey`'s search box branch, before today's `switch`: when the box is empty and the key is
-one of the table's, focus the grid and call `this.grid.MoveSelection(keyData)`. When it returns false
-(↑ on the first row), the box gets the keyboard back. The `Keys.Down` case stays for a box with text.
+one of the table's (`EmojiGrid.IsNavigationKey`, the keys `MoveSelection` answers), call
+`this.grid.MoveSelection(keyData)`, then focus the grid when it returns true. When it returns false
+(↑ on the first row), the keyboard stays in the box; the key is swallowed either way. The `Keys.Down`
+case stays for a box with text.
 
 ---
 
 ## Documentation Impact
 
-- `RULES.md` § Keyboard: the search box rows of the table, and the "Where the selection goes" list.
+- `RULES.md` § Keyboard: the opening paragraph (how the grid gets the focus), the search box rows of
+  the table split into *with text* and *empty*, and a note on what *empty* means.
 - `README.md` / `README.fr.md` § Keyboard: the sentence on ↓ in the search box, in both languages.
 
 ---
@@ -116,16 +119,37 @@ is empty on purpose.
 The three open questions answered: a box of spaces is not empty; a key that moves nothing still sends
 the keyboard to the grid; the Menu key / Shift+F10 keep the box's menu. No question left.
 
+### Iteration 3 — 2026-10-09 — ✅ Implemented
+
+Go given: code, tests and documentation, in a worktree (`.claude/worktrees/empty-search-box-keys`,
+branch `feature/empty-search-box-keys`). The scope is the design above, frozen.
+
+### Iteration 4 — 2026-10-09 — 🧭 Implementation choices
+
+- **`EmojiGrid.IsNavigationKey`** (static), extracted from `MoveSelection`'s no-selection branch and
+  extended to Tab / Shift+Tab: the list of navigation keys lives in one place, used by `MoveSelection`
+  and by `MainForm.ProcessCmdKey`.
+- **Move, then focus**: `MoveSelection` is called before `grid.Focus()`, so ↑ on the first row (false)
+  never moves the keyboard and needs no hand-back.
+- **RULES.md**: the "Where the selection goes" list is left as it is — nothing changes there; a note
+  on *empty* (no character, the box of spaces being *with text*) is added under the table instead.
+- **Check**: by script on the worktree's build — `WM_KEYDOWN` posted to the box, the focused control
+  read with `GetGUIThreadInfo`. Empty box: ↑ on the first row stays in the box; ← (first emoji), →,
+  ↓, Home, End, Page Down, Page Up, Tab move into the grid. Box with `cat`: →, Tab, Page Down, ↑ stay
+  in the box, ↓ moves into the grid. Box of two spaces: → stays. The emoji the selection lands on is
+  not read by the script: it is `MoveSelection`'s, unchanged.
+- No rule broken.
+
 ---
 
 ## Implementation Log
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | No test project — nothing to write (see *Test Impact*) |
-| README | | | |
-| RULES.md | | | |
+| Code | 4 | 2026-10-09 | `MainForm.ProcessCmdKey`, `EmojiGrid.IsNavigationKey`; checked by script |
+| Unit tests | 4 | 2026-10-09 | No test project — nothing to write (see *Test Impact*) |
+| README | 4 | 2026-10-09 | `README.md` and `README.fr.md` § Keyboard |
+| RULES.md | 4 | 2026-10-09 | § Keyboard |
 
 ---
 
@@ -143,4 +167,4 @@ the keyboard to the grid; the Menu key / Shift+F10 keep the box's menu. No quest
 
 ---
 
-*Last updated: 2026-10-08*
+*Last updated: 2026-10-09*

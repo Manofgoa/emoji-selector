@@ -207,6 +207,15 @@ internal sealed class EmojiGrid : Control
     }
 
     /// <summary>
+    /// Whether <paramref name="keyData"/> is one of the keys <see cref="MoveSelection"/> answers: arrows, Home / End
+    /// and their Ctrl variants, Page Up / Page Down, Tab / Shift+Tab.
+    /// </summary>
+    public static bool IsNavigationKey(Keys keyData) =>
+        keyData is Keys.Left or Keys.Right or Keys.Up or Keys.Down or Keys.Home or Keys.End
+            or (Keys.Control | Keys.Home) or (Keys.Control | Keys.End) or Keys.PageUp or Keys.PageDown
+            or Keys.Tab or (Keys.Shift | Keys.Tab);
+
+    /// <summary>
     /// Moves the selection for a navigation key — arrows, Home / End and their Ctrl variants, Page Up / Page Down,
     /// Tab / Shift+Tab — and scrolls it into view. Returns false when the key is not one of them, and for ↑ on the
     /// grid's first row, which has nothing above it: the caller hands the keyboard back to the search box.
@@ -228,8 +237,7 @@ internal sealed class EmojiGrid : Control
 
         if (this.selection is not (int, int) cell)
         {
-            bool isNavigation = keyData is Keys.Left or Keys.Right or Keys.Up or Keys.Down or Keys.Home or Keys.End
-                or (Keys.Control | Keys.Home) or (Keys.Control | Keys.End) or Keys.PageUp or Keys.PageDown;
+            bool isNavigation = IsNavigationKey(keyData);
             if (isNavigation)
             {
                 this.SetSelection(this.layout.First(), ensureVisible: true);

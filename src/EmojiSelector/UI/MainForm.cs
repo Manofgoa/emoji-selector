@@ -358,8 +358,8 @@ internal sealed class MainForm : Form
         }
     }
 
-    // The keyboard has two places: the search box, and the grid once ↓ hands it over. The grid only takes the focus
-    // that way — it is not selectable, a click never focuses it.
+    // The keyboard has two places: the search box, and the grid once a navigation key hands it over — ↓, or any of them
+    // while the box is empty. The grid only takes the focus that way — it is not selectable, a click never focuses it.
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
         if (this.grid.Focused)
@@ -385,6 +385,19 @@ internal sealed class MainForm : Form
         }
         else if (this.searchBox.Focused)
         {
+            // An empty box has no caret to move: the navigation keys act as if the grid had the keyboard, from the
+            // selection, and hand it over — even when the selection cannot move. ↑ on the grid's first row would hand it
+            // back to the box: it stays there.
+            if (this.searchBox.TextLength == 0 && EmojiGrid.IsNavigationKey(keyData))
+            {
+                if (this.grid.MoveSelection(keyData))
+                {
+                    this.grid.Focus();
+                }
+
+                return true;
+            }
+
             switch (keyData)
             {
                 // No result: nothing to select, the keyboard stays in the box.
@@ -397,7 +410,7 @@ internal sealed class MainForm : Form
 
                     return true;
 
-                // Only ↓ leaves the box.
+                // With text in the box, only ↓ leaves it.
                 case Keys.PageUp or Keys.PageDown or Keys.Tab or (Keys.Shift | Keys.Tab):
                     return true;
             }
