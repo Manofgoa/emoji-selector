@@ -37,8 +37,8 @@ Components:
 | **Ctrl+click** (left button, `Control.ModifierKeys == Keys.Control` exactly) | An emoji of the grid | Keep-open insertion of that emoji — never one of the group in reorder mode (like a click) |
 | Enter, click, Shift / Alt combinations | — | Unchanged: Enter and a plain click insert then hide; the others do what they do today |
 
-- `EmojiGrid` tells which kind of click it was: `EmojiClicked` carries the keep-open flag (a small
-  event-args record, or a second event — decided at implementation).
+- `EmojiGrid` tells which kind of click it was: `EmojiClicked` carries an `EmojiGrid.EmojiClick`
+  record, `(Emoji, KeepOpen)`.
 - **No previous window** (`ForegroundTracker.PreviousWindow` is zero): nothing typed, the window
   stays — the use counted, as Enter counts it today with no target.
 
@@ -46,7 +46,8 @@ Components:
 
 ## Insertion Sequence
 
-`MainForm.InsertEmoji(emoji, keepOpen: true)`:
+`MainForm.InsertEmoji(emoji, keepOpen: true)` → `MainForm.InsertKeepingOpen`, then
+`MainForm.HandForegroundBack` on the timer:
 
 1. **Topmost** (Q&A #6): the window is made `HWND_TOPMOST` (`SetWindowPos`, no move, no size, no
    activation) for the duration, so the previous window brought to the front never covers it, not
@@ -71,8 +72,10 @@ Components:
   scrolled to the top.
 - The previous window stays the target: `ForegroundTracker` skips the app's own windows, so taking
   the foreground back does not replace it.
-- A keep-open insertion started while a hand-back is pending waits for it (or is ignored — decided
-  at implementation, reported).
+- A keep-open insertion started while a hand-back is pending is **ignored**: its Ctrl+Enter was
+  swallowed by the hook anyway, and a Ctrl+click typed then would go to this window.
+- A window hidden during the hand-back (the tray icon's click) stays hidden: the foreground is taken
+  back only while visible; the topmost band and the swallowing end in a `finally`.
 
 ### Modifiers
 
@@ -82,7 +85,9 @@ Ctrl is **physically held** while the characters are typed: the previous window 
 injected key-up — before the characters, and **presses them again** (an injected key-down each)
 after, in the same `SendInput` call: the target sees plain characters, and the keyboard state
 matches the user's fingers once done, ready for the next Ctrl+Enter. Shift and Alt are never held
-here (the triggers exclude them). A plain Enter or click types as today: nothing is held.
+here (the triggers exclude them). `EmojiInserter.Type` does it on every call: a plain Enter or click
+holds no Ctrl, so nothing changes there. Every injected key — the characters included — carries
+`ShortcutHook.InjectedMarker`, made public for it.
 
 ### Keys During the Hand-Back
 
@@ -99,8 +104,13 @@ apps). The shortcut's low-level hook (`Input/ShortcutHook.cs`, already on its ow
 - The insertion's own keys — the characters and the Ctrl up / down of *Modifiers* — are injected
   with the hook's marker in `dwExtraInfo` (`ShortcutHook.InjectedMarker`, shared), so the hook
   lets them through, like its dummy key.
-- The flag is set and cleared from the UI thread, read by the hook's thread (a `volatile` field or
-  `Interlocked`): the hook still does nothing but read it and answer.
+- **Key-ups**: one is swallowed only when its key-down was (`swallowedDuringInsertion`, the hook's
+  thread only) — even after the insertion ended. A key-up whose key-down went through must reach
+  Windows, or the key would stay down; the auto-repeat of a key held since before the insertion is
+  swallowed without its key-up.
+- The flag is a deadline (`Environment.TickCount64`, `Volatile` read / write): `SwallowKeys` /
+  `StopSwallowing` from the UI thread, read by the hook's thread, which still does nothing but read it
+  and answer.
 - A safety: the flag is cleared in a `finally`, and expires on its own after a bound (one second)
   should the hand-back never run — the keyboard is never left swallowed.
 
@@ -120,9 +130,11 @@ today puts the selection back on the first emoji in view — the keep-open inser
   | In another section | The same cell — the same emoji |
   | Gone (removed, *Clear frequently used*), or none | The first emoji in view, as today |
 
-  It applies to every call — *Remove from frequently used* and *Clear* included —, with no visible
-  change for them: the emoji they act on is gone. After a plain Enter or click, the window hides,
-  and every show resets the selection anyway.
+  It applies to every call — *Remove from frequently used* and *Clear* included. For them, a selection
+  in the frequent section is gone and goes back to the first emoji in view, as before; a selection
+  **outside** it now stays on its emoji, the view following the section's shrink (before: the first
+  emoji in view). After a plain Enter or click, the window hides, and every show resets the selection
+  anyway.
 - **The view** (Q&A #5): while the frequent section grows (its first 3 rows), the sections below it
   move down — a Ctrl+click repeated at the same place would hit another emoji. When the selection is
   **outside** the replaced section, the view moves with the change of height (`SetOffset`, as
@@ -146,6 +158,11 @@ front (`GetForegroundWindow`), the box's text kept.
 | Behaviour to pin | Test file | Create / Update |
 |---|---|---|
 | — none, see above | — | — |
+
+The check as run (Iteration 4): posted messages cannot carry Ctrl — `ProcessCmdKey` reads it from the
+keyboard's state —, so real input was injected with `SendInput`. On the user's desktop in use, it
+went to whatever was in front — another session's instance hooking Win+. too, Windows Search, a
+Chromium window —, and was stopped. Checked by hand at delivery (RULES.md § Keep-Open Insertion).
 
 ---
 
@@ -186,6 +203,36 @@ released around the typed characters then pressed again; the keys pressed during
 swallowed by the shortcut hook, the modifiers and the insertion's own marked keys let through, the
 flag bounded to one second. No open question left.
 
+### Iteration 3 — 2026-10-09 — ✅ Implemented
+
+Go given: code, unit tests and documentation, in a worktree (`.claude/worktrees/ctrl-enter-keep-open`,
+branch `feature/ctrl-enter-keep-open`). The scope is the design above, as of Iteration 2.
+
+### Iteration 4 — 2026-10-09 — 🧭 Implementation choices
+
+No rule broken. Choices the frozen design left open, or did not state:
+
+- **Click event**: `EmojiClicked` now carries an `EmojiGrid.EmojiClick(Emoji, KeepOpen)` record; Ctrl+click
+  is `ModifierKeys == Keys.Control` exactly.
+- **Overlapping insertions**: a keep-open insertion while a hand-back is pending is **ignored**.
+- **Hidden during the hand-back**: stays hidden; the topmost band and the swallowing end in a `finally`.
+- **`EmojiInserter.Type`** releases a held Ctrl on **every** call (a no-op for Enter and a plain click),
+  and marks **every** injected key, characters included, with `ShortcutHook.InjectedMarker` — made public.
+- **Key-ups in the hook**: swallowed only when their key-down was; a key held since before the
+  insertion has its auto-repeat swallowed but its key-up let through — otherwise the key would stay
+  down for Windows.
+- **Divergence — *Clear* and *Remove from frequently used***: the design said they would see no
+  change. With the selection **outside** the frequent section, it now stays on its emoji and the view
+  follows the section's change of height, where it used to jump to the first emoji in view.
+- **RULES.md** got a *Keep-Open Insertion* subsection under *Categories and Insertion*, and a note
+  that an agent cannot check it with posted messages, and must not inject real input on a desktop in
+  use.
+- **Check**: the build succeeds (0 warnings). The scripted check was **stopped early**. It showed
+  one keep-open insertion reaching a test window (😀, no stray line break) with the app's window
+  still visible. It did **not** confirm the hand-back of the foreground: another session's instance
+  (`search-box-edge-arrows`) came to the front during it, cause not established. The injected input
+  also reached Windows Search and a Chromium window. Left to the user's hand test.
+
 ---
 
 ## Implementation Log
@@ -195,10 +242,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
+| Code | 3 | 2026-10-09 | Three commits: grid selection, input (hook, typing), keep-open insertion. Scripted check stopped early (see Iteration 4) |
 | Unit tests | — | — | Not applicable: no test project (see *Test Impact*) |
-| RULES.md | | | § Window and Tray Icon, § Categories and Insertion, § Keyboard |
-| README (English and French) | | | § Keyboard, the click sentence |
+| RULES.md | 3 | 2026-10-09 | § Window and Tray Icon, new § Keep-Open Insertion, § Shortcut, § Frequent Tab, § Keyboard |
+| README (English and French) | 3 | 2026-10-09 | § Insertion, § Keyboard |
 
 ---
 

@@ -117,7 +117,7 @@ internal sealed class EmojiGrid : Control
     }
 
     /// <summary>An emoji was clicked — not one of the section in reorder mode.</summary>
-    public event EventHandler<Emoji>? EmojiClicked;
+    public event EventHandler<EmojiClick>? EmojiClicked;
 
     /// <summary>An emoji was right-clicked.</summary>
     public event EventHandler<EmojiRightClick>? EmojiRightClicked;
@@ -314,17 +314,52 @@ internal sealed class EmojiGrid : Control
 
     /// <summary>
     /// Replaces the section of <paramref name="index"/> — its tab stays the same. The sections below it move with
-    /// its height; while searching, the change shows when the categories come back. The selection goes back to the
-    /// first emoji in view: the cell it was on may be gone.
+    /// its height; while searching, the change shows when the categories come back. The selection stays on its
+    /// emoji: wherever it moved in the replaced section, on its cell in another one — the view then moving with the
+    /// change of height, so the emoji keeps its place on screen, under the mouse for a Ctrl+click. Gone from the
+    /// replaced section, it goes back to the first emoji in view.
     /// </summary>
     public void ReplaceCategory(int index, EmojiCategory category)
     {
+        (int Section, int Index)? before = this.selection;
+        Emoji? selected = this.SelectedEmoji;
+        int? selectedTop = before is (int section, int cell) ? this.layout.CellBounds(section, cell).Top : null;
         this.categories[index] = category;
-        if (!this.IsSearching)
+        if (this.IsSearching)
         {
-            this.Relayout();
-            this.SetSelection(this.FirstVisible(), ensureVisible: false);
+            return;
         }
+
+        int offset = this.Offset;
+        this.Relayout();
+        if (before is (int kept, int keptIndex) && kept != index && selectedTop is int top)
+        {
+            this.SetOffset(offset + this.layout.CellBounds(kept, keptIndex).Top - top);
+            this.SetSelection(before, ensureVisible: false);
+            return;
+        }
+
+        this.SetSelection(this.CellOf(index, selected) ?? this.FirstVisible(), ensureVisible: false);
+    }
+
+    // The cell of emoji in the section of index, while the section shows it — the frequent section is cut to its rows.
+    private (int Section, int Index)? CellOf(int index, Emoji? emoji)
+    {
+        if (emoji is null || this.layout.LastOf(index) is not (_, int last))
+        {
+            return null;
+        }
+
+        IReadOnlyList<Emoji> emojis = this.sections[index].Emojis;
+        for (int i = 0; i <= last; i++)
+        {
+            if (emojis[i].Text == emoji.Text)
+            {
+                return (index, i);
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -643,7 +678,8 @@ internal sealed class EmojiGrid : Control
         this.EndDrag();
     }
 
-    // The emojis of the section in reorder mode are dragged, never inserted.
+    // The emojis of the section in reorder mode are dragged, never inserted. Ctrl alone held: inserted, the window kept
+    // open.
     protected override void OnMouseClick(MouseEventArgs e)
     {
         base.OnMouseClick(e);
@@ -651,7 +687,8 @@ internal sealed class EmojiGrid : Control
         this.ignoreClick = false;
         if (e.Button == MouseButtons.Left && !ignore && this.HitTest(e.Location) is (int section, int index) && section != this.reorderSection)
         {
-            this.EmojiClicked?.Invoke(this, this.sections[section].Emojis[index]);
+            bool keepOpen = ModifierKeys == Keys.Control;
+            this.EmojiClicked?.Invoke(this, new EmojiClick(this.sections[section].Emojis[index], keepOpen));
         }
     }
 
@@ -894,6 +931,9 @@ internal sealed class EmojiGrid : Control
             this.Invalidate();
         }
     }
+
+    /// <summary>An emoji clicked, and whether with Ctrl alone: inserted, the window kept open.</summary>
+    public readonly record struct EmojiClick(Emoji Emoji, bool KeepOpen);
 
     /// <summary>
     /// An emoji right-clicked: its section, the emoji, and where, in the grid's coordinates. From the keyboard — the

@@ -1,6 +1,6 @@
 # Search Box Edge Arrows
 
-> Working document — ← / → at the edge of the search box's text move into the grid.
+> Working document — ← / → at the edge of the search box's text, and ↓, move into the grid from the selection.
 > This file is the source of truth for the planned work until implemented,
 > then the log of every adjustment made to it afterwards.
 
@@ -14,6 +14,10 @@ the box: it should act as → in the grid, from the selection — the grid gets 
 selection moves to the next emoji. Likewise ← with the caret at the **start** of the text.
 
 Inside the text, ← / → keep moving the caret: editing is never disturbed.
+
+↓ with text acts as ↓ in the grid too, from the selection — one row down — instead of putting the
+selection on the first result: Enter already inserts the selection in place, ↓ landing on it again
+would be a wasted key.
 
 Components: `UI/MainForm.cs` (`ProcessCmdKey`, the key routing) only. `EmojiGrid.MoveSelection` and
 `EmojiGridLayout` are unchanged — the target cells are already computed there.
@@ -30,13 +34,14 @@ In `MainForm.ProcessCmdKey`, search box focused, **with text** (`TextLength > 0`
 | ← (no modifier) | At the start of the text, no text selected (`SelectionLength == 0`, `SelectionStart == 0`) | As ← in the grid, from the selection: the previous emoji, the grid gets the keyboard |
 | ← / → | Anywhere else, or text selected | Windows' own behaviour: the caret moves; a text selection collapses to its end / start — the **next** press at the edge leaves the box |
 | Shift+← / →, Ctrl+← / → | Any | Windows' own behaviour, never leaves the box |
-| ← / → at the edge | **No result** (`grid.SelectedEmoji is null`) | Nothing: the keyboard stays in the box, like ↓ |
+| ↓ (no modifier) | Any | As ↓ in the grid, from the selection: one row down, same column (a shorter row → its last emoji), the grid gets the keyboard |
+| ← / → at the edge, ↓ | **No result** (`grid.SelectedEmoji is null`) | Nothing: the keyboard stays in the box |
 
 - **From the selection, like the empty box**: the grid gets the keyboard **even when the selection
-  cannot move** — → on the last result, ← on the first one. The same rule as the empty box's keys
+  cannot move** — → on the last result, ← on the first one, ↓ on the last row. The same rule as the empty box's keys
   (RULES.md § Keyboard).
 - The selection is the one in place — the first result after typing, or the one the mouse moved
-  to — not reset to the first result, unlike ↓.
+  to — never reset to the first result, ↓ included.
 - The empty box's branch already answers ← / → (its caret is at both edges at once): unchanged.
 - Coming back is unchanged: ↑ on the grid's first row, or typing a character, returns to the box —
   `FocusSearchBox` puts the caret at the end of the text, so a → right after leaves again.
@@ -47,8 +52,8 @@ In `MainForm.ProcessCmdKey`, search box focused, **with text** (`TextLength > 0`
 
 | File | Change |
 |---|---|
-| `RULES.md` § Keyboard | The *Search box, with text* row ← / → splits: the caret inside the text; at the edge → as in the grid. Wording on "only ↓ leaves it" updated |
-| `README.md` / `README.fr.md` § Keyboard | One clause: **→** at the end of the text (**←** at its start) moves into the grid too |
+| `RULES.md` § Keyboard | The *Search box, with text* ↓ row: as in the grid, from the selection. The row ← / → splits: the caret inside the text; at the edge → as in the grid. Wording on "only ↓ leaves it" updated |
+| `README.md` / `README.fr.md` § Keyboard | One clause: **→** at the end of the text (**←** at its start) moves into the grid too; **↓** applied from the selection |
 | `MainForm.ProcessCmdKey` comments | "With text in the box, only ↓ leaves it" updated |
 
 ---
@@ -111,6 +116,21 @@ No divergent choice: the code does what the frozen design describes, no rule bro
   state; the code compares `keyData` to the plain keys, so a modifier never matches. The selection's
   move itself is `EmojiGrid.MoveSelection`, unchanged.
 
+### Iteration 4 — 2026-10-09 — ⚙️ Post-implementation — ↓ applied from the selection
+
+Requested after delivery: with text in the box, ↓ put the selection on the first result before handing
+the keyboard over — a wasted press, since Enter already inserts the selection in place. ↓ now acts as
+in the grid, from the selection: one row down, the grid getting the keyboard even when the selection
+cannot move; no result → stays in the box. It joins the edge arrows' branch in `ProcessCmdKey`.
+Revises the ↓ row of `20261008-empty-search-box-keys.md` / RULES.md § Keyboard.
+
+### Iteration 5 — 2026-10-09 — 🧭 Implementation choices
+
+No divergent choice: ↓ with text joins the edge arrows' branch (`atEdge || keyData == Keys.Down`),
+the old `case Keys.Down` (`ResetToTop`) removed, the leftover `switch` turned into an `if`. Checked on
+the built app — 21 checks passed, the 16 earlier ones plus: ↓ with text hands the keyboard over, a
+first ↑ stays in the grid (↓ went one row down), a second comes back; ↓ with no result stays.
+
 ---
 
 ## Implementation Log
@@ -120,10 +140,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | 2 | 2026-10-09 | `MainForm.ProcessCmdKey`, checked on the built app (Iteration 3) |
-| Unit tests | 2 | 2026-10-09 | Does not apply: no test project — see *Test Impact* |
-| README | 2 | 2026-10-09 | `README.md` and `README.fr.md` § Keyboard |
-| RULES.md | 2 | 2026-10-09 | § Keyboard: the intro, a new row, *The text's edge* note |
+| Code | 2, 4 | 2026-10-09 | `MainForm.ProcessCmdKey`, checked on the built app (Iterations 3, 5) |
+| Unit tests | 2, 4 | 2026-10-09 | Does not apply: no test project — see *Test Impact* |
+| README | 2, 4 | 2026-10-09 | `README.md` and `README.fr.md` § Keyboard |
+| RULES.md | 2, 4 | 2026-10-09 | § Keyboard: the intro, a new row, *The text's edge* note; the ↓ row (Iteration 4) |
 
 ---
 
