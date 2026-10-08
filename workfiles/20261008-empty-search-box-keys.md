@@ -116,6 +116,11 @@ is empty on purpose.
 The three open questions answered: a box of spaces is not empty; a key that moves nothing still sends
 the keyboard to the grid; the Menu key / Shift+F10 keep the box's menu. No question left.
 
+### Iteration 3 — 2026-10-09 — ✅ Implemented
+
+Go given: code, tests and documentation, in a worktree (`.claude/worktrees/empty-search-box-keys`,
+branch `feature/empty-search-box-keys`). The scope is the design above, frozen.
+
 ---
 
 ## Implementation Log
@@ -143,4 +148,4 @@ the keyboard to the grid; the Menu key / Shift+F10 keep the box's menu. No quest
 
 ---
 
-*Last updated: 2026-10-08*
+*Last updated: 2026-10-09*
