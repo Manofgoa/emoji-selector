@@ -128,24 +128,27 @@ The typed text is split **at spaces** into typed words, as today. Each typed wor
   (`EmojiDetailsPanel.HeightFor`, over the whole catalog) counts them with no change.
 - **Highlight**: `EmojiSearch.MatchSpans` highlights a typed word with symbols too — today it
   normalizes the symbols away, so `?` would highlight nothing.
+- **Emoticons highlighted too** (Q&A 9): the emoticons under the emoji get the same highlight, in
+  `highlightColor`, when the search matches them — `:)` under 🙂.
 
 ---
 
 ## Test Impact
 
-To settle (see *Open Questions*): the app has **no test project**; the previous workfiles checked the
-search on the built app, by reflection on the dll. The behaviours an assertion must prove either way:
+None: the app has **no test project**, and none is created (Q&A 10). The search is checked on the
+built app by calling `EmojiCatalog` and `EmojiSearch` **by reflection on the dll**, like the previous
+workfiles. The checks:
 
-| Behaviour to pin | Test file | Create / Update |
-|---|---|---|
-| `?` finds ❓ and ❔ first, then ⁉️ | — | — |
-| `1` finds 1️⃣ first, before 🕐 | — | — |
-| `ok` finds 🆗 before 👌 | — | — |
-| `:)` finds 🙂 first; `<3` ❤️ | — | — |
-| `=` finds 🟰, `$` 💲 (characters missing from Emojibase) | — | — |
-| `aujourd'hui`, `d'or` find what they found before (fallback) | — | — |
-| `MatchSpans` highlights `?` in ❓'s tags, `=` in 🟰's | — | — |
-| 🟰's tags hold `=`; ❓'s hold `?` once | — | — |
+| Behaviour to check | Through |
+|---|---|
+| `?` finds ❓ and ❔ first, then ⁉️ | `EmojiSearch.Find` |
+| `1` finds 1️⃣ first, before 🕐 | `EmojiSearch.Find` |
+| `ok` finds 🆗 before 👌 | `EmojiSearch.Find` |
+| `:)` finds 🙂 first; `<3` ❤️ | `EmojiSearch.Find` |
+| `=` finds 🟰, `$` 💲 (characters missing from Emojibase) | `EmojiSearch.Find` |
+| `aujourd'hui`, `d'or` find what they found before (fallback) | `EmojiSearch.Find`, against the current build |
+| `?` highlighted in ❓'s tags, `=` in 🟰's, `:)` in 🙂's emoticon | `EmojiSearch.MatchSpans` |
+| 🟰's tags hold `=` in both rows; ❓'s hold `?` once per row | `EmojiCatalog.Build` |
 
 ---
 
@@ -159,10 +162,10 @@ search on the built app, by reflection on the dll. The behaviours an assertion m
   only?~~ → `Character` tier, first
 - [x] ~~**Details panel row**: the characters added to both rows' tags, or to the English row
   only?~~ → Both rows, at the end, skipped where the row already has them
-- [ ] **Emoticon highlight**: highlight the emoticon under the emoji when the search matches it, like
-  the names and tags (recommended) — or not?
-- [ ] **Tests**: checked on the built dll by reflection, no test project, like the previous workfiles
-  (recommended) — or create a test project for `EmojiSearch`?
+- [x] ~~**Emoticon highlight**: highlight the emoticon under the emoji when the search matches it, like
+  the names and tags — or not?~~ → Highlighted
+- [x] ~~**Tests**: checked on the built dll by reflection, no test project — or create a test project
+  for `EmojiSearch`?~~ → By reflection, no test project
 
 ---
 
@@ -193,6 +196,11 @@ uncertain row kept — 💯 `100`, 🔞 `18`, 🔠🔡🔢🔤, the 17 Japanese 
 an emoticon typed exactly is in the `Character` tier; the characters are added to **both** rows of
 the details panel. Still open: the emoticon highlight, the tests.
 
+### Iteration 3 — 2026-10-09
+
+Q&A 9–10 answered: the emoticons under the emoji are highlighted like the names and tags; no test
+project — the search is checked by reflection on the built dll. No question left open.
+
 ---
 
 ## Implementation Log
@@ -203,7 +211,7 @@ says so rather than staying blank.
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
 | Code | | | |
-| Unit tests | | | |
+| Unit tests | | | Does not apply: no test project — see *Test Impact* |
 | README | | | `README.md` and `README.fr.md` § Search box |
 | RULES.md | | | § Search Box |
 | GLOSSARY | | | A *Character* term, if kept — `GLOSSARY.md` and `GLOSSARY.fr.md` |
@@ -224,8 +232,8 @@ Questions asked by the agent during design, with user responses.
 | 6 | Which of the uncertain rows of the proposed list are kept? | All: 💯 `100`, 🔞 `18`, 🔠🔡🔢🔤, the Japanese ideographs, ✖️ by `x` too | 2026-10-09 |
 | 7 | An emoticon typed exactly: `Character` tier, or whole word only? | `Character` tier — first | 2026-10-09 |
 | 8 | Details panel: the characters added to both rows, or the English one only? | Both rows | 2026-10-09 |
-| 9 | Highlight the emoticon under the emoji when the search matches it? | | 2026-10-09 |
-| 10 | Tests: by reflection on the built dll, or a new test project? | | 2026-10-09 |
+| 9 | Highlight the emoticon under the emoji when the search matches it? | Yes | 2026-10-09 |
+| 10 | Tests: by reflection on the built dll, or a new test project? | By reflection, no test project | 2026-10-09 |
 
 ---
 
