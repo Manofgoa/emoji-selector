@@ -497,10 +497,26 @@ internal sealed class MainForm : Form
         }
     }
 
-    // The window frame is computed again, now that WndProc answers WM_NCCALCSIZE.
+    // A tool window, like Windows' emoji panel: no taskbar button, no Alt+Tab nor Task View entry. Never ShowInTaskbar =
+    // false: WinForms makes the form owned by a hidden window for it — an owned window stays in Alt+Tab, and .NET's
+    // Process.MainWindowHandle skips it. WS_EX_APPWINDOW, which forces a taskbar button, is taken out.
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            CreateParams parameters = base.CreateParams;
+            parameters.ExStyle = (parameters.ExStyle | WsExToolWindow) & ~WsExAppWindow;
+            return parameters;
+        }
+    }
+
+    // The window frame is computed again, now that WndProc answers WM_NCCALCSIZE. Windows 11 gives a tool window the small
+    // corner radius of a menu: the corners are asked round, as an app window's (Windows 10 has none, and refuses).
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
+        int round = DwmwcpRound;
+        DwmSetWindowAttribute(this.Handle, DwmwaWindowCornerPreference, ref round, sizeof(int));
         SetWindowPos(this.Handle, IntPtr.Zero, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
     }
 
@@ -1542,8 +1558,12 @@ internal sealed class MainForm : Form
     private const uint GwHwndPrev = 3;
     private const int GwlExStyle = -20;
     private const int WsExTopmost = 0x8;
+    private const int WsExToolWindow = 0x80;
+    private const int WsExAppWindow = 0x40000;
     private const int DwmwaExtendedFrameBounds = 9;
     private const int DwmwaCloaked = 14;
+    private const int DwmwaWindowCornerPreference = 33;
+    private const int DwmwcpRound = 2;
     private const int EmSetCueBanner = 0x1501;
     private const int WmChar = 0x0102;
     private const uint SwpNoSize = 0x1;
@@ -1618,4 +1638,7 @@ internal sealed class MainForm : Form
 
     [DllImport("dwmapi.dll", ExactSpelling = true)]
     private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out int value, int size);
+
+    [DllImport("dwmapi.dll", ExactSpelling = true)]
+    private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
 }
