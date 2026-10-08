@@ -176,9 +176,16 @@ internal sealed class MainForm : Form
     // Started with BackgroundArgument and not shown yet: Application.Run's show is skipped.
     private bool startHidden;
 
-    // The text cursor Win+; places the window under while it shows it: the first show sizes and centres the window in
-    // OnLoad, after it was placed.
+    // The text cursor Win+; places the window under while it shows it: the first show sizes the window in OnLoad,
+    // after it was placed. Null, the first show places it in the corner of the mouse's monitor.
     private Rectangle? showAnchor;
+
+    // OnLoad placed the window in the corner before its frame could be measured: OnShown places it there again.
+    private bool placeInCornerWhenShown;
+
+    // The window is where PlaceInCorner put it, not moved since: a change of DPI places it there again (see
+    // OnDpiChanged).
+    private bool inCorner;
 
     /// <summary>The second title given with <see cref="TitleArgument"/>, null without one.</summary>
     public string? SecondTitle { get; }
@@ -192,8 +199,9 @@ internal sealed class MainForm : Form
         this.startHidden = startHidden;
         this.singleInstance = singleInstance;
         this.Text = secondTitle is null ? AppTitle : $"{AppTitle} — {secondTitle}";
-        // Sized in OnLoad, once the bars are laid out at the window's DPI.
-        this.StartPosition = FormStartPosition.CenterScreen;
+        // Sized in OnLoad, once the bars are laid out at the window's DPI, then placed in the corner of the mouse's
+        // monitor (see PlaceInCorner).
+        this.StartPosition = FormStartPosition.Manual;
 
         // No caption (see WndProc): nothing to minimize or maximize from, and Windows refuses Win+Up, Win+Down and
         // the double-click on the drag area.
@@ -397,9 +405,9 @@ internal sealed class MainForm : Form
         return base.ProcessCmdKey(ref msg, keyData);
     }
 
-    // Sized before base.OnLoad centres the window: the handle exists, at the DPI of its monitor, and the bars can be
-    // measured. The size the user last resized to wins over the default one. A first show by Win+; — after a start with
-    // BackgroundArgument — places the window again once sized, where centring moved it.
+    // Sized on the first show: the handle exists, at the DPI of its monitor, and the bars can be measured. The size the
+    // user last resized to wins over the default one. Then placed: under the text cursor on a first show by Win+; —
+    // after a start with BackgroundArgument —, in the corner of the mouse's monitor otherwise.
     protected override void OnLoad(EventArgs e)
     {
         this.SetClientArea(SettingsFile.ReadWindowSize() is Size saved ? this.LogicalToDeviceUnits(saved) : this.DefaultClientSize());
@@ -407,6 +415,23 @@ internal sealed class MainForm : Form
         if (this.showAnchor is Rectangle anchor)
         {
             this.PlaceAt(anchor);
+        }
+        else
+        {
+            this.PlaceInCorner();
+            this.placeInCornerWhenShown = true;
+        }
+    }
+
+    // Placed again in the corner once the first show is done, its frame now measurable: OnLoad could not read it, and a
+    // move to a monitor of another DPI may have resized the window.
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        if (this.placeInCornerWhenShown)
+        {
+            this.placeInCornerWhenShown = false;
+            this.PlaceInCorner();
         }
     }
 
@@ -423,6 +448,19 @@ internal sealed class MainForm : Form
     {
         base.OnResizeBegin(e);
         this.sizeBeforeResize = this.LogicalClientSize();
+        // The user moves or resizes the window: it leaves its corner.
+        this.inCorner = false;
+    }
+
+    // Windows applies the DPI of a monitor of another scale once the window is shown there, after the placement that
+    // brought it: resized around its top-left corner, the window would leave its corner, so it is placed there again.
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        if (this.inCorner && this.Visible)
+        {
+            this.PlaceInCorner();
+        }
     }
 
     // Saved when the user finishes a resize, not at exit: Windows shutting down or the Task Manager may end the app
@@ -753,12 +791,17 @@ internal sealed class MainForm : Form
     private void ShowWarning(string text) =>
         MessageBox.Show(this, text, AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
-    // Back to the default size right away, its top-left corner where it is, and at the next launch too: the saved size
+    // Back to the default size right away, its top-left corner where it is — moved only as far as needed to stay inside
+    // the working area, a larger size grown from the corner would leave it —, and at the next launch too: the saved size
     // is removed. The window stays shown.
     private void ResetWindowSize()
     {
         SettingsFile.WriteWindowSize(null);
         this.SetClientArea(this.DefaultClientSize());
+        this.inCorner = false;
+        Size frameSize = this.FrameSize();
+        var frame = new Rectangle(this.Left + this.frameMargins.Left, this.Top + this.frameMargins.Top, frameSize.Width, frameSize.Height);
+        this.MoveFrameTo(WindowPlacement.KeepInside(frame, Screen.FromHandle(this.Handle).WorkingArea));
     }
 
     // Every counter reset, after a confirmation: they cannot be brought back. No is the default button.
@@ -1270,7 +1313,8 @@ internal sealed class MainForm : Form
         this.OnEmojiUsed(emoji.Text);
     }
 
-    // Hidden → shown. Shown but covered by another window → brought to the front. Shown in front → hidden.
+    // Hidden → shown in the corner of the mouse's monitor. Shown but covered by another window → brought to the front.
+    // Shown in front → hidden.
     private void OnTrayIconClicked(object? sender, EventArgs e)
     {
         if (this.Visible && !this.IsCovered())
@@ -1279,15 +1323,29 @@ internal sealed class MainForm : Form
             return;
         }
 
-        this.Show();
-        this.Activate();
+        this.ShowOrBringToFront();
     }
 
     // A later launch of this exe (see SingleInstance): shown and brought to the front, as the tray icon's click does it
     // when hidden or covered — never hidden, a launch is not a toggle. The launching process handed the foreground over.
     private void OnShowRequested(object? sender, EventArgs e)
     {
-        this.Show();
+        this.ShowOrBringToFront();
+    }
+
+    // The tray icon's show, and a later launch's. Hidden → placed in the corner of the mouse's monitor, then shown;
+    // shown but covered → brought to the front where it is.
+    private void ShowOrBringToFront()
+    {
+        if (!this.Visible)
+        {
+            // Placed before being shown, so it does not appear at its old place first; placed again once shown, when
+            // its frame can be read and a move to a monitor of another DPI has resized it.
+            this.PlaceInCorner();
+            this.Show();
+            this.PlaceInCorner();
+        }
+
         this.Activate();
     }
 
@@ -1321,6 +1379,28 @@ internal sealed class MainForm : Form
     // Moves the window so its visible frame sits against the anchor, as WindowPlacement computes it.
     private void PlaceAt(Rectangle anchor)
     {
+        this.inCorner = false;
+        Size frameSize = this.FrameSize();
+        Rectangle workingArea = Screen.FromPoint(anchor.Location).WorkingArea;
+        int gap = WindowPlacement.Gap * this.DeviceDpi / 96;
+        this.MoveFrameTo(WindowPlacement.Place(anchor, frameSize, workingArea, gap));
+    }
+
+    // Moves the window so its visible frame sits in the corner of the monitor holding the mouse pointer, next to its
+    // notification area, as WindowPlacement computes it.
+    private void PlaceInCorner()
+    {
+        Size frameSize = this.FrameSize();
+        Screen screen = Screen.FromPoint(Cursor.Position);
+        int margin = WindowPlacement.CornerMargin * this.DeviceDpi / 96;
+        this.MoveFrameTo(WindowPlacement.PlaceInCorner(frameSize, screen.Bounds, screen.WorkingArea, margin));
+        this.inCorner = true;
+    }
+
+    // The size of the window's visible frame: the invisible resize borders and the shadow left out. The margins between
+    // the window and its frame are measured while it is shown, and kept for the placements made while it is hidden.
+    private Size FrameSize()
+    {
         if (this.Visible)
         {
             Rectangle frame = GetFrameBounds(this.Handle);
@@ -1328,12 +1408,12 @@ internal sealed class MainForm : Form
                 this.Bottom - frame.Bottom);
         }
 
-        var frameSize = new Size(this.Width - this.frameMargins.Horizontal, this.Height - this.frameMargins.Vertical);
-        Rectangle workingArea = Screen.FromPoint(anchor.Location).WorkingArea;
-        int gap = WindowPlacement.Gap * this.DeviceDpi / 96;
-        Point location = WindowPlacement.Place(anchor, frameSize, workingArea, gap);
-        this.Location = new Point(location.X - this.frameMargins.Left, location.Y - this.frameMargins.Top);
+        return new Size(this.Width - this.frameMargins.Horizontal, this.Height - this.frameMargins.Vertical);
     }
+
+    // Moves the window so its visible frame's top-left corner is at location, with the margins FrameSize measured.
+    private void MoveFrameTo(Point location) =>
+        this.Location = new Point(location.X - this.frameMargins.Left, location.Y - this.frameMargins.Top);
 
     // The shortcut hook's dummy key makes this app the last one to have sent input, which lets it take the
     // foreground. Should Windows still refuse, the input of the thread in front is attached to this one for the time
