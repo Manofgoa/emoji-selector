@@ -9,6 +9,7 @@ What the exe accepts, parsed in `Program.Main`:
 | Argument | Does |
 |---|---|
 | `--title <text>` (`MainForm.TitleArgument`) | The **second title**: the window reads `Emoji Selector — <text>` |
+| `--background` (`MainForm.BackgroundArgument`) | Starts **hidden** in the notification area, the window shown by Win+; or the tray icon (see *Start with Windows*) |
 | Anything else | Ignored |
 
 - `--title` takes the **next argument** as its value, unless that one is an option itself; a value
@@ -33,6 +34,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Show frequently used` | Checked while the frequent tab is shown: a click hides it or shows it again (see *Frequent Tab* below) |
 | Settings button ⚙ → `Show French names` | Checked while the details panel shows its French row: a click hides it or shows it again (see *Details Panel* below) |
 | Settings button ⚙ → `Highlight color…` | Windows' colour dialog: the colour highlighting the search's matches in the details panel (see *Details Panel* below) |
+| Settings button ⚙ → `Start with Windows` | Checked while Windows starts this exe at sign-in: a click writes or deletes the **startup shortcut** (see *Start with Windows* below); the window stays |
 | Settings button ⚙ → `Check for emoji updates…` | The latest Emojibase version online; a newer one offered, downloaded, then a restart offered (see *Emoji Data* below) |
 | Tray icon, left click | Hidden → shown; covered by another window → brought to the front; already in front → hidden |
 | Tray icon, right click → `Exit` | Ends the app |
@@ -98,6 +100,52 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   over a smaller one.
 - An agent checking a resize from a script sends `WM_ENTERSIZEMOVE`, a `SetWindowPos`, then
   `WM_EXITSIZEMOVE`: `OnResizeEnd` runs as after a drag, the mouse untouched.
+
+## Start with Windows
+
+**`Start with Windows`**, in the settings menu after `Highlight color…`, has Windows launch the app at
+sign-in, hidden in the notification area. Off by default.
+
+- **The startup shortcut** (`Data/StartupShortcut.cs`): `Emoji Selector.lnk` in the user's Startup
+  folder (`Environment.SpecialFolder.Startup`) — the running exe, `--background`, the exe's folder as
+  working folder, the exe's icon. Written and read through `IShellLinkW` / `IPersistFile`, declared by
+  hand (`Data/ShellLinkInterop.cs`): no new dependency.
+- **The shortcut is the setting**: nothing in `settings.json`. The item's check mark is read each time
+  the menu opens; it is **checked** only while the shortcut exists, its target is **this exe** (the
+  full path, case ignored) and the Task Manager has not disabled it — *Startup apps* → *Disable* keeps
+  the shortcut and writes a value `Emoji Selector.lnk` under
+  `HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder`, a
+  binary whose first byte is **odd** while disabled. Missing or unreadable → enabled.
+- Unchecked → a click writes the shortcut to this exe — replacing one to another exe — and deletes the
+  Task Manager's value; checked → a click deletes both. No confirmation. A failure → `Could not change
+  the startup shortcut`, a warning, nothing else changed.
+- **Never touched unasked**: no check, no repair, no rewrite at launch.
+- **`--background`**: `MainForm.SetVisibleCore` skips `Application.Run`'s show — the tray icon, the hook,
+  the pre-render and the data run as on a normal launch, the window's handle is not even created. The
+  first show — Win+;, Win+. or the tray icon — runs `OnLoad` then: sized, centred, and placed again
+  under the text cursor by Win+; (`MainForm.showAnchor`).
+
+### Single Instance
+
+- **One instance per exe** (`SingleInstance.cs`): a mutex `Local\EmojiSelector-<key>`, the key a hash of
+  the exe's full path, upper-cased — taken in `Program.Main` before anything is loaded. Two builds in
+  two folders (a worktree's next to `main`'s) still run side by side; the same exe twice does not.
+- **A later launch** of the same exe exits at once: without `--background` it first sets the event
+  `Local\EmojiSelector-<key>-show` — the first instance's window is shown and brought to the front, as
+  the tray icon's click does it, never hidden — after `AllowSetForegroundWindow(ASFW_ANY)`; with
+  `--background` (a sign-in while the app runs) it exits silently. Its arguments, `--title` included,
+  are ignored.
+- The first instance waits for the event on a thread of its own, the show posted to the UI thread.
+- The **restart** after an emoji update releases the mutex and the event before starting the exe
+  again (`MainForm.Restart`): `Application.Restart` would be found by the old instance, and would pass
+  `--background` along.
+- A mutex or an event that cannot be created → the app runs without the single instance, never an
+  error.
+- An agent's check instance of an exe takes the single instance: the delivery launch of the same exe
+  would only show that instance's window. The check instance is ended first.
+- An agent checking the startup shortcut cannot click the settings button from a script: the
+  shortcut is checked by calling `StartupShortcut` by reflection on the built dll — the shortcut then
+  targets the host (`pwsh.exe`), and is deleted at the end.
 
 ## Shortcut
 
@@ -199,8 +247,9 @@ recreates it.
      `https://cdn.jsdelivr.net/npm/emojibase-data@<version>/`, parsed like the folder (any newer
      major accepted when it parses), then written as a set. Any failure → `Could not update the emoji
      data`, the folder left as it was.
-  5. `Restart now to use it?`, Yes / No, *Yes* the default: Yes → `Application.Restart()`, the same
-     arguments, `--title` included; No → used at the next launch.
+  5. `Restart now to use it?`, Yes / No, *Yes* the default: Yes → the exe started again
+     (`MainForm.Restart`), the same arguments, `--title` included, `--background` left out — the
+     single instance released first (see *Start with Windows*); No → used at the next launch.
 - An agent checking the update cannot click the settings button from a script (custom-drawn, no
   accessibility): the network and the validation are checked by calling `EmojiDataUpdate` and
   `EmojiDataFolder.Parse` by reflection on the built dll.
