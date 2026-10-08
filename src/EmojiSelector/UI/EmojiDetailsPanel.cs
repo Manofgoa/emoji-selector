@@ -256,9 +256,7 @@ internal sealed class EmojiDetailsPanel : Control
 
         if (emoji.Emoticons.Count > 0)
         {
-            var emoticons = new Rectangle(0, padding + this.EmojiSize, this.TextLeft, this.LineHeight(this.emoticonFont));
-            TextRenderer.DrawText(graphics, string.Join(" ", emoji.Emoticons), this.emoticonFont, emoticons, SystemColors.GrayText,
-                TextFlags | TextFormatFlags.HorizontalCenter);
+            this.PaintEmoticons(graphics, string.Join(" ", emoji.Emoticons), padding + this.EmojiSize);
         }
 
         int textWidth = this.TextWidthFor(this.Width);
@@ -464,6 +462,22 @@ internal sealed class EmojiDetailsPanel : Control
         }
 
         return y;
+    }
+
+    // The emoticons centred under the emoji, from top, the search's matches highlighted like the names and tags.
+    private void PaintEmoticons(Graphics graphics, string emoticons, int top)
+    {
+        int left = (this.TextLeft - MeasureWidth(emoticons, this.emoticonFont)) / 2;
+        int lineHeight = this.LineHeight(this.emoticonFont);
+        using var highlight = new SolidBrush(this.highlightColor);
+        foreach ((int start, int length) in EmojiSearch.MatchSpans(emoticons, this.searchText))
+        {
+            int offset = MeasureWidth(emoticons[..start], this.emoticonFont);
+            graphics.FillRectangle(highlight, left + offset, top, MeasureWidth(emoticons.Substring(start, length), this.emoticonFont),
+                lineHeight);
+        }
+
+        TextRenderer.DrawText(graphics, emoticons, this.emoticonFont, new Point(left, top), SystemColors.GrayText, TextFlags);
     }
 
     // The flag at the DPI's resolution, scaled to its logical size, edged.
