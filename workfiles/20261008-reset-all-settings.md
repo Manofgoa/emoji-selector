@@ -30,7 +30,7 @@ Components touched:
 - **Label**: `Reset all settings…` — the ellipsis because a dialog follows.
 - **Place**: the settings menu's *app* section (`RULES.md` § Frame: a new item joins the section of
   its feature), **last**, after `Check for emoji updates…` — the most destructive item at the end,
-  away from the everyday ones. *(Open question 3.)*
+  away from the everyday ones, no separator of its own.
 - Always enabled: even a fresh install has `settings.json`, `cache\` and `emoji-data\`.
 
 ---
@@ -72,12 +72,17 @@ does not own.
 | Custom groups | `custom-groups.json` next to the exe, and its temporary sibling | `CustomGroups.FileName` |
 | Render cache | the whole `cache\` folder next to the exe | `EmojiBitmapCache.FolderName` |
 | Emoji data | the whole `emoji-data\` folder next to the exe — recreated from the embedded copy at the restart | `EmojiDataFolder.FolderName` |
-| Startup shortcut | `Emoji Selector.lnk` in the Startup folder, and the Task Manager's `StartupApproved` value | `StartupShortcut.Disable` *(Open question 1)* |
+| Startup shortcut | `Emoji Selector.lnk` in the Startup folder, and the Task Manager's `StartupApproved` value — **only when the shortcut targets this exe** | `StartupShortcut.Disable` |
 
 - **Each name comes from its owner's constant**, never a literal repeated in `AppReset`: a file
   renamed later is still deleted. The temporary siblings (`.tmp` / `.new`) are left behind by an
   interrupted write; they go too.
 - A file or folder already missing is not an error.
+- **Startup shortcut of another exe**: `Emoji Selector.lnk` has one name for every copy of the app,
+  so a reset from a worktree build must not delete the shortcut to `main`'s exe. It is deleted, with
+  the Task Manager's value, only when its target is **this exe** (the full path, case ignored — the
+  comparison `IsEnabled` makes, the Task Manager's state aside: a disabled shortcut to this exe is
+  deleted too). A shortcut to another exe, and its value, are left alone.
 
 ---
 
@@ -89,10 +94,15 @@ does not own.
    whose write had already started may still land — harmless, it is complete and valid, the next
    instance simply reuses it.
 3. **Deletion** — every row of *What Is Deleted*, each one attempted even when another failed.
-   *(Open question 2 for the failures.)*
-4. **Restart** — `MainForm.Restart`, unchanged: the same arguments, `--title` included,
-   `--background` left out, the single instance released first. No "Restart now?" question: the
-   confirmation already said so. *(Open question 4 for a failed restart.)*
+   Any failure (a file held open by another process, a read-only folder) → a warning `Some files
+   could not be deleted:` followed by their names, one per line — then the restart **anyway**: what
+   was deleted is reset, the rest keeps its value.
+4. **Restart** — `MainForm.Restart`: the same arguments, `--title` included, `--background` left out,
+   the single instance released first. No "Restart now?" question: the confirmation already said so.
+   - **A failed restart** (`Process.Start` refused): the warning `The settings were reset. Start the
+     app again to finish.`, then the app **exits** — kept running, it would write its old settings
+     back from memory on the next action. The emoji update's restart keeps its current behaviour (a
+     warning, the app keeps running): `Restart` gets the failure's text and whether to exit.
 
 - Nothing is written between step 3 and the exit: the app writes its files only on a user action,
   and nothing at exit (`OnFormClosing` writes nothing).
@@ -120,10 +130,12 @@ folder, never the user's own, since the reset deletes its files:
 |---|---|---|
 | No in the confirmation (and Esc, Enter by default) changes nothing | — (by hand) | — |
 | Yes deletes `settings.json`, `usage.json`, `custom-groups.json`, `cache\`, `emoji-data\` and their temporary siblings | — (by hand) | — |
-| Yes deletes the startup shortcut and the `StartupApproved` value | — (by hand) | — |
+| Yes deletes the startup shortcut and the `StartupApproved` value when the shortcut targets this exe | — (by hand) | — |
+| A shortcut to another exe, and its `StartupApproved` value, are left alone | — (by hand) | — |
 | The app restarts shown, `--title` kept, every setting at its default, `emoji-data\` back to the embedded version | — (by hand) | — |
 | A missing file or folder is not an error | — (by hand) | — |
-| A file that cannot be deleted (held open by another process) follows Open question 2 | — (by hand) | — |
+| A file that cannot be deleted (held open by another process) → the warning naming it, the rest deleted, then the restart | — (by hand) | — |
+| The item is last in the *app* section, after `Check for emoji updates…` | — (by hand) | — |
 
 The settings button cannot be clicked from a script (custom-drawn, no accessibility): the deletion
 is checked by calling `AppReset` by reflection on the built dll of the copy, the dialog and the
@@ -133,18 +145,13 @@ restart by hand.
 
 ## Open Questions
 
-- [ ] **1. Startup shortcut of another exe.** `Emoji Selector.lnk` has one name for every copy of
-  the app: a reset from a worktree build would delete the shortcut that points to `main`'s exe.
-  Proposal: delete it **only when it targets this exe** (as `IsEnabled` reads it); a shortcut to
-  another exe is left alone.
-- [ ] **2. A deletion that fails** (a file held open by another process, a read-only folder).
-  Proposal: every deletion attempted; any failure → a warning `Some files could not be deleted:` with
-  their names, then **restart anyway** — what was deleted is reset, the rest keeps its value.
-- [ ] **3. Place in the menu.** Proposal: last of the *app* section, after `Check for emoji
-  updates…`. Alternative: a sixth section of its own, at the very end, alone under a line.
-- [ ] **4. A restart that fails** (`Process.Start` refused). The running app still holds the old
-  settings in memory, and would write them back on the next action. Proposal: a warning `The settings
-  were reset. Start the app again to finish.`, then the app **exits** rather than keeps running.
+- [x] ~~**1. Startup shortcut of another exe** — a reset from a worktree build would delete the
+  shortcut to `main`'s exe?~~ → Deleted only when it targets this exe; another exe's is left alone
+- [x] ~~**2. A deletion that fails** (a file held open, a read-only folder)?~~ → Every deletion
+  attempted, a warning naming the failures, then the restart anyway
+- [x] ~~**3. Place in the menu?**~~ → Last of the *app* section, after `Check for emoji updates…`
+- [x] ~~**4. A restart that fails** (`Process.Start` refused)?~~ → A warning `The settings were
+  reset. Start the app again to finish.`, then the app exits
 
 ---
 
@@ -164,6 +171,13 @@ listing what is lost, No the default; then the app restarts through `MainForm.Re
 nothing at exit; the pre-render thread is the only writer that may run on its own, so it is
 cancelled first. Four open questions: another exe's startup shortcut, failed deletions, menu place,
 failed restart.
+
+### Iteration 2 — 2026-10-08
+
+The four open questions answered with the proposals (Q&A 5–8): the startup shortcut deleted only
+when it targets this exe; failed deletions named in a warning, the restart done anyway; the item last
+of the *app* section; a failed restart warns then exits, while the emoji update's restart keeps
+running as before — `Restart` takes the failure's text and whether to exit. No open question left.
 
 ---
 
@@ -191,7 +205,10 @@ Questions asked by the agent during design, with user responses.
 | 2 | Once the files are deleted, what does the app do? (restart / apply live / exit) | Restart | 2026-10-08 |
 | 3 | Which confirmation before resetting? (detailed Yes / No / short Yes / No / typed word) | Detailed Yes / No, No the default | 2026-10-08 |
 | 4 | Is the subject straightforward or tricky / long to explore? | Straightforward | 2026-10-08 |
-| 5 | Open questions 1–4 | | 2026-10-08 |
+| 5 | Startup shortcut of another exe: delete only when it targets this exe, or always? | Only when it targets this exe | 2026-10-08 |
+| 6 | A deletion that fails: warn then restart, or warn and keep running? | Warn, then restart | 2026-10-08 |
+| 7 | Place in the menu: last of the *app* section, or a section of its own at the end? | Last of the *app* section | 2026-10-08 |
+| 8 | A restart that fails: warn then exit, or warn and keep running? | Warn, then exit | 2026-10-08 |
 
 ---
 
