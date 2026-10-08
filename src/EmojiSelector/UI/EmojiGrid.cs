@@ -386,6 +386,12 @@ internal sealed class EmojiGrid : Control
         }
     }
 
+    /// <summary>
+    /// The pre-rendered emojis no longer written to the disk cache — still shown. Once it returns, no write is under
+    /// way: the cache folder can be deleted.
+    /// </summary>
+    public void StopCacheWriting() => this.bitmaps.StopWriting();
+
     /// <summary>Brings the categories back, at the scroll position they had before the search.</summary>
     public void ShowCategories()
     {

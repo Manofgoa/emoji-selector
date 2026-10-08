@@ -14,6 +14,9 @@ internal sealed partial class EmojiUsage
 {
     public const string FileName = "usage.json";
 
+    /// <summary>The file being written, before it replaces <see cref="FileName"/>.</summary>
+    public const string TemporaryFileName = FileName + ".tmp";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -87,7 +90,7 @@ internal sealed partial class EmojiUsage
     // The whole file, through a temporary one then a replace: a crash never leaves it half-written.
     private void Save()
     {
-        string temporary = FilePath + ".tmp";
+        string temporary = Path.Combine(AppContext.BaseDirectory, TemporaryFileName);
         try
         {
             File.WriteAllText(temporary, ReadableEmojis(JsonSerializer.Serialize(this.entries, JsonOptions)));

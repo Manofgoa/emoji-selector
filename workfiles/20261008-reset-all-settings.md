@@ -21,7 +21,9 @@ Components touched:
 | `UI/MainForm.cs` | The menu item (`CreateSettingsMenu`), the confirmation, the order of the steps, the restart (`Restart`, reused) |
 | New `Data/AppReset.cs` | The list of what is deleted, and the deletion itself — each name taken from the constant of the code that owns it |
 | `Data/StartupShortcut.cs` | `Disable` reused for the startup shortcut and the Task Manager's value |
-| `Drawing/EmojiBitmapCache.cs` | The pre-render cancelled before `cache\` is deleted |
+| `Drawing/EmojiBitmapCache.cs`, `UI/EmojiGrid.cs` | The disk cache's writing stopped before `cache\` is deleted |
+| `Data/SettingsFile.cs`, `Data/EmojiUsage.cs`, `Data/CustomGroups.cs` | Their temporary file's name as a constant, `TemporaryFileName` |
+| `Data/EmojiDataFolder.cs` | `EmbeddedVersion()`, named by the confirmation |
 
 ---
 
@@ -76,7 +78,10 @@ does not own.
 
 - **Each name comes from its owner's constant**, never a literal repeated in `AppReset`: a file
   renamed later is still deleted. The temporary siblings (`.tmp` / `.new`) are left behind by an
-  interrupted write; they go too.
+  interrupted write; they go too — each owner declares its own as `TemporaryFileName`
+  (`SettingsFile`, `EmojiUsage`, `CustomGroups`), used by its write as well.
+- The confirmation's version comes from `EmojiDataFolder.EmbeddedVersion()`, read from the exe's
+  embedded `version.txt`.
 - A file or folder already missing is not an error.
 - **Startup shortcut of another exe**: `Emoji Selector.lnk` has one name for every copy of the app,
   so a reset from a worktree build must not delete the shortcut to `main`'s exe. It is deleted, with
@@ -89,20 +94,22 @@ does not own.
 ## Order of the Steps
 
 1. **Confirmation** — No → stop.
-2. **Pre-render cancelled** (the grid's `EmojiBitmapCache`): its background thread would otherwise
-   write `cache\` again right after the deletion. Cancelling does not wait for the thread: an atlas
-   whose write had already started may still land — harmless, it is complete and valid, the next
-   instance simply reuses it.
+2. **Cache writing stopped** (`EmojiGrid.StopCacheWriting` → `EmojiBitmapCache.StopWriting`): the
+   pre-render thread would otherwise write `cache\` again right after the deletion. The atlas is
+   written under a lock, which `StopWriting` takes: once it returns, no write is under way and none
+   will start. The pre-render itself goes on in memory — the grid keeps its bitmaps, no green cell
+   while a warning is shown.
 3. **Deletion** — every row of *What Is Deleted*, each one attempted even when another failed.
    Any failure (a file held open by another process, a read-only folder) → a warning `Some files
-   could not be deleted:` followed by their names, one per line — then the restart **anyway**: what
-   was deleted is reset, the rest keeps its value.
+   could not be deleted:` followed by one line per item, `<name> — <reason>` (a folder named with its
+   trailing `\`) — then the restart **anyway**: what was deleted is reset, the rest keeps its value.
 4. **Restart** — `MainForm.Restart`: the same arguments, `--title` included, `--background` left out,
    the single instance released first. No "Restart now?" question: the confirmation already said so.
-   - **A failed restart** (`Process.Start` refused): the warning `The settings were reset. Start the
-     app again to finish.`, then the app **exits** — kept running, it would write its old settings
-     back from memory on the next action. The emoji update's restart keeps its current behaviour (a
-     warning, the app keeps running): `Restart` gets the failure's text and whether to exit.
+   - **A failed restart** (`Process.Start` refused, or the exe's path unknown): the warning `The
+     settings were reset. Start the app again to finish.`, followed by `Could not restart the app:
+     <reason>`, then the app **exits** — kept running, it would write its old settings back from
+     memory on the next action. The emoji update's restart keeps its current behaviour (a warning,
+     the app keeps running; an unknown exe path, silent): `Restart(failureText, exitOnFailure)`.
 
 - Nothing is written between step 3 and the exit: the app writes its files only on a user action,
   and nothing at exit (`OnFormClosing` writes nothing).
@@ -114,7 +121,8 @@ does not own.
 
 ## Documentation
 
-- `RULES.md` § Window and Tray Icon: one row for the item; § Frame: the *app* section lists it.
+- `RULES.md` § Window and Tray Icon: one row for the item; § Frame: the *app* section lists it; a new
+  § Reset All Settings; § Emoji Data: `Check for emoji updates…` no longer said last.
 - `README.md` / `README.fr.md`: the item in the settings menu's description.
 - `GLOSSARY.md` / `GLOSSARY.fr.md`: no new term.
 
@@ -179,6 +187,40 @@ when it targets this exe; failed deletions named in a warning, the restart done 
 of the *app* section; a failed restart warns then exits, while the emoji update's restart keeps
 running as before — `Restart` takes the failure's text and whether to exit. No open question left.
 
+### Iteration 3 — 2026-10-08 — ✅ Implemented
+
+Go given: code, unit tests and documentation, in a worktree (`.claude/worktrees/reset-all-settings`,
+branch `feature/reset-all-settings`). The scope is frozen as the design sections stand above.
+
+### Iteration 4 — 2026-10-08 — 🧭 Implementation choices
+
+No rule broken. Choices the frozen design did not state:
+
+1. **Cache writing stopped rather than the pre-render cancelled** — closest workable variant of
+   step 2. Cancelling disposes the run's bitmaps: the grid would turn fluorescent green behind a
+   failure warning. `EmojiBitmapCache.StopWriting` instead takes the lock the atlas is written under
+   — so it also waits for a write under way, which closes the race the design accepted — and the
+   pre-render goes on in memory. `EmojiGrid.StopCacheWriting` passes it on.
+2. **`TemporaryFileName` constants** added to `SettingsFile` (`.new`), `EmojiUsage` and
+   `CustomGroups` (`.tmp`), their writes using them: the design wanted every name from its owner's
+   constant, and the temporary ones were literals. Committed apart, before the feature.
+3. **`Restart(failureText, exitOnFailure)`**: the reset's failure text adds `Could not restart the app:
+   <reason>` after the designed sentence, so the user knows why. An unknown exe path counts as a
+   failure for the reset (warning, exit); for the emoji update it stays silent, as before.
+4. **Failure lines** `<name> — <reason>`, a folder named with its trailing `\`.
+5. **`EmojiDataFolder.EmbeddedVersion()`** reads the embedded `version.txt` at each confirmation —
+   a few bytes, not worth a field.
+6. **`StartupShortcut.DisableForThisExe`** checks the target only, not the Task Manager's state: a
+   disabled shortcut to this exe is deleted too, as the design says.
+7. **RULES.md § Emoji Data** said `Check for emoji updates…` was last in the menu — corrected, and the
+   update's failed restart (a warning, the app kept running), already the code's behaviour, written
+   down next to it.
+
+Checked by reflection on a copy of the build folder (`APP_CONTEXT_BASE_DIRECTORY` redirected to it):
+everything deleted with no failure; missing items not an error; another exe's shortcut and its Task
+Manager value kept; this exe's (disabled) shortcut and its value deleted; a file held open reported,
+the rest deleted. The dialog, the menu place and the restart are left to the hand check.
+
 ---
 
 ## Implementation Log
@@ -188,10 +230,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | No test project — checked by hand (see *Test Impact*) |
-| RULES.md | | | |
-| README | | | |
+| Code | 3 | 2026-10-08 | Temporary file name constants; cache writing stop; `AppReset`; the menu item and the restart |
+| Unit tests | 3 | 2026-10-08 | No test project — the deletion checked by reflection on a copy of the build (5 checks pass); the dialog and the restart by hand |
+| RULES.md | 3 | 2026-10-08 | § Reset All Settings, the menu tables, § Emoji Data corrected |
+| README | 3 | 2026-10-08 | English and French |
 
 ---
 

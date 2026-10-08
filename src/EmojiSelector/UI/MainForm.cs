@@ -78,6 +78,24 @@ internal sealed class MainForm : Form
 
     public const string RestartFailedText = "Could not restart the app: {0}";
 
+    public const string ResetAllText = "Reset all settings…";
+
+    public const string ResetAllQuestion =
+        "Reset Emoji Selector to its first-launch state?\n\n"
+        + "This deletes, and cannot be undone:\n"
+        + "• the custom groups and their emojis\n"
+        + "• the use counters of Frequently used\n"
+        + "• the window size, the tray emoji, the details panel's settings\n"
+        + "• Start with Windows\n"
+        + "• the downloaded emoji data — back to version {0}\n"
+        + "• the emoji image cache\n\n"
+        + "The app then restarts.";
+
+    public const string ResetFailuresText = "Some files could not be deleted:\n\n{0}";
+
+    public const string ResetRestartFailedText =
+        "The settings were reset. Start the app again to finish.\n\nCould not restart the app: {0}";
+
     public const string FrequentHeader = "Frequently used";
 
     public const string NoFrequentText = "No emoji used yet";
@@ -606,6 +624,7 @@ internal sealed class MainForm : Form
         menu.Items.Add(startWithWindowsItem);
         ToolStripItem checkEmojiUpdates = menu.Items.Add(CheckEmojiUpdatesText, image: null, null);
         checkEmojiUpdates.Click += async (_, _) => await this.CheckEmojiUpdatesAsync(checkEmojiUpdates);
+        menu.Items.Add(ResetAllText, image: null, (_, _) => this.ResetAllSettings());
         // Hidden, the frequent tab still counts: its counters can still be cleared.
         menu.Opening += (_, _) =>
         {
@@ -744,7 +763,8 @@ internal sealed class MainForm : Form
             if (MessageBox.Show(this, string.Format(RestartQuestion, latest), AppTitle, MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question) == DialogResult.Yes)
             {
-                this.Restart();
+                // The app keeps running on a failure: the new emoji data is used at the next launch.
+                this.Restart(RestartFailedText, exitOnFailure: false);
             }
         }
         finally
@@ -753,14 +773,43 @@ internal sealed class MainForm : Form
         }
     }
 
+    // Reset all settings: after a confirmation listing what is lost — No the default —, every file the app wrote is
+    // deleted (AppReset), then the app restarts as on its first launch. The cache stops being written first: the
+    // pre-render would put an atlas back. A failed deletion is said, the restart done anyway; a failed restart exits,
+    // since the app would write its old settings back from memory on the next action.
+    private void ResetAllSettings()
+    {
+        DialogResult answer = MessageBox.Show(this, string.Format(ResetAllQuestion, EmojiDataFolder.EmbeddedVersion()),
+            AppTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+        if (answer != DialogResult.Yes)
+        {
+            return;
+        }
+
+        this.grid.StopCacheWriting();
+        IReadOnlyList<string> failures = AppReset.DeleteAll();
+        if (failures.Count > 0)
+        {
+            this.ShowWarning(string.Format(ResetFailuresText, string.Join("\n", failures)));
+        }
+
+        this.Restart(ResetRestartFailedText, exitOnFailure: true);
+    }
+
     // Starts the exe again with the same arguments, --title included, BackgroundArgument left out — the user is
     // looking at the window — then ends the app: not a user close, the window is not hidden to the tray. The single
     // instance is released first, or the new process would find this one and exit. Application.Restart would pass
-    // BackgroundArgument along.
-    private void Restart()
+    // BackgroundArgument along. A failure shows failureText, its {0} the reason, then ends the app or keeps it running.
+    private void Restart(string failureText, bool exitOnFailure)
     {
         if (Environment.ProcessPath is not string exe)
         {
+            if (exitOnFailure)
+            {
+                this.ShowWarning(string.Format(failureText, "the app's exe path is unknown."));
+                Application.Exit();
+            }
+
             return;
         }
 
@@ -780,8 +829,13 @@ internal sealed class MainForm : Form
         }
         catch (Win32Exception exception)
         {
-            // The app keeps running, without the single instance: the new emoji data is used at the next launch.
-            this.ShowWarning(string.Format(RestartFailedText, exception.Message));
+            // Kept running, the app has no single instance any more.
+            this.ShowWarning(string.Format(failureText, exception.Message));
+            if (exitOnFailure)
+            {
+                Application.Exit();
+            }
+
             return;
         }
 

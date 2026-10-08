@@ -86,6 +86,11 @@ internal static class EmojiDataFolder
         return new EmojiData(version, EmojiCatalog.Build(english, french));
     }
 
+    /// <summary>The version of the copy embedded in the exe: the one a deleted folder comes back to.</summary>
+    public static Version EmbeddedVersion() =>
+        ParseVersion(Encoding.UTF8.GetString(ReadResource(VersionFileName)))
+            ?? throw new InvalidOperationException("The embedded emoji data's version is not valid.");
+
     /// <summary>An Emojibase version, <c>major.minor.patch</c>; null when the text is not one.</summary>
     public static Version? ParseVersion(string text) =>
         Version.TryParse(text.Trim(), out Version? version) && version.Build >= 0 && version.Revision < 0 ? version : null;

@@ -20,6 +20,9 @@ internal static class SettingsFile
 {
     public const string FileName = "settings.json";
 
+    /// <summary>The file being written, before it replaces <see cref="FileName"/>.</summary>
+    public const string TemporaryFileName = FileName + ".new";
+
     private const string WindowWidthKey = "windowWidth";
     private const string WindowHeightKey = "windowHeight";
     private const string TrayEmojiKey = "trayEmoji";
@@ -132,7 +135,7 @@ internal static class SettingsFile
     // swallowed — the settings are only not kept.
     private static void Write(JsonObject settings)
     {
-        string temporary = FilePath + ".new";
+        string temporary = Path.Combine(AppContext.BaseDirectory, TemporaryFileName);
         try
         {
             // The emojis written as themselves, not \uXXXX escapes, like usage.json.

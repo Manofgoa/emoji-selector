@@ -30,8 +30,12 @@ internal sealed class EmojiBitmapCache : IDisposable
 
     private readonly IReadOnlyList<string> emojis;
     private readonly SynchronizationContext? uiContext;
+
+    // Held while an atlas is written, so StopWriting returns only once no write is under way.
+    private readonly object writeGate = new();
     private Run? run;
     private int notificationPending;
+    private bool writingStopped;
 
     /// <param name="emojis">Every emoji, in the order they are pre-rendered: the first ones are ready first.</param>
     public EmojiBitmapCache(IReadOnlyList<string> emojis)
@@ -68,6 +72,18 @@ internal sealed class EmojiBitmapCache : IDisposable
     public Bitmap? TryGet(string emoji) =>
         this.run is Run run && run.Bitmaps.TryGetValue(emoji, out Bitmap? bitmap) ? bitmap : null;
 
+    /// <summary>
+    /// No atlas written to <see cref="FolderName"/> from now on — the bitmaps keep being pre-rendered and shown. Waits
+    /// for a write under way to end: once it returns, the folder can be deleted without an atlas landing in it again.
+    /// </summary>
+    public void StopWriting()
+    {
+        lock (this.writeGate)
+        {
+            this.writingStopped = true;
+        }
+    }
+
     public void Dispose()
     {
         this.run?.Cancel();
@@ -93,7 +109,13 @@ internal sealed class EmojiBitmapCache : IDisposable
                 using (atlas)
                 {
                     Debug.WriteLine($"EmojiBitmapCache: {this.emojis.Count} emojis at {run.Size} px rendered in {stopwatch.ElapsedMilliseconds} ms");
-                    WriteAtlas(atlas, atlasPath, keyPath, key);
+                    lock (this.writeGate)
+                    {
+                        if (!this.writingStopped)
+                        {
+                            WriteAtlas(atlas, atlasPath, keyPath, key);
+                        }
+                    }
                 }
             }
         }

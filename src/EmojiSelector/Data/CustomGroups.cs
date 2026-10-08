@@ -14,6 +14,9 @@ internal sealed class CustomGroups
 {
     public const string FileName = "custom-groups.json";
 
+    /// <summary>The file being written, before it replaces <see cref="FileName"/>.</summary>
+    public const string TemporaryFileName = FileName + ".tmp";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -129,7 +132,7 @@ internal sealed class CustomGroups
     // The whole file, through a temporary one then a replace: a crash never leaves it half-written.
     private void Save()
     {
-        string temporary = FilePath + ".tmp";
+        string temporary = Path.Combine(AppContext.BaseDirectory, TemporaryFileName);
         try
         {
             File.WriteAllText(temporary, EmojiUsage.ReadableEmojis(JsonSerializer.Serialize(this.groups, JsonOptions)));
