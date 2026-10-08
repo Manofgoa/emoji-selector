@@ -24,7 +24,7 @@ What it shows, from the embedded Emojibase data (`compact.en.json` / `compact.fr
 | The French name, after a French flag — when the French column is on | fr `label`, capitalized | Visage riant aux larmes |
 | The French tags, all of them — same condition | fr `tags` | content, heureux, joie, larmes, lol, mdr, pleurer de joie, pleurer de rire, rire aux larmes, sourire, émoticône |
 | The emoticon, when there is one (49 emojis) | `emoticon` (a string or an array) | `:')` |
-| The code point(s), on a button copying the emoji | `hexcode` | `U+1F602` |
+| The first code point, on a button copying the emoji | `hexcode` | `U+1F602` (👨‍👩‍👧‍👦 → `U+1F468`) |
 
 Left out for now: `group` (the category) and `skins` (skin tone variants). No colour choice (skin
 tone) either, unlike Twitter.
@@ -52,12 +52,20 @@ Design **B** (two columns), as in the mockup validated on 2026-10-08:
   grey, only when the emoji has one (an array shows every one, space-separated).
 - **Middle**: one column per language, equal widths.
   - **EN column**, always shown: the US flag then the English name (bold), the English tags below.
+  - The flags are **images embedded in the exe** (US and French, two sizes for the DPI) — Segoe UI
+    Emoji has no flag glyphs.
   - **FR column**, shown when the French column is on (default): the French flag then the French
     name (bold, first letter capitalized — `Visage`, not `visage`), the French tags below.
   - French column off → the EN column takes the whole middle width.
   - Tags are joined with `, ` and **wrap** to as many lines as they need — never truncated, no `…`.
-- **Right**: a **button** reading the code point(s) (`U+1F602`), with a copy glyph. A click copies
-  **the emoji itself** (its Unicode character sequence, `😂`) to the clipboard as text.
+- **Right**: a **button** reading the emoji's **first code point only** (`U+1F602`; 👨‍👩‍👧‍👦 →
+  `U+1F468`), with a copy glyph. A click copies **the emoji itself** (its whole Unicode character
+  sequence, `😂`) to the clipboard as text.
+  - After a copy the button reads `Copied` for about a second, then its code point again.
+  - A copy neither hides the window nor counts as a use (the frequent tab ignores it).
+- **No selection** (a search with no result): the panel stays, empty, at the same height.
+
+The grid's **tooltip** (the hovered emoji's name) is **removed**: the panel shows that name.
 
 ### Height
 
@@ -111,6 +119,8 @@ From the exploration (2026-10-08):
 | Window size | `UI/MainForm.cs` (`MinimumSize`, `DefaultClientSize`) | Panel height added to both |
 | Search text | `UI/MainForm.cs` (`OnSearchTextChanged`) | Passed to the panel to redraw the highlight |
 | Clipboard | — (none today) | `Clipboard.SetText` on the UI thread, `ExternalException` caught |
+| Flags | new embedded resources | Two PNGs per flag (US, FR) at 1× and 2×, the size picked by DPI; public-domain flag designs |
+| Grid tooltip | `UI/EmojiGrid.cs` (`toolTip`, `SetHovered`) | Removed |
 | Frame | `UI/WindowFrame.cs` | No clash: the bottom resize border is Windows' own, outside the client area |
 
 ---
@@ -120,7 +130,7 @@ From the exploration (2026-10-08):
 | File | Change |
 |---|---|
 | `README.md` / `README.fr.md` | *Features*: the details panel, the copy button, the two settings |
-| `RULES.md` | A *Details Panel* section: what it shows, fixed height, highlight, settings keys |
+| `RULES.md` | A *Details Panel* section: what it shows, fixed height, highlight, settings keys, copy button; the grid's tooltip gone |
 | `GLOSSARY.md` / `GLOSSARY.fr.md` | *Details panel* (*panneau de détails*), *Highlight* (*surlignage*) |
 
 ---
@@ -148,10 +158,10 @@ on the running app.
 - [x] ~~7. What does the copy button copy?~~ → The emoji itself
 - [x] ~~8. What is highlighted?~~ → Exactly the matched characters, in fluorescent yellow, colour customizable in the settings menu
 - [x] ~~9. French column?~~ → Optional, on by default
-- [ ] 10. How are the flags drawn? Segoe UI Emoji has no flag glyphs (see [TODO-FEATURES.md](TODO-FEATURES.md) *Flags tab*)
-- [ ] 11. What does the button read for a multi-code-point emoji (👨‍👩‍👧‍👦 = `1F468-200D-1F469-200D-1F467-200D-1F466`)?
-- [ ] 12. Does the grid's tooltip (the hovered emoji's name) stay, now that the panel shows the name?
-- [ ] 13. Details: panel when the grid has no selection (a search with no result); feedback after a copy; does a copy hide the window or count as a use?
+- [x] ~~10. How are the flags drawn? Segoe UI Emoji has no flag glyphs (see [TODO-FEATURES.md](TODO-FEATURES.md) *Flags tab*)~~ → Embedded PNG images
+- [x] ~~11. What does the button read for a multi-code-point emoji (👨‍👩‍👧‍👦 = `1F468-200D-1F469-200D-1F467-200D-1F466`)?~~ → The first code point only
+- [x] ~~12. Does the grid's tooltip (the hovered emoji's name) stay, now that the panel shows the name?~~ → Removed
+- [x] ~~13. Details: panel when the grid has no selection (a search with no result); feedback after a copy; does a copy hide the window or count as a use?~~ → Empty panel at the same height; `Copied` for about a second; a copy neither hides the window nor counts as a use
 
 ---
 
@@ -173,6 +183,13 @@ Mockups of four layouts (compact, two columns, tag pills, labelled lines) → **
 revised: code point button moved to the right, a US flag before the English name, a French flag
 before the French name, everything else as listed in *Overview*, *Layout*, *Search Highlight* and
 *Settings*.
+
+### Iteration 2 — 2026-10-08
+
+Open questions 10–13 answered (Q&A #15–18): flags as embedded PNG images, the button reads the first
+code point only, the grid's tooltip removed, an empty panel when nothing is selected, `Copied`
+feedback after a copy, a copy neither hides the window nor counts as a use. *Layout* and *Technical
+Notes* updated.
 
 ---
 
@@ -211,10 +228,11 @@ Questions asked by the agent during design, with user responses.
 | 12 | Panel height with every tag shown? | Fixed, sized to the longest | 2026-10-08 |
 | 13 | What is highlighted: the matched part, the word, the whole tag? Simple or tricky subject? | The matched part; simple | 2026-10-08 |
 | 14 | (mid-exploration request) | B with the code point on the right, US flag before the English name, French flag before the French name when the French column is on; make the mockup | 2026-10-08 |
-| 15 | How are the flags drawn? | | |
-| 16 | Button label for a multi-code-point emoji? | | |
-| 17 | Does the grid's tooltip stay? | | |
-| 18 | Empty panel, copy feedback, copy hides the window / counts as a use? | | |
+| 15 | How are the flags drawn? | Embedded images | 2026-10-08 |
+| 16 | Button label for a multi-code-point emoji? | The first code point only | 2026-10-08 |
+| 17 | Does the grid's tooltip stay? | Removed | 2026-10-08 |
+| 18 | Empty panel, copy feedback, copy hides the window / counts as a use? | OK for all: empty panel, `Copied` ~1 s, no hide, not a use | 2026-10-08 |
+| 19 | Mark the backlog row *Copy (UTF-8)* with this workfile? | | |
 
 ---
 
