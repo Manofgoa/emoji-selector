@@ -19,6 +19,8 @@ frequently used`**, forgetting that emoji's counter alone.
 | The `Remove from frequently used` item in the emoji's right-click menu, on the frequent section | The item in any other section (Q&A #2) |
 | Forgetting the emoji's counter in `usage.json` | Hiding an emoji from the tab for good, an exclusion list (Q&A #4) |
 | The frequent section refreshed right away | A confirmation (Q&A #4) |
+| The **Menu key / Shift+F10** opening the right-click menu on the selection, in every section (Q&A #7) | The **Delete** key (Q&A #7) |
+| | The tray icon (Q&A #6 — made customizable by [20261008-custom-tray-icon.md](20261008-custom-tray-icon.md)) |
 
 ### Existing code
 
@@ -30,6 +32,8 @@ frequently used`**, forgetting that emoji's counter alone.
 | The frequent section is section 0 (`FirstCustomSection = 1`); `TabOf` maps sections to tabs | `UI/MainForm.cs:88`, `572-575` |
 | `EmojiUsage` has `Record`, `Clear`, `CountOf`, `MostUsed` — no way to forget one emoji | `Data/EmojiUsage.cs` |
 | After a use or *Clear*, `ReplaceCategory(0, CreateFrequentCategory())` rebuilds the section; the selection goes back to the first emoji in view | `UI/MainForm.cs:442`, `529`; `UI/EmojiGrid.cs:289-297` |
+| `MainForm.ProcessCmdKey` routes the keys: the grid's navigation through `grid.MoveSelection`, then Enter and Esc for both places | `UI/MainForm.cs:222-293` |
+| The grid exposes `SelectedEmoji`, `IsReordering`, `IsSelectionReordered`; the selection is `(Section, Index)`, its cell from `layout.CellBounds` | `UI/EmojiGrid.cs:70`, `138-144` |
 | No test project: the earlier workfiles check behaviours by hand | `20261008-custom-tabs.md` § Test Impact |
 
 ---
@@ -58,6 +62,28 @@ frequently used`**, forgetting that emoji's counter alone.
   next emoji moves up into the three rows, or the section reads `No emoji used yet` when it was the
   last. The selection goes back to the first emoji in view, as after a use.
 - The window stays shown.
+- **The tray icon is left alone** (Q&A #6): it is being made customizable in
+  [20261008-custom-tray-icon.md](20261008-custom-tray-icon.md); removing a frequent emoji does not
+  touch it.
+
+---
+
+## Keyboard
+
+The **Menu key** (`Keys.Apps`) and **Shift+F10** open the right-click menu **on the selection**
+(Q&A #7) — the same menu, so `Remove from frequently used` on a frequent emoji, `Add to ▸` and
+`Remove` everywhere else they show.
+
+- **Grid focused**: `ProcessCmdKey` calls a new **`EmojiGrid.OpenSelectionMenu()`**: the selected
+  cell is scrolled into view (the mouse wheel may have moved it out), then `EmojiRightClicked` is
+  raised with the selection's section and emoji, the location at the **bottom-left corner of its
+  cell** — `MainForm.ShowEmojiMenu` stays the one place building the menu. No selection → nothing.
+- **Search box focused**: see *Open Questions*.
+- Opened from the keyboard, the menu's **first enabled item is highlighted**, as Windows does for a
+  menu opened by the keyboard, so ↓ / Enter work at once.
+- The menu closed, the keyboard is back where it was (WinForms gives the focus back to the control
+  that had it).
+- In the **reorder mode**, it opens like the right click does there.
 
 ---
 
@@ -65,8 +91,8 @@ frequently used`**, forgetting that emoji's counter alone.
 
 | File | Change |
 |---|---|
-| `RULES.md` | The *Window and Tray Icon* table's right-click row, and *Frequent Tab*: the item, what it forgets |
-| `README.md` / `README.fr.md` | The *Frequently used* bullet: the right click's item |
+| `RULES.md` | The *Window and Tray Icon* table's right-click row, *Frequent Tab*: the item, what it forgets; *Keyboard*: the Menu key / Shift+F10 rows |
+| `README.md` / `README.fr.md` | The *Frequently used* bullet: the right click's item; the *Keyboard* bullet: the Menu key / Shift+F10 |
 
 ---
 
@@ -81,16 +107,20 @@ below are **checked by hand** in the running app.
 | The last frequent emoji removed → `No emoji used yet` | — (manual) | — |
 | No such item on an emoji of a custom group, a catalog category or the search results | — (manual) | — |
 | A removed emoji used again → back with a count of 1 | — (manual) | — |
+| Menu key / Shift+F10 in the grid → the selection's menu under its cell, first item highlighted; on a frequent emoji, `Remove from frequently used` works from the keyboard | — (manual) | — |
+| Menu key with the selection scrolled out of view → scrolled back, then the menu | — (manual) | — |
 
 ---
 
 ## Open Questions
 
-- [ ] The tray icon shows the last emoji used: when that emoji is removed from the frequent tab,
-  does the icon keep it (proposed — it was still the last one used), or go back to 😊?
-- [ ] A keyboard way to remove the selected frequent emoji — the Menu key / Shift+F10 opening the
-  right-click menu on the selection, or Delete — or mouse only (proposed: mouse only, like the
-  rest of the right-click menu today)?
+- [x] ~~The tray icon shows the last emoji used: when that emoji is removed from the frequent tab,
+  does the icon keep it, or go back to 😊?~~ → Ignored here: the tray icon is made customizable in
+  another workfile
+- [x] ~~A keyboard way to remove the selected frequent emoji — the Menu key / Shift+F10, Delete — or
+  mouse only?~~ → The Menu key / Shift+F10 open the right-click menu on the selection
+- [ ] In the **search box**, do the Menu key / Shift+F10 keep the box's own menu (Cut, Copy,
+  Paste… — proposed), or open the emoji menu on the selection, as Enter inserts it from there?
 
 ---
 
@@ -110,6 +140,13 @@ how two menus fit together fell away. One `Remove from frequently used` item, on
 section only, forgetting the counter without confirmation. Found while exploring: the search
 results section shares index 0 with the frequent section, hence `IsFrequentSection`. No row of
 `TODO-FEATURES.md` matches the request.
+
+### Iteration 2 — 2026-10-08
+
+Open questions answered (Q&A #6-7). The tray icon is out of scope: another session makes it
+customizable. The Menu key and Shift+F10 open the right-click menu on the selection —
+`EmojiGrid.OpenSelectionMenu`, the menu still built by `ShowEmojiMenu` alone; first item
+highlighted. One question emerged: what those keys do in the search box.
 
 ---
 
@@ -137,8 +174,9 @@ Questions asked by the agent during design, with user responses.
 | 3 | Its label? | `Remove from frequently used` | 2026-10-08 |
 | 4 | What does removing do? | Forgets the counter, no confirmation; used again → back with a count of 1 | 2026-10-08 |
 | 5 | Straightforward or tricky / long? | Straightforward — one scout pass | 2026-10-08 |
-| 6 | Tray icon when its emoji is removed: kept, or back to 😊? | | |
-| 7 | A keyboard way to remove (Menu key / Shift+F10, Delete), or mouse only? | | |
+| 6 | Tray icon when its emoji is removed: kept, or back to 😊? | Ignored — the tray icon is made customizable in another session | 2026-10-08 |
+| 7 | A keyboard way to remove (Menu key / Shift+F10, Delete), or mouse only? | The Menu key / Shift+F10 | 2026-10-08 |
+| 8 | In the search box, the Menu key / Shift+F10: the box's own menu, or the emoji menu? | | |
 
 ---
 
