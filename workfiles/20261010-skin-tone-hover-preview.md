@@ -133,6 +133,11 @@ back and saves nothing. The preview is one state in `MainForm` read by `ShownTex
 Open points settled (Q5): highlighting `Use default tone` previews the emoji in the default tone; a highlight on no
 tone item shows the real tones; a preview may end the copy button's check mark. No open question left.
 
+### Iteration 3 — 2026-10-10 — ✅ Implemented
+
+Go given: code, unit tests and documentation, in a worktree (`.claude/worktrees/skin-tone-hover-preview`, branch
+`feature/skin-tone-hover-preview`). Scope frozen as described above.
+
 ---
 
 ## Implementation Log
