@@ -13,13 +13,13 @@ Today `Data/EmojiCatalog.cs` leaves the skin-tone variants out (RULES.md § Cate
 Insertion): every person, hand or body-part emoji is the yellow one. This workfile adds the five
 Unicode skin tones (Fitzpatrick modifiers `1F3FB`–`1F3FF`).
 
-Agreed scope (step 5 scoping, Q&A 1–4, then Q&A 5–8):
+Agreed scope (step 5 scoping, Q&A 1–4, then Q&A 5–8, revised by Iteration 6 and Q&A 14):
 
 | Point | Decision |
 |---|---|
-| How a tone is picked | **Both**: a **default tone** for every emoji that has variants, and a **tone of its own** per emoji, overriding the default |
-| Where the default tone is picked | In the **details panel**, at the bottom of the window — a **tone bar** under the copy button, shown while the selection has variants |
-| Two-person emojis (🤝, 🧑‍🤝‍🧑, 💏, 👫…) | The details panel shows **two colours**: a second tone bar, the second person's default tone |
+| How a tone is picked | **Both**: a **default tone** for every emoji that has variants, and a **tone of its own** per emoji, overriding the default — kept when the default changes |
+| Where the default tone is picked | In the **details panel**, at the bottom of the window — **one swatch** under the copy button, shown while the selection has variants, opening a **drop-down menu** of the six tones |
+| Two-person emojis (🤝, 🧑‍🤝‍🧑, 💏, 👫…) | The default tone applies to **both persons** |
 | A two-person emoji's own tone | Right-click `Skin tone ▸` → `First person ▸` / `Second person ▸` |
 
 The emoji keeps its **base text** everywhere it is stored or looked up; the tone is applied only when
@@ -27,7 +27,7 @@ it is **shown, inserted or copied** (see *Shown Text*).
 
 Components: `Data/EmojiCatalog.cs` (reading `skins`), `Data/Emoji.cs` (the variants), a new
 `Data/SkinTone.cs` (the tones, the shown text), a new `Data/SkinToneChoices.cs` (the per-emoji tones,
-`skin-tones.json`), `UI/EmojiDetailsPanel.cs` (the tone bars), `UI/MainForm.cs` (the right-click
+`skin-tones.json`), `UI/EmojiDetailsPanel.cs` (the tone swatch), `UI/MainForm.cs` (the right-click
 menu, insertion, the stores, the tray emoji), `UI/EmojiGrid.cs` (the shown text, the pre-render list),
 `Data/SettingsFile.cs`, `Data/AppReset.cs`; README / RULES / GLOSSARY.
 
@@ -83,19 +83,16 @@ the details panel draws large — is resolved from its base emoji (`SkinTones.Sh
 1. No variants → the base text.
 2. A **tone of its own** (see below) → that one: a tone (one-person) or a pair (two-person); None →
    the base text.
-3. Otherwise the **default tone**: None → the base text; else the variant of (default, default) for a
-   one-person emoji, of (default, **second default**) for a two-person one.
+3. Otherwise the **default tone**: None → the base text; else the variant of (default, default) — for
+   both persons of a two-person emoji.
 4. No variant holds the tones asked for → the base text.
 
 ### Default tone
 
-- Picked in the details panel's tone bar (see *Details Panel*), saved in `settings.json` as
+- Picked from the details panel's tone swatch (see *Details Panel*), saved in `settings.json` as
   **`skinTone`** (missing or unknown → None).
-- The **second default tone** — the second person's, two-person emojis only — saved as
-  **`secondSkinTone`**: missing → the **same as the first**. A tone, never None (Unicode has no "one
-  yellow, one toned"); while the default tone is None, two-person emojis are yellow whatever it holds.
 - A change applies at once to **every section**: categories, frequent, custom groups, search
-  results — and the details panel.
+  results — and the details panel. An emoji with a tone of its own keeps it.
 
 ### Tone of its own
 
@@ -118,37 +115,30 @@ the details panel draws large — is resolved from its base emoji (`SkinTones.Sh
   "dark"]`), the emojis as their text (`EmojiUsage.ReadableEmojis`). Read once at launch — missing
   or invalid → no tone of its own; an invalid value is skipped. Written after each change, through
   `skin-tones.json.tmp` then a replace; a folder that cannot be written keeps them in memory. An
-  emoji the catalog no longer has stays in the file and is ignored.
+  emoji the catalog no longer has, and a value that cannot be read, stay in the file and are ignored.
 
 ---
 
 ## Details Panel
 
-- The **tone bar**, under the copy button, right-aligned with it: six round swatches on **two rows
-  of three** — None (yellow), Light, Medium-light, then Medium, Medium-dark, Dark — the **default
-  tone** ringed in the accent colour (`SystemColors.Highlight`). Shown only while the selection has
-  variants.
-- **Two-person** selection: a **second bar** under the first, the second person's default tone. Its
-  first slot reads **"same as the first person"** (an empty ring); then the five tones. Dimmed and
-  inactive while the default tone is None.
-- A click on a swatch sets the default tone (or the second one) at once and saves it; the panel and
-  the grid follow. A click on the second bar's tone equal to the first's, or on its first slot, removes
-  `secondSkinTone`: it follows the first again.
-- Each swatch has its **tooltip**: `Default skin tone: Medium` / `Second person: Medium` / `Second
-  person: same as the first`.
-- The bar shows the **default** tone, not the selection's own: the emoji drawn large shows the tone in
-  use.
+- The **tone swatch**, under the copy button, the same size: a round swatch of the **default tone**
+  (yellow for None), on the copy button's hover colour while hovered. Shown only while the selection
+  has variants. Its tooltip: `Skin tone: Medium`.
+- A click opens a **drop-down menu** under it, its right edge on the swatch's: the six tones — `No
+  tone`, `Light` … `Dark` —, each with its swatch (`MainForm.SetSwatch`), the default one checked. A
+  choice sets the default tone at once and saves it; the panel and the grid follow. The panel raises
+  `ToneSwatchClicked`; `MainForm` builds and shows the menu, as for the settings button.
+- The swatch shows the **default** tone, not the selection's own: the emoji drawn large shows the tone
+  in use.
 - Custom-drawn and hit-tested in `EmojiDetailsPanel`, like the copy button. The panel stays not
-  selectable: the bar is for the mouse; the keyboard sets an emoji's own tone through its right-click
-  menu.
-- **Room**: the right column is as wide as the bar when the catalog has variants (wider than the
-  button: the text column narrows by the difference). The **fixed height** counts the right column
-  too: button, gap, bar, and the second bar when the catalog has two-person emojis — whatever the
-  selection, so moving it never moves the grid.
+  selectable: the swatch is for the mouse; the keyboard sets an emoji's own tone through its
+  right-click menu.
+- **Room**: the right column stays the button's width. The **fixed height** counts it: button, gap,
+  swatch when the catalog has variants — whatever the selection, so moving it never moves the grid.
 - The emoji drawn at 48 px is the **shown text**; the copy button copies it; its tooltip stays the
   first code point (`U+1F44D`: the modifier comes later in the sequence).
 - Names and tags: the **base emoji's** (`Thumbs up`) — the variants have no tags; the tone is seen in
-  the emoji and the bar.
+  the emoji and the swatch.
 
 ---
 
@@ -202,11 +192,27 @@ No test project: checked on the built app, by reflection on the dll, like the pr
 | The catalog reads `skins`: 330 emojis with variants, 5 for 👍, 25 for 🧑‍🤝‍🧑, none for 🍎 | Reflection script (scratchpad) | Create |
 | A variant's tones are read from its text: 👍🏽 → Medium; 🧑🏻‍🤝‍🧑🏼 → (Light, Medium-light) | Reflection script | Create |
 | Shown text: default Medium → 👍🏽; own Dark on 👍 → 👍🏿 whatever the default; 🍎 unchanged; default None → 👍 | Reflection script | Create |
-| Two-person shown text follows the pair (🤝 Dark + Medium-dark → `1FAF1-1F3FF-200D-1FAF2-1F3FE`), second default missing → same as the first | Reflection script | Create |
-| `skinTone` / `secondSkinTone` read / written in `settings.json`; missing or unknown → None / same | Reflection script | Create |
+| Two-person shown text follows the own pair (🤝 Dark + Medium-dark → `1FAF1-1F3FF-200D-1FAF2-1F3FE`), kept over the default; the default tone → both persons | Reflection script | Create |
+| `skinTone` read / written in `settings.json`; missing or unknown → None; no second tone left | Reflection script | Create |
 | `skin-tones.json`: round trip, keyed by the base text, tones and pairs, an unknown emoji kept | Reflection script | Create |
 | `AppReset` deletes `skin-tones.json` | Reflection script | Create |
 | The pre-render list: base emojis then variants, each once | Reflection script | Create |
+
+**Checks run** (Iteration 5): `check-skin-tones.ps1` in the session's scratchpad, on a copy of the build
+folder — **44 checks, 0 failure**: 330 emojis with variants, 2,030 variants, 19 two-person emojis;
+the tones read from the text; the shown text (default, own tone, None, 🍎, 🤝's mixed pair, the second
+default and its fallback, a one-person emoji ignoring it); `settings.json` round trips and fallbacks;
+`skin-tones.json` round trips, an unknown emoji and an unreadable value kept, a pair written as an
+array, a removal; the pre-render list (count, base emojis first, variants after, each once);
+`AppReset` deleting `skin-tones.json`. On screen: the build launched with `skinTone` = `medium`, the
+search box filled by `WM_SETTEXT` (`thumbs`, `holding hands`, `handshake`) and the window captured
+(`PrintWindow`): the grid and the panel in the medium tone, one bar for 👍, two for 🧑‍🤝‍🧑 and 🤝.
+
+**Checks run again** (Iteration 6): the script adapted — the second-tone checks replaced by "the
+default tone → both persons" (🧑‍🤝‍🧑, 🤝), "an own pair kept over the default", "no second tone left" —
+**41 checks, 0 failure**. On screen: `handshake` searched, the panel showing the single swatch (the
+user's `light`) under the copy button; the drop-down itself is a menu window a script does not
+capture — left to the user's test.
 
 ---
 
@@ -215,11 +221,13 @@ No test project: checked on the built app, by reflection on the dll, like the pr
 - [x] ~~**What the details panel's tone bar sets**~~ → The **default tone**, the bar shown only while
   the selection has variants (Q&A 5).
 - [x] ~~**Two-person emojis in the panel**~~ → The second bar is a **second default tone**, for the
-  second person (`secondSkinTone`, the same as the first until changed) (Q&A 6).
+  second person (`secondSkinTone`, the same as the first until changed) (Q&A 6). *(revised 2026-10-09,
+  see Iteration 6: one tone for both persons, no second bar)*
 - [x] ~~**Right-click `Skin tone ▸` for a two-person emoji**~~ → `Use default tone`, `No tone`, then
   `First person ▸` / `Second person ▸`, five tones each (Q&A 7).
 - [x] ~~**Where the tone bar sits**~~ → **Under the copy button** (Q&A 8); two rows of three swatches,
-  the second bar under the first (decided by the agent, Q&A 9).
+  the second bar under the first (decided by the agent, Q&A 9). *(revised 2026-10-09, see Iteration
+  6: one swatch, a drop-down menu)*
 - [x] ~~**Where the per-emoji tones are kept**~~ → `skin-tones.json` next to the exe (decided by the
   agent, Q&A 10).
 - [x] ~~**Counters, groups, tray emoji**~~ → Counters and groups by the base text; the tray emoji keeps
@@ -279,6 +287,47 @@ worktree*). Scope taken: **code, checks and documentation** (README, RULES, GLOS
 no scope, the previous runs delivered all three, and RULES.md must describe what the app does. Where:
 a new worktree, branch `feature/skin-tones`, created from this branch's `HEAD`.
 
+### Iteration 5 — 2026-10-09 — 🧭 Implementation choices
+
+⚠️ **Rule broken — propagating a changed imported rule file** (the user's global `CLAUDE.md`, *Rule
+changes*): `RULES.md`, imported by the app's `CLAUDE.md`, gained a *Skin Tones* section, but the
+other running sessions were **not** messaged. The change lives on `feature/skin-tones` only: the other
+sessions' checkouts do not have it, and asking them to re-read their own `RULES.md` would apply
+nothing. To be propagated when the branch is merged. Autonomous run: reported instead of asked.
+
+Other choices the design did not state:
+
+- **A thin line between the two tone bars** (a bar gap above and under it): seen on the first capture,
+  the two bars read as one block of twelve swatches.
+- **An unreadable value of `skin-tones.json` is kept** in the file, ignored — like an unknown emoji
+  — rather than dropped: the store keeps the parsed `JsonObject` and writes it back whole.
+- **A variant whose tones repeat an earlier one's is left out**, and the pre-render list is made
+  distinct: neither happens in Emojibase 17, both guard a hand-edited or future file.
+- **The tray emoji at launch**: accepted when it is a catalog emoji **or any variant's text** (a set
+  built once, `MainForm.variantTexts`).
+- **A two-person emoji's `No tone`** stores `none` (the pair None, None) — the yellow emoji whatever
+  the default tones.
+- **Swatch details**: 12 logical pixels, a 4-pixel gap, the ring 2 pixels wide in the accent colour, a
+  hovered swatch on `SystemColors.ControlLight` like the copy button; a dimmed bar drawn at alpha 80.
+- **The check instance's `settings.json`** (written for the capture) was deleted afterwards: the build
+  folder is left as the user had it, its `cache\` aside (rendered with the variants, reused at the
+  delivery launch).
+
+### Iteration 6 — 2026-10-09 — ⚙️ Post-implementation — One swatch and a drop-down
+
+The user, testing the delivery: *"I'd rather have a single colour shown, then a drop-down menu. And
+the chosen colour should apply to every emoji that offers one."* Planned:
+
+- The details panel shows **one swatch** — the default tone — under the copy button, in place of the
+  two bars of six; a click opens a **drop-down menu** under it listing the six tones, each with its
+  swatch, the one in use checked. A choice sets the default tone, saved as today (`skinTone`).
+- **One colour for every emoji that has variants**, two-person ones included: both persons take the
+  default tone. The second bar and `secondSkinTone` go (the key is no longer read; a mixed pair
+  stays possible through the right-click menu).
+- The panel's right column narrows back to the button's width; its height counts one swatch.
+- The emojis that have a tone of their own **keep it** (Q&A 14): the right-click `Skin tone ▸` stays
+  as it is.
+
 ---
 
 ## Implementation Log
@@ -288,11 +337,11 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | No test project — reflection checks on the built dll (Q&A 13) |
-| README | | | `README.md` and `README.fr.md` |
-| RULES.md | | | § Categories and Insertion, § Details Panel, § Window and Tray Icon (right-click menu), § Size (`settings.json` keys), § Reset All Settings |
-| GLOSSARY | | | *Skin tone* (*teinte de peau*), *Default tone* (*teinte par défaut*) — `GLOSSARY.md` and `GLOSSARY.fr.md` |
+| Code | 4, 5, 6 | 2026-10-09 | `Data/SkinTone.cs`, `Data/SkinToneChoices.cs` (new); `Emoji`, `EmojiCatalog`, `SettingsFile`, `AppReset`; `EmojiGrid`, `EmojiDetailsPanel`, `MainForm` |
+| Unit tests | 5, 6 | 2026-10-09 | No test project — reflection checks on a copy of the build: 44 then 41 (Iteration 6), all passing (*Test Impact* § Checks run) |
+| README | 5, 6 | 2026-10-09 | `README.md` and `README.fr.md`: *Skin tones*, tray icon, categories, reset, planned |
+| RULES.md | 5, 6 | 2026-10-09 | New § Skin Tones; § Window and Tray Icon (menu, tray emoji), § Size (`settings.json` keys), § Categories and Insertion, § Reset All Settings, § Details Panel |
+| GLOSSARY | 5, 6 | 2026-10-09 | *Skin tone* (*teinte de peau*), *Default tone* (*teinte par défaut*) — `GLOSSARY.md` and `GLOSSARY.fr.md` |
 
 ---
 
@@ -315,6 +364,7 @@ Questions asked by the agent during design, with user responses.
 | 11 | Counters, groups, tray emoji; pre-render? | Not asked — decided by the agent: base text, the tray's toned text kept; every variant pre-rendered | 2026-10-09 |
 | 12 | The name in the details panel? | Not asked — decided by the agent: the base name | 2026-10-09 |
 | 13 | Tests? | Not asked — decided by the agent: reflection on the dll | 2026-10-09 |
+| 14 | A tone chosen in the panel: what happens to the emojis that have a tone of their own (right-click)? | They keep it | 2026-10-09 |
 
 ---
 

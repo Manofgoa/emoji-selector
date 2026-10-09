@@ -5,8 +5,9 @@ namespace EmojiSelector.Data;
 
 /// <summary>
 /// <b>Reset all settings</b>: deletes everything the app wrote — the settings, the use counters, the custom groups, the
-/// render cache, the emoji data and the startup shortcut — so the next launch is a first launch. Each name comes from the
-/// constant of the code that owns it; nothing else is touched, never the exe's folder itself.
+/// emojis' own skin tones, the render cache, the emoji data and the startup shortcut — so the next launch is a first
+/// launch. Each name comes from the constant of the code that owns it; nothing else is touched, never the exe's folder
+/// itself.
 /// </summary>
 internal static class AppReset
 {
@@ -41,6 +42,7 @@ internal static class AppReset
             SettingsFile.FileName, SettingsFile.TemporaryFileName,
             EmojiUsage.FileName, EmojiUsage.TemporaryFileName,
             CustomGroups.FileName, CustomGroups.TemporaryFileName,
+            SkinToneChoices.FileName, SkinToneChoices.TemporaryFileName,
         ];
         foreach (string file in files)
         {

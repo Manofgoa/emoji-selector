@@ -11,8 +11,9 @@ namespace EmojiSelector.Data;
 /// <remarks>
 /// The categories follow the Win+; panel: its order (Activities before Travel & Places, unlike Unicode's) and its
 /// Smileys & People, which merges two Unicode groups. Left out: the components (skin-tone and hair swatches), the
-/// flags (Segoe UI Emoji has no flag glyphs), the skin-tone variants and the entries without a group (the regional
-/// indicator letters). An emoji newer than the system font is kept: it shows as a box.
+/// flags (Segoe UI Emoji has no flag glyphs) and the entries without a group (the regional indicator letters). The
+/// skin-tone variants are not emojis of their own: each one is kept in its emoji's <see cref="Emoji.Variants"/>. An
+/// emoji newer than the system font is kept: it shows as a box.
 /// <para>
 /// The English data is the list; the French data, joined by hexcode, only adds <b>keywords</b> and the French name and
 /// tags the details panel shows — an emoji missing from it keeps its English ones.
@@ -94,15 +95,29 @@ internal static class EmojiCatalog
         return entries;
     }
 
-    private static Emoji CreateEmoji(Entry english, Entry? french) =>
-        new(english.Unicode, Capitalize(english.Label), Keywords(english, french))
+    private static Emoji CreateEmoji(Entry english, Entry? french)
+    {
+        IReadOnlyList<SkinVariant> variants = Variants(english.Skins);
+        return new(english.Unicode, Capitalize(english.Label), Keywords(english, french))
         {
             Hexcode = english.Hexcode,
             FrenchName = french is null ? "" : Capitalize(french.Label),
             EnglishTags = english.Tags ?? [],
             FrenchTags = french?.Tags ?? [],
             Emoticons = Emoticons(english.Emoticon),
+            Variants = variants,
+            IsTwoPerson = variants.Any(variant => variant.First != variant.Second),
         };
+    }
+
+    // Emojibase's skin-tone variants, their tones read from their text; one holding no tone, or the tones of an
+    // earlier one, is left out.
+    private static IReadOnlyList<SkinVariant> Variants(Entry[]? skins) => (skins ?? [])
+        .Where(skin => skin?.Unicode is not null)
+        .Select(skin => SkinTones.TonesOf(skin.Unicode) is SkinTonePair tones ? new SkinVariant(skin.Unicode, tones.First, tones.Second) : null)
+        .OfType<SkinVariant>()
+        .DistinctBy(variant => (variant.First, variant.Second))
+        .ToList();
 
     // The words of an emoji's names and tags, in English and in French, each once: a name's when a name has it.
     private static IReadOnlyList<EmojiKeyword> Keywords(Entry english, Entry? french)
@@ -144,9 +159,12 @@ internal static class EmojiCatalog
     private static string Capitalize(string label) =>
         label.Length == 0 ? label : char.ToUpperInvariant(label[0]) + label[1..];
 
-    /// <summary>One entry of <c>compact.json</c>. Its skin-tone variants (<c>skins</c>) are not read.</summary>
+    /// <summary>One entry of <c>compact.json</c>, or one of its skin-tone variants (<c>skins</c>), which have the same shape.</summary>
     internal sealed class Entry
     {
+        [JsonPropertyName("skins")]
+        public Entry[]? Skins { get; init; }
+
         [JsonPropertyName("hexcode")]
         public string Hexcode { get; init; } = "";
 

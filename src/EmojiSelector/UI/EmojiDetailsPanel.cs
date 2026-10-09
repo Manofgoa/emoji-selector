@@ -14,6 +14,11 @@ namespace EmojiSelector.UI;
 /// the clipboard, its first code point as a tooltip. While the search box holds text (<see cref="SearchText"/>), the
 /// characters the search matches are highlighted in <see cref="HighlightColor"/>.
 /// <para>
+/// The emoji is drawn and copied as its <see cref="ShownText"/>: in the skin tone in use. While it has skin-tone
+/// variants, a <b>tone swatch</b> under the copy button shows the <see cref="DefaultTone"/>; a click raises
+/// <see cref="ToneSwatchClicked"/>, the parent opening the tones' menu under it.
+/// </para>
+/// <para>
 /// Its height is fixed: the one the emoji with the most text needs at the panel's width (<see cref="HeightFor"/>), set
 /// by the parent's layout (<see cref="FitHeight"/>), so moving the selection never moves the grid. Drawn with GDI, the
 /// emoji with its own <see cref="EmojiRenderer"/>: the grid's cache renders at the grid's size only.
@@ -42,6 +47,10 @@ internal sealed class EmojiDetailsPanel : Control
     private const int LogicalTagsGap = 2;
     private const int LogicalRowGap = 6;
 
+    // The tone swatch: as large as the copy button, under it, its colour a circle in the middle.
+    private const int LogicalToneGap = 4;
+    private const int LogicalToneCircleSize = 16;
+
     // The emoticons' font size in points, the grid's captions'.
     private const float EmoticonFontSize = 8.25F;
 
@@ -53,9 +62,14 @@ internal sealed class EmojiDetailsPanel : Control
 
     private const string TagSeparator = ", ";
 
+    private const string ToneToolTip = "Skin tone: {0}";
+
     private const TextFormatFlags TextFlags = TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix;
 
     private readonly IReadOnlyList<Emoji> catalog;
+
+    // Whether the catalog has emojis with variants: the room the tone swatch takes, whatever the selection.
+    private readonly bool hasVariants;
     private readonly EmojiRenderer renderer = new();
     private readonly ToolTip toolTip = new();
     private readonly System.Windows.Forms.Timer copiedTimer = new() { Interval = CopiedMilliseconds };
@@ -76,8 +90,11 @@ internal sealed class EmojiDetailsPanel : Control
     private string searchText = "";
     private bool showFrench = true;
     private Color highlightColor = DefaultHighlightColor;
-    private bool buttonHovered;
-    private bool buttonPressed;
+    private SkinTone defaultTone;
+
+    // The part under the mouse, and the one the left button went down on.
+    private Part hovered;
+    private Part pressed;
     private bool copied;
 
     // The width FitHeight last fitted the height to: -1 to fit it again.
@@ -87,6 +104,7 @@ internal sealed class EmojiDetailsPanel : Control
     public EmojiDetailsPanel(IReadOnlyList<Emoji> catalog)
     {
         this.catalog = catalog;
+        this.hasVariants = catalog.Any(emoji => emoji.Variants.Count > 0);
         this.DoubleBuffered = true;
         this.SetStyle(ControlStyles.Selectable, false);
         this.BackColor = SystemColors.Window;
@@ -111,6 +129,9 @@ internal sealed class EmojiDetailsPanel : Control
             this.shownEmoji = value;
             this.EndCopied();
             this.RenderEmoji();
+
+            // The swatch comes and goes with the emoji: the part under a still mouse may be another.
+            this.hovered = this.IsHandleCreated ? this.HitTest(this.PointToClient(Cursor.Position)) : default;
             this.UpdateToolTip();
             this.Invalidate();
         }
@@ -159,6 +180,34 @@ internal sealed class EmojiDetailsPanel : Control
         }
     }
 
+    /// <summary>The text the shown emoji is drawn and copied as: in the skin tone in use. The emoji itself until set.</summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Func<Emoji, string> ShownText { get; set; } = emoji => emoji.Text;
+
+    /// <summary>The default skin tone, the tone swatch's colour.</summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public SkinTone DefaultTone
+    {
+        get => this.defaultTone;
+        set
+        {
+            this.defaultTone = value;
+            this.UpdateToolTip();
+            this.Invalidate();
+        }
+    }
+
+    /// <summary>The tone swatch was clicked: its bounds, in the panel's coordinates — the tones' menu opens under it.</summary>
+    public event EventHandler<Rectangle>? ToneSwatchClicked;
+
+    /// <summary>The shown emoji drawn again: its <see cref="ShownText"/> changed with a tone.</summary>
+    public void RefreshShownEmoji()
+    {
+        this.EndCopied();
+        this.RenderEmoji();
+        this.Invalidate();
+    }
+
     private int PanelPadding => this.LogicalToDeviceUnits(LogicalPadding);
 
     private int EmojiSize => this.LogicalToDeviceUnits(LogicalEmojiSize);
@@ -173,16 +222,26 @@ internal sealed class EmojiDetailsPanel : Control
 
     private Rectangle ButtonBounds => new(this.Width - this.PanelPadding - this.ButtonSize, this.PanelPadding, this.ButtonSize, this.ButtonSize);
 
+    // The tone swatch: under the copy button, as large as it.
+    private Rectangle ToneBounds => new(this.ButtonBounds.X, this.ButtonBounds.Bottom + this.LogicalToDeviceUnits(LogicalToneGap),
+        this.ButtonSize, this.ButtonSize);
+
+    // The copy button, then the tone swatch under it when the catalog has variants.
+    private int RightColumnHeight => this.hasVariants ? this.ToneBounds.Bottom - this.PanelPadding : this.ButtonSize;
+
+    // Whether the shown emoji has its tone swatch.
+    private bool ShowsTone => this.shownEmoji is { Variants.Count: > 0 };
+
     /// <summary>
     /// The panel's height at <paramref name="width"/>: the emoji with the most text, the French row included while
-    /// shown, fits — device pixels, at the current DPI.
+    /// shown, fits, and so do the copy button and the tone swatch — device pixels, at the current DPI.
     /// </summary>
     public int HeightFor(int width)
     {
         int textWidth = this.TextWidthFor(width);
         int text = this.catalog.Count == 0 ? 0 : this.catalog.Max(emoji => this.TextHeight(emoji, textWidth));
         int emojiColumn = this.EmojiSize + (this.catalog.Any(emoji => emoji.Emoticons.Count > 0) ? this.LineHeight(this.emoticonFont) : 0);
-        return 2 * this.PanelPadding + Math.Max(Math.Max(emojiColumn, this.ButtonSize), text);
+        return 2 * this.PanelPadding + Math.Max(Math.Max(emojiColumn, this.RightColumnHeight), text);
     }
 
     /// <summary>
@@ -286,44 +345,59 @@ internal sealed class EmojiDetailsPanel : Control
         }
 
         this.PaintButton(graphics);
+        if (this.ShowsTone)
+        {
+            this.PaintTone(graphics);
+        }
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        this.SetButtonHovered(this.shownEmoji is not null && this.ButtonBounds.Contains(e.Location));
+        this.SetHovered(this.HitTest(e.Location));
     }
 
     protected override void OnMouseLeave(EventArgs e)
     {
         base.OnMouseLeave(e);
-        this.SetButtonHovered(false);
+        this.SetHovered(default);
     }
 
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
-        if (e.Button == MouseButtons.Left && this.buttonHovered)
+        if (e.Button == MouseButtons.Left && this.hovered != Part.None)
         {
-            this.buttonPressed = true;
-            this.Invalidate(this.ButtonBounds);
+            this.pressed = this.hovered;
+            this.Invalidate(this.BoundsOf(this.pressed));
         }
     }
 
-    // The button acts when released over it.
+    // The copy button and the tone swatch act when released over the part pressed.
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
-        if (e.Button != MouseButtons.Left || !this.buttonPressed)
+        if (e.Button != MouseButtons.Left || this.pressed == Part.None)
         {
             return;
         }
 
-        this.buttonPressed = false;
-        this.Invalidate(this.ButtonBounds);
-        if (this.ButtonBounds.Contains(e.Location))
+        Part pressed = this.pressed;
+        this.pressed = Part.None;
+        this.Invalidate(this.BoundsOf(pressed));
+        if (this.HitTest(e.Location) != pressed)
         {
-            this.CopyEmoji();
+            return;
+        }
+
+        switch (pressed)
+        {
+            case Part.Button:
+                this.CopyEmoji();
+                break;
+            case Part.Tone:
+                this.ToneSwatchClicked?.Invoke(this, this.ToneBounds);
+                break;
         }
     }
 
@@ -485,7 +559,7 @@ internal sealed class EmojiDetailsPanel : Control
     private void PaintButton(Graphics graphics)
     {
         Rectangle bounds = this.ButtonBounds;
-        if (this.buttonHovered || this.buttonPressed)
+        if (this.hovered == Part.Button || this.pressed == Part.Button)
         {
             using var hover = new SolidBrush(SystemColors.ControlLight);
             graphics.FillRectangle(hover, bounds);
@@ -496,28 +570,82 @@ internal sealed class EmojiDetailsPanel : Control
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFlags);
     }
 
-    private void SetButtonHovered(bool hovered)
+    // The tone swatch: the default tone's colour in a circle, outlined; the copy button's hover behind it.
+    private void PaintTone(Graphics graphics)
     {
-        if (hovered == this.buttonHovered)
+        Rectangle bounds = this.ToneBounds;
+        if (this.hovered == Part.Tone || this.pressed == Part.Tone)
+        {
+            using var hover = new SolidBrush(SystemColors.ControlLight);
+            graphics.FillRectangle(hover, bounds);
+        }
+
+        int size = this.LogicalToDeviceUnits(LogicalToneCircleSize);
+        var circle = new Rectangle(bounds.X + (bounds.Width - size) / 2, bounds.Y + (bounds.Height - size) / 2, size - 1, size - 1);
+        SmoothingMode smoothing = graphics.SmoothingMode;
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using (var fill = new SolidBrush(SkinTones.ColorOf(this.defaultTone)))
+        using (var outline = new Pen(SystemColors.ControlDark))
+        {
+            graphics.FillEllipse(fill, circle);
+            graphics.DrawEllipse(outline, circle);
+        }
+
+        graphics.SmoothingMode = smoothing;
+    }
+
+    // The part of the panel at a point: the copy button, the tone swatch while shown, or nothing.
+    private Part HitTest(Point point)
+    {
+        if (this.shownEmoji is null)
+        {
+            return Part.None;
+        }
+
+        if (this.ButtonBounds.Contains(point))
+        {
+            return Part.Button;
+        }
+
+        return this.ShowsTone && this.ToneBounds.Contains(point) ? Part.Tone : Part.None;
+    }
+
+    // The area to paint again for a part.
+    private Rectangle BoundsOf(Part part) => part switch
+    {
+        Part.Button => this.ButtonBounds,
+        Part.Tone => this.ToneBounds,
+        _ => Rectangle.Empty,
+    };
+
+    private void SetHovered(Part hovered)
+    {
+        if (hovered == this.hovered)
         {
             return;
         }
 
-        this.buttonHovered = hovered;
+        Part previous = this.hovered;
+        this.hovered = hovered;
         this.UpdateToolTip();
-        this.Invalidate(this.ButtonBounds);
+        this.Invalidate(this.BoundsOf(previous));
+        this.Invalidate(this.BoundsOf(hovered));
     }
 
-    // The button's tooltip: the emoji's first code point, U+1F602 — U+1F468 for a sequence.
+    // The tooltip of the part under the mouse: the button's, the emoji's first code point, U+1F602 — U+1F468 for a
+    // sequence; the tone swatch's, the default tone.
     private void UpdateToolTip()
     {
-        string? codePoint = this.buttonHovered && this.shownEmoji is Emoji emoji
-            ? "U+" + emoji.Hexcode.Split('-')[0]
-            : null;
-        this.toolTip.SetToolTip(this, codePoint);
+        string? text = (this.hovered, this.shownEmoji) switch
+        {
+            (Part.Button, Emoji emoji) => "U+" + emoji.Hexcode.Split('-')[0],
+            (Part.Tone, not null) => string.Format(ToneToolTip, SkinTones.NameOf(this.defaultTone)),
+            _ => null,
+        };
+        this.toolTip.SetToolTip(this, text);
     }
 
-    // The emoji itself, as text. The window stays, and the copy is no use: the frequent tab ignores it.
+    // The emoji itself, as text, in its tone. The window stays, and the copy is no use: the frequent tab ignores it.
     private void CopyEmoji()
     {
         if (this.shownEmoji is not Emoji emoji)
@@ -527,7 +655,7 @@ internal sealed class EmojiDetailsPanel : Control
 
         try
         {
-            Clipboard.SetText(emoji.Text);
+            Clipboard.SetText(this.ShownText(emoji));
         }
         catch (ExternalException exception)
         {
@@ -552,11 +680,11 @@ internal sealed class EmojiDetailsPanel : Control
         }
     }
 
-    // The shown emoji drawn at the panel's emoji size, the previous bitmap freed.
+    // The shown emoji drawn at the panel's emoji size, in its tone, the previous bitmap freed.
     private void RenderEmoji()
     {
         Bitmap? previous = this.emojiBitmap;
-        this.emojiBitmap = this.shownEmoji is Emoji emoji ? this.renderer.Render(emoji.Text, this.EmojiSize) : null;
+        this.emojiBitmap = this.shownEmoji is Emoji emoji ? this.renderer.Render(this.ShownText(emoji), this.EmojiSize) : null;
         previous?.Dispose();
     }
 
@@ -594,6 +722,14 @@ internal sealed class EmojiDetailsPanel : Control
 
     // One language's row: its flag, the emoji's name, its tags joined.
     private readonly record struct Row(Flag Flag, string Name, string Tags);
+
+    // The parts of the panel the mouse acts on.
+    private enum Part
+    {
+        None,
+        Button,
+        Tone,
+    }
 
     // A flag embedded in the exe (UI/Flags), at 1× and 2×, and its width at 1×.
     private sealed class Flag : IDisposable

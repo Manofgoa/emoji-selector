@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Drawing.Drawing2D;
 using EmojiSelector.Data;
 using EmojiSelector.Drawing;
@@ -93,8 +94,9 @@ internal sealed class EmojiGrid : Control
 
     /// <param name="categories">The sections, in order.</param>
     /// <param name="emojis">
-    /// Every emoji the sections can show, each once, in grid order: the ones pre-rendered. A section built from others
-    /// (the frequent emojis) leaves this list — and so the disk cache's key — unchanged.
+    /// Every emoji the sections can show, each once, in grid order: the ones pre-rendered, then their skin-tone variants.
+    /// A section built from others (the frequent emojis) leaves this list — and so the disk cache's key — unchanged, and
+    /// so does a change of tone: every variant is pre-rendered.
     /// </param>
     public EmojiGrid(IReadOnlyList<EmojiCategory> categories, IEnumerable<Emoji> emojis)
     {
@@ -110,8 +112,13 @@ internal sealed class EmojiGrid : Control
         this.layout = this.CreateLayout();
         this.UpdateScrollBar();
 
-        // In grid order: the first screen is ready first.
-        this.bitmaps = new EmojiBitmapCache(emojis.Select(emoji => emoji.Text).ToList());
+        // In grid order: the first screen is ready first — in yellow; the variants come after every emoji.
+        List<Emoji> preRendered = [.. emojis];
+        this.bitmaps = new EmojiBitmapCache(preRendered
+            .Select(emoji => emoji.Text)
+            .Concat(preRendered.SelectMany(emoji => emoji.Variants).Select(variant => variant.Text))
+            .Distinct()
+            .ToList());
         this.bitmaps.BitmapsReady += (_, _) => this.Invalidate();
         this.EnsureBitmapSize();
     }
@@ -142,6 +149,13 @@ internal sealed class EmojiGrid : Control
 
     /// <summary>The selected emoji — the one Enter inserts; null when the grid shows no emoji.</summary>
     public Emoji? SelectedEmoji => this.selection is (int section, int index) ? this.sections[section].Emojis[index] : null;
+
+    /// <summary>
+    /// The text a cell draws for its emoji: the emoji in the skin tone in use (see <see cref="SkinTones.ShownText"/>),
+    /// the emoji itself until set. Its result must be pre-rendered: a base emoji or one of its variants.
+    /// </summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Func<Emoji, string> ShownText { get; set; } = emoji => emoji.Text;
 
     /// <summary>Whether a section is in reorder mode.</summary>
     public bool IsReordering => this.reorderSection is not null;
@@ -454,7 +468,7 @@ internal sealed class EmojiGrid : Control
         {
             Rectangle cell = this.layout.CellBounds(section, index);
             cell.Offset(0, -offset);
-            Bitmap? bitmap = this.bitmaps.TryGet(this.sections[section].Emojis[index].Text);
+            Bitmap? bitmap = this.bitmaps.TryGet(this.ShownText(this.sections[section].Emojis[index]));
             if (bitmap is null)
             {
                 using var missingBrush = new SolidBrush(MissingColor);
