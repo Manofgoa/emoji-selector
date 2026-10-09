@@ -115,6 +115,9 @@ target to be ready, then type.
 | 2 | Which other apps fail? | None other tested | 2026-10-09 |
 | 3 | Is a clipboard fallback acceptable? | No, never | 2026-10-09 |
 | 4 | Is the subject straightforward or tricky? | Straightforward | 2026-10-09 |
+| 5 | May the agent run a live test typing markers into the Claude app's prompt box? | | 2026-10-09 |
+| 6 | Wait strategy: readiness polling + settle delay, or a fixed delay? | | 2026-10-09 |
+| 7 | Normal insertion: swallow the user's keys during the wait? | | 2026-10-09 |
 
 ---
 
