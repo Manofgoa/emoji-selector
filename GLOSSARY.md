@@ -21,6 +21,8 @@ each.
 | Frequent (*fréquent*) | An emoji counted by its uses — each use adds 1 to its counter, kept in `usage.json` next to the exe; the most used are shown in the first tab, *Frequently used* |
 | Details panel (*panneau de détails*) | The band at the bottom of the window showing the **selection** large, with its names and tags in English and in French, its emoticon, and a button copying it to the clipboard |
 | Highlight (*surlignage*) | The colour behind the characters of the details panel's names and tags that the search box's text matches — fluorescent yellow by default |
+| Skin tone (*teinte de peau*) | The colour of a person, hand or body part emoji: none — the yellow emoji — or one of Unicode's five, light to dark; a two-person emoji has one per person. Each emoji is shown, inserted and copied in its own tone when it has one, else in the **default tone** |
+| Default tone (*teinte par défaut*) | The **skin tone** of every emoji that has none of its own, picked in the details panel's tone bar; a two-person emoji's second person has one too, the same as the first's until changed |
 | Startup shortcut (*raccourci de démarrage*) | The `Emoji Selector.lnk` shortcut in the user's Startup folder that *Start with Windows* writes: Windows runs it at sign-in, the app starting hidden in the notification area — not the **shortcut** Win+; |
 | Tray icon (*icône de notification*) | The icon the app shows in the notification area, as long as it runs; it shows the emoji the user chose, 🙂 by default — not the **app icon** |
 | App icon (*icône de l'application*) | The 🙂 of the exe — in the File Explorer, the startup shortcut, the Task Manager — and of the window: Fluent Emoji's design, fixed, whatever emoji the **tray icon** shows |
