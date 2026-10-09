@@ -25,9 +25,10 @@ internal sealed class ShortcutHook : IDisposable
     /// </summary>
     public static readonly IntPtr InjectedMarker = new(0x454D4F4A);
 
-    // The longest the keys are swallowed for a keep-open insertion, should StopSwallowing never come: the keyboard is
-    // never left swallowed.
-    private const long MaxSwallowMilliseconds = 1000;
+    // The longest the keys are swallowed for an insertion, should StopSwallowing never come: the keyboard is never left
+    // swallowed. Covers the wait for the previous window (MainForm.TypingTimeout), the settle delay and a keep-open
+    // insertion's hand-back.
+    private const long MaxSwallowMilliseconds = 1500;
 
     // Kept in a field: the hook calls it for as long as it is installed, the garbage collector must not collect it.
     private readonly LowLevelKeyboardProc callback;
@@ -38,12 +39,12 @@ internal sealed class ShortcutHook : IDisposable
     // The virtual-key code of the `;` or `.` key being swallowed, from its key-down to its key-up; 0 when none.
     private uint swallowedKey;
 
-    // Environment.TickCount64 until which the physical keys are swallowed, the modifiers excepted — a keep-open
-    // insertion handing the foreground back. Written by the UI thread, read by the hook's.
+    // Environment.TickCount64 until which the physical keys are swallowed, the modifiers excepted — an insertion waiting
+    // for the previous window, a keep-open one handing the foreground back. Written by the UI thread, read by the hook's.
     private long swallowUntil;
 
-    // The keys whose key-down was swallowed during a keep-open insertion: their key-up is swallowed too, even once it
-    // ended. The hook's thread only.
+    // The keys whose key-down was swallowed during an insertion: their key-up is swallowed too, even once it ended. The
+    // hook's thread only.
     private readonly HashSet<uint> swallowedDuringInsertion = [];
 
     public ShortcutHook()
@@ -61,13 +62,13 @@ internal sealed class ShortcutHook : IDisposable
     public event EventHandler? Pressed;
 
     /// <summary>
-    /// A keep-open insertion starts: until <see cref="StopSwallowing"/> — one second at most — the keys pressed are
-    /// swallowed, never typed into the previous window it hands the keyboard to. The modifiers go through: their state
-    /// follows the user's fingers.
+    /// An insertion starts: until <see cref="StopSwallowing"/> — 1.5 seconds at most — the keys pressed are swallowed,
+    /// never typed into the previous window it hands the keyboard to before the emoji, nor after it when the window
+    /// stays open. The modifiers go through: their state follows the user's fingers.
     /// </summary>
     public void SwallowKeys() => Volatile.Write(ref this.swallowUntil, Environment.TickCount64 + MaxSwallowMilliseconds);
 
-    /// <summary>The keep-open insertion ended: the keys go through again.</summary>
+    /// <summary>The insertion ended: the keys go through again.</summary>
     public void StopSwallowing() => Volatile.Write(ref this.swallowUntil, 0);
 
     public void Dispose()
@@ -114,8 +115,9 @@ internal sealed class ShortcutHook : IDisposable
         return CallNextHookEx(IntPtr.Zero, code, message, data);
     }
 
-    // While a keep-open insertion hands the foreground back, a key-down — a quick second Ctrl+Enter, Enter's
-    // auto-repeat — would land in the previous window: swallowed, the modifiers excepted. A key-up is swallowed only
+    // While an insertion waits for the previous window, or a keep-open one hands the foreground back, a key-down — a key
+    // typed quickly, a second Ctrl+Enter, Enter's auto-repeat — would land in the previous window: swallowed, the
+    // modifiers excepted. A key-up is swallowed only
     // when its key-down was: one whose key-down went through must reach Windows, or the key would stay down.
     private bool SwallowsDuringInsertion(uint message, uint virtualKey)
     {
