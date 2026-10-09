@@ -188,9 +188,8 @@ internal sealed class MainForm : Form
     // Every variant's text: a tray emoji may be one.
     private readonly HashSet<string> variantTexts;
 
-    // The default skin tone, and the second person's for the two-person emojis — null, the same as the first's.
+    // The default skin tone: every emoji with variants without a tone of its own, both persons of a two-person one.
     private SkinTone skinTone = SettingsFile.ReadSkinTone();
-    private SkinTone? secondSkinTone = SettingsFile.ReadSecondSkinTone();
 
     // Whether the frequent tab is shown: its tab and its section first, or neither. The counters count either way.
     private bool showFrequent = SettingsFile.ReadShowFrequent();
@@ -288,7 +287,6 @@ internal sealed class MainForm : Form
             HighlightColor = SettingsFile.ReadHighlightColor() ?? EmojiDetailsPanel.DefaultHighlightColor,
             ShownText = this.ShownText,
             DefaultTone = this.skinTone,
-            SecondTone = this.secondSkinTone,
         };
 
         // Never narrower than the tab strip needs, its side resize borders added. Never lower than the details panel
@@ -319,8 +317,7 @@ internal sealed class MainForm : Form
         this.grid.ActiveCategoryChanged += (_, _) => this.tabStrip.ActiveTab = this.TabOf(this.grid.ActiveCategory);
         this.grid.SelectedEmojiChanged += (_, _) => this.detailsPanel.ShownEmoji = this.grid.SelectedEmoji;
         this.detailsPanel.SizeChanged += (_, _) => this.UpdateMinimumHeight();
-        this.detailsPanel.DefaultToneChosen += (_, tone) => this.SetDefaultTone(tone);
-        this.detailsPanel.SecondToneChosen += (_, tone) => this.SetSecondTone(tone);
+        this.detailsPanel.ToneSwatchClicked += (_, bounds) => this.ShowToneMenu(bounds);
         this.grid.EmojiClicked += (_, emoji) => this.InsertEmoji(emoji);
         this.grid.EmojiRightClicked += (_, click) => this.ShowEmojiMenu(click);
         this.grid.SectionMenuClicked += (_, request) => this.ShowSectionMenu(request);
@@ -1384,7 +1381,7 @@ internal sealed class MainForm : Form
 
     // The text an emoji is shown, inserted and copied as: in its own skin tone, else the default one.
     private string ShownText(Emoji emoji) =>
-        SkinTones.ShownText(emoji, this.skinToneChoices.Get(emoji.Text), this.skinTone, this.secondSkinTone);
+        SkinTones.ShownText(emoji, this.skinToneChoices.Get(emoji.Text), this.skinTone);
 
     // The tones of the variant an emoji is shown as; None twice when shown yellow.
     private SkinTonePair ShownTones(Emoji emoji)
@@ -1403,7 +1400,20 @@ internal sealed class MainForm : Form
         this.OnTonesChanged();
     }
 
-    // The default tone, from the details panel's tone bar; saved.
+    // The details panel's tone swatch clicked: the six tones under it, its right edge on the swatch's, each with its
+    // swatch, the default one checked. Built for one show.
+    private void ShowToneMenu(Rectangle bounds)
+    {
+        var menu = new ContextMenuStrip();
+        foreach (SkinTone tone in SkinTones.All)
+        {
+            menu.Items.Add(this.CreateToneItem(tone, tone == this.skinTone, () => this.SetDefaultTone(tone)));
+        }
+
+        ShowOnce(menu, this.detailsPanel, new Point(bounds.Right, bounds.Bottom), ToolStripDropDownDirection.BelowLeft);
+    }
+
+    // The default tone, from the details panel's tone menu; saved. The emojis with a tone of their own keep it.
     private void SetDefaultTone(SkinTone tone)
     {
         if (tone == this.skinTone)
@@ -1414,21 +1424,6 @@ internal sealed class MainForm : Form
         this.skinTone = tone;
         SettingsFile.WriteSkinTone(tone);
         this.detailsPanel.DefaultTone = tone;
-        this.OnTonesChanged();
-    }
-
-    // The second person's default tone, from the details panel's second bar; saved — null, the same as the first's,
-    // removes it.
-    private void SetSecondTone(SkinTone? tone)
-    {
-        if (tone == this.secondSkinTone)
-        {
-            return;
-        }
-
-        this.secondSkinTone = tone;
-        SettingsFile.WriteSecondSkinTone(tone);
-        this.detailsPanel.SecondTone = tone;
         this.OnTonesChanged();
     }
 
