@@ -118,7 +118,7 @@ the details panel draws large — is resolved from its base emoji (`SkinTones.Sh
   "dark"]`), the emojis as their text (`EmojiUsage.ReadableEmojis`). Read once at launch — missing
   or invalid → no tone of its own; an invalid value is skipped. Written after each change, through
   `skin-tones.json.tmp` then a replace; a folder that cannot be written keeps them in memory. An
-  emoji the catalog no longer has stays in the file and is ignored.
+  emoji the catalog no longer has, and a value that cannot be read, stay in the file and are ignored.
 
 ---
 
@@ -128,9 +128,10 @@ the details panel draws large — is resolved from its base emoji (`SkinTones.Sh
   of three** — None (yellow), Light, Medium-light, then Medium, Medium-dark, Dark — the **default
   tone** ringed in the accent colour (`SystemColors.Highlight`). Shown only while the selection has
   variants.
-- **Two-person** selection: a **second bar** under the first, the second person's default tone. Its
-  first slot reads **"same as the first person"** (an empty ring); then the five tones. Dimmed and
-  inactive while the default tone is None.
+- **Two-person** selection: a **second bar** under the first and a thin line (a bar gap above and
+  under it, like the language rows' separator), the second person's default tone. Its first slot
+  reads **"same as the first person"** (an empty ring); then the five tones. Dimmed and inactive while
+  the default tone is None.
 - A click on a swatch sets the default tone (or the second one) at once and saves it; the panel and
   the grid follow. A click on the second bar's tone equal to the first's, or on its first slot, removes
   `secondSkinTone`: it follows the first again.
@@ -143,8 +144,8 @@ the details panel draws large — is resolved from its base emoji (`SkinTones.Sh
   menu.
 - **Room**: the right column is as wide as the bar when the catalog has variants (wider than the
   button: the text column narrows by the difference). The **fixed height** counts the right column
-  too: button, gap, bar, and the second bar when the catalog has two-person emojis — whatever the
-  selection, so moving it never moves the grid.
+  too: button, gap, bar, and the line and the second bar when the catalog has two-person emojis —
+  whatever the selection, so moving it never moves the grid.
 - The emoji drawn at 48 px is the **shown text**; the copy button copies it; its tooltip stays the
   first code point (`U+1F44D`: the modifier comes later in the sequence).
 - Names and tags: the **base emoji's** (`Thumbs up`) — the variants have no tags; the tone is seen in
@@ -207,6 +208,16 @@ No test project: checked on the built app, by reflection on the dll, like the pr
 | `skin-tones.json`: round trip, keyed by the base text, tones and pairs, an unknown emoji kept | Reflection script | Create |
 | `AppReset` deletes `skin-tones.json` | Reflection script | Create |
 | The pre-render list: base emojis then variants, each once | Reflection script | Create |
+
+**Checks run** (Iteration 5): `check-skin-tones.ps1` in the session's scratchpad, on a copy of the build
+folder — **44 checks, 0 failure**: 330 emojis with variants, 2,030 variants, 19 two-person emojis;
+the tones read from the text; the shown text (default, own tone, None, 🍎, 🤝's mixed pair, the second
+default and its fallback, a one-person emoji ignoring it); `settings.json` round trips and fallbacks;
+`skin-tones.json` round trips, an unknown emoji and an unreadable value kept, a pair written as an
+array, a removal; the pre-render list (count, base emojis first, variants after, each once);
+`AppReset` deleting `skin-tones.json`. On screen: the build launched with `skinTone` = `medium`, the
+search box filled by `WM_SETTEXT` (`thumbs`, `holding hands`, `handshake`) and the window captured
+(`PrintWindow`): the grid and the panel in the medium tone, one bar for 👍, two for 🧑‍🤝‍🧑 and 🤝.
 
 ---
 
@@ -279,6 +290,32 @@ worktree*). Scope taken: **code, checks and documentation** (README, RULES, GLOS
 no scope, the previous runs delivered all three, and RULES.md must describe what the app does. Where:
 a new worktree, branch `feature/skin-tones`, created from this branch's `HEAD`.
 
+### Iteration 5 — 2026-10-09 — 🧭 Implementation choices
+
+⚠️ **Rule broken — propagating a changed imported rule file** (the user's global `CLAUDE.md`, *Rule
+changes*): `RULES.md`, imported by the app's `CLAUDE.md`, gained a *Skin Tones* section, but the
+other running sessions were **not** messaged. The change lives on `feature/skin-tones` only: the other
+sessions' checkouts do not have it, and asking them to re-read their own `RULES.md` would apply
+nothing. To be propagated when the branch is merged. Autonomous run: reported instead of asked.
+
+Other choices the design did not state:
+
+- **A thin line between the two tone bars** (a bar gap above and under it): seen on the first capture,
+  the two bars read as one block of twelve swatches.
+- **An unreadable value of `skin-tones.json` is kept** in the file, ignored — like an unknown emoji
+  — rather than dropped: the store keeps the parsed `JsonObject` and writes it back whole.
+- **A variant whose tones repeat an earlier one's is left out**, and the pre-render list is made
+  distinct: neither happens in Emojibase 17, both guard a hand-edited or future file.
+- **The tray emoji at launch**: accepted when it is a catalog emoji **or any variant's text** (a set
+  built once, `MainForm.variantTexts`).
+- **A two-person emoji's `No tone`** stores `none` (the pair None, None) — the yellow emoji whatever
+  the default tones.
+- **Swatch details**: 12 logical pixels, a 4-pixel gap, the ring 2 pixels wide in the accent colour, a
+  hovered swatch on `SystemColors.ControlLight` like the copy button; a dimmed bar drawn at alpha 80.
+- **The check instance's `settings.json`** (written for the capture) was deleted afterwards: the build
+  folder is left as the user had it, its `cache\` aside (rendered with the variants, reused at the
+  delivery launch).
+
 ---
 
 ## Implementation Log
@@ -288,11 +325,11 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | No test project — reflection checks on the built dll (Q&A 13) |
-| README | | | `README.md` and `README.fr.md` |
-| RULES.md | | | § Categories and Insertion, § Details Panel, § Window and Tray Icon (right-click menu), § Size (`settings.json` keys), § Reset All Settings |
-| GLOSSARY | | | *Skin tone* (*teinte de peau*), *Default tone* (*teinte par défaut*) — `GLOSSARY.md` and `GLOSSARY.fr.md` |
+| Code | 4, 5 | 2026-10-09 | `Data/SkinTone.cs`, `Data/SkinToneChoices.cs` (new); `Emoji`, `EmojiCatalog`, `SettingsFile`, `AppReset`; `EmojiGrid`, `EmojiDetailsPanel`, `MainForm` |
+| Unit tests | 5 | 2026-10-09 | No test project — 44 reflection checks on a copy of the build, all passing (*Test Impact* § Checks run) |
+| README | 5 | 2026-10-09 | `README.md` and `README.fr.md`: *Skin tones*, tray icon, categories, reset, planned |
+| RULES.md | 5 | 2026-10-09 | New § Skin Tones; § Window and Tray Icon (menu, tray emoji), § Size (`settings.json` keys), § Categories and Insertion, § Reset All Settings, § Details Panel |
+| GLOSSARY | 5 | 2026-10-09 | *Skin tone* (*teinte de peau*), *Default tone* (*teinte par défaut*) — `GLOSSARY.md` and `GLOSSARY.fr.md` |
 
 ---
 
