@@ -198,6 +198,7 @@ says so rather than staying blank.
 | Unit tests | 4 | 2026-10-09 | No test project in the app — not applicable |
 | README | 4 | 2026-10-09 | `README.md` / `README.fr.md`: the gear's menu sentence, the *Skin tones* bullet |
 | RULES.md | 4 | 2026-10-09 | § Window and Tray Icon (table, menu sections), § Size (keys), § Details Panel (height), § Skin Tones › Default tone |
+| Merge | 5 | 2026-10-09 | `feature/always-show-skin-tone` merged into `main` (`--no-ff`); the worktree and the branch removed |
 
 ---
 
