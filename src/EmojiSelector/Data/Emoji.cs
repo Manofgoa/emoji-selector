@@ -33,4 +33,13 @@ internal sealed record Emoji(string Text, string Name, IReadOnlyList<EmojiKeywor
     /// ranks the emoji first.
     /// </summary>
     public IReadOnlyList<string> CharacterKeys { get; init; } = [];
+
+    /// <summary>
+    /// Its skin-tone variants, in Emojibase's order — five for a one-person emoji, up to twenty-five for a two-person
+    /// one; most emojis have none. The emoji itself (<see cref="Text"/>) is the yellow one.
+    /// </summary>
+    public IReadOnlyList<SkinVariant> Variants { get; init; } = [];
+
+    /// <summary>Whether its variants give each person a tone of their own (🤝, 🧑‍🤝‍🧑): one of them has two different tones.</summary>
+    public bool IsTwoPerson { get; init; }
 }

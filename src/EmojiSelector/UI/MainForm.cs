@@ -92,6 +92,7 @@ internal sealed class MainForm : Form
         + "• the custom groups and their emojis\n"
         + "• the use counters of Frequently used\n"
         + "• the window size and opacity, the tray emoji, the details panel's settings\n"
+        + "• the skin tones, the default ones and the emojis' own\n"
         + "• Start with Windows\n"
         + "• the downloaded emoji data — back to version {0}\n"
         + "• the emoji image cache\n\n"
@@ -155,6 +156,14 @@ internal sealed class MainForm : Form
 
     public const string RemoveText = "Remove";
 
+    public const string SkinToneText = "Skin tone";
+
+    public const string UseDefaultToneText = "Use default tone";
+
+    public const string FirstPersonText = "First person";
+
+    public const string SecondPersonText = "Second person";
+
     // The custom tab's glyph: Heart, in Segoe Fluent Icons and Segoe MDL2 Assets.
     private const char CustomIcon = '';
 
@@ -178,6 +187,13 @@ internal sealed class MainForm : Form
     private readonly EmojiDetailsPanel detailsPanel;
     private readonly EmojiUsage usage = EmojiUsage.Load();
     private readonly CustomGroups customGroups = CustomGroups.Load();
+    private readonly SkinToneChoices skinToneChoices = SkinToneChoices.Load();
+
+    // Every variant's text: a tray emoji may be one.
+    private readonly HashSet<string> variantTexts;
+
+    // The default skin tone: every emoji with variants without a tone of its own, both persons of a two-person one.
+    private SkinTone skinTone = SettingsFile.ReadSkinTone();
 
     // Whether the frequent tab is shown: its tab and its section first, or neither. The counters count either way.
     private bool showFrequent = SettingsFile.ReadShowFrequent();
@@ -258,12 +274,14 @@ internal sealed class MainForm : Form
         this.emojiDataVersion = emojiData.Version;
         this.categories = emojiData.Categories;
         this.emojisByText = this.categories.SelectMany(category => category.Emojis).ToDictionary(emoji => emoji.Text);
+        this.variantTexts = [.. this.emojisByText.Values.SelectMany(emoji => emoji.Variants).Select(variant => variant.Text)];
         List<EmojiCategory> customSections = this.CreateCustomSections();
         this.customSectionCount = customSections.Count;
         this.grid = new EmojiGrid([.. this.CreateFrequentSections(), .. customSections, .. this.categories],
             this.categories.SelectMany(category => category.Emojis))
         {
             Dock = DockStyle.Fill,
+            ShownText = this.ShownText,
         };
         this.tabStrip = new CategoryTabStrip(this.CreateTabs())
         {
@@ -274,6 +292,8 @@ internal sealed class MainForm : Form
             Dock = DockStyle.Bottom,
             ShowFrench = SettingsFile.ReadShowFrench(),
             HighlightColor = SettingsFile.ReadHighlightColor() ?? EmojiDetailsPanel.DefaultHighlightColor,
+            ShownText = this.ShownText,
+            DefaultTone = this.skinTone,
         };
 
         // Never narrower than the tab strip needs, its side resize borders added. Never lower than the details panel
@@ -304,15 +324,18 @@ internal sealed class MainForm : Form
         this.grid.ActiveCategoryChanged += (_, _) => this.tabStrip.ActiveTab = this.TabOf(this.grid.ActiveCategory);
         this.grid.SelectedEmojiChanged += (_, _) => this.detailsPanel.ShownEmoji = this.grid.SelectedEmoji;
         this.detailsPanel.SizeChanged += (_, _) => this.UpdateMinimumHeight();
+        this.detailsPanel.ToneSwatchClicked += (_, bounds) => this.ShowToneMenu(bounds);
         this.grid.EmojiClicked += (_, click) => this.InsertEmoji(click.Emoji, click.KeepOpen);
         this.grid.EmojiRightClicked += (_, click) => this.ShowEmojiMenu(click);
         this.grid.SectionMenuClicked += (_, request) => this.ShowSectionMenu(request);
         this.grid.EmojiMoved += (_, move) => this.MoveEmoji(move);
         ResumeLayout(performLayout: false);
 
-        // The emoji the user chose, while the catalog still has it; the setting is left as it is otherwise.
+        // The emoji the user chose — in its skin tone —, while the catalog still has it; the setting is left as it is
+        // otherwise.
         string? trayEmoji = SettingsFile.ReadTrayEmoji();
-        this.trayIcon = new TrayIcon(this.Text, trayEmoji is not null && this.emojisByText.ContainsKey(trayEmoji) ? trayEmoji : TrayIcon.DefaultEmoji);
+        this.trayIcon = new TrayIcon(this.Text,
+            trayEmoji is not null && (this.emojisByText.ContainsKey(trayEmoji) || this.variantTexts.Contains(trayEmoji)) ? trayEmoji : TrayIcon.DefaultEmoji);
         this.trayIcon.Clicked += this.OnTrayIconClicked;
         this.trayIcon.ExitRequested += (_, _) => Application.Exit();
 
@@ -1261,9 +1284,15 @@ internal sealed class MainForm : Form
     private void ShowEmojiMenu(EmojiGrid.EmojiRightClick click)
     {
         var menu = new ContextMenuStrip();
-        var useAsTrayIcon = new ToolStripMenuItem(UseAsTrayIconText) { Checked = this.trayIcon.Emoji == click.Emoji.Text };
-        useAsTrayIcon.Click += (_, _) => this.UseAsTrayIcon(click.Emoji.Text);
+        string shownText = this.ShownText(click.Emoji);
+        var useAsTrayIcon = new ToolStripMenuItem(UseAsTrayIconText) { Checked = this.trayIcon.Emoji == shownText };
+        useAsTrayIcon.Click += (_, _) => this.UseAsTrayIcon(shownText);
         menu.Items.Add(useAsTrayIcon);
+        if (click.Emoji.Variants.Count > 0)
+        {
+            menu.Items.Add(this.CreateSkinToneMenu(click.Emoji));
+        }
+
         menu.Items.Add(new ToolStripSeparator());
         var addTo = new ToolStripMenuItem(AddToText) { Enabled = this.customGroups.Groups.Count > 0 };
         for (int group = 0; group < this.customGroups.Groups.Count; group++)
@@ -1292,6 +1321,116 @@ internal sealed class MainForm : Form
         {
             menu.Items.OfType<ToolStripMenuItem>().FirstOrDefault(item => item.Enabled)?.Select();
         }
+    }
+
+    // Skin tone ▸, for an emoji with variants: Use default tone, checked while it has no tone of its own, then its own
+    // tone — one of the six for a one-person emoji; No tone then a tone per person for a two-person one —, each tone
+    // with its swatch, the emoji's own checked. The swatches go with the menu.
+    private ToolStripMenuItem CreateSkinToneMenu(Emoji emoji)
+    {
+        SkinTonePair? own = this.skinToneChoices.Get(emoji.Text);
+        var skinTone = new ToolStripMenuItem(SkinToneText);
+        var useDefault = new ToolStripMenuItem(UseDefaultToneText) { Checked = own is null };
+        useDefault.Click += (_, _) => this.SetOwnTone(emoji, null);
+        skinTone.DropDownItems.Add(useDefault);
+        if (emoji.IsTwoPerson)
+        {
+            skinTone.DropDownItems.Add(this.CreateToneItem(SkinTone.None, own is { First: SkinTone.None },
+                () => this.SetOwnTone(emoji, SkinTonePair.Of(SkinTone.None))));
+            skinTone.DropDownItems.Add(new ToolStripSeparator());
+            SkinTonePair shown = this.ShownTones(emoji);
+            foreach ((string text, bool first) in new[] { (FirstPersonText, true), (SecondPersonText, false) })
+            {
+                var person = new ToolStripMenuItem(text);
+                foreach (SkinTone tone in SkinTones.Modifiers)
+                {
+                    // The other person keeps the tone shown now, or takes this one while the emoji is yellow.
+                    SkinTonePair pair = first
+                        ? new SkinTonePair(tone, shown.Second == SkinTone.None ? tone : shown.Second)
+                        : new SkinTonePair(shown.First == SkinTone.None ? tone : shown.First, tone);
+                    bool isOwn = own is SkinTonePair ownPair && (first ? ownPair.First : ownPair.Second) == tone;
+                    person.DropDownItems.Add(this.CreateToneItem(tone, isOwn, () => this.SetOwnTone(emoji, pair)));
+                }
+
+                skinTone.DropDownItems.Add(person);
+            }
+        }
+        else
+        {
+            skinTone.DropDownItems.Add(new ToolStripSeparator());
+            foreach (SkinTone tone in SkinTones.All)
+            {
+                skinTone.DropDownItems.Add(this.CreateToneItem(tone, own?.First == tone, () => this.SetOwnTone(emoji, SkinTonePair.Of(tone))));
+            }
+        }
+
+        return skinTone;
+    }
+
+    // A tone's item: its name, its swatch, checked when it is the emoji's own; its swatch disposed with it.
+    private ToolStripMenuItem CreateToneItem(SkinTone tone, bool isChecked, Action choose)
+    {
+        var item = new ToolStripMenuItem(SkinTones.NameOf(tone)) { Checked = isChecked };
+        this.SetSwatch(item, SkinTones.ColorOf(tone));
+        item.Click += (_, _) => choose();
+        item.Disposed += (_, _) => item.Image?.Dispose();
+        return item;
+    }
+
+    // The text an emoji is shown, inserted and copied as: in its own skin tone, else the default one.
+    private string ShownText(Emoji emoji) =>
+        SkinTones.ShownText(emoji, this.skinToneChoices.Get(emoji.Text), this.skinTone);
+
+    // The tones of the variant an emoji is shown as; None twice when shown yellow.
+    private SkinTonePair ShownTones(Emoji emoji)
+    {
+        string shown = this.ShownText(emoji);
+        return emoji.Variants.FirstOrDefault(variant => variant.Text == shown) is SkinVariant variant
+            ? new SkinTonePair(variant.First, variant.Second)
+            : SkinTonePair.Of(SkinTone.None);
+    }
+
+    // The emoji's own tone, saved — null, it follows the default tone again —; the grid and the details panel follow.
+    // The window stays.
+    private void SetOwnTone(Emoji emoji, SkinTonePair? tones)
+    {
+        this.skinToneChoices.Set(emoji.Text, tones);
+        this.OnTonesChanged();
+    }
+
+    // The details panel's tone swatch clicked: the six tones under it, its right edge on the swatch's, each with its
+    // swatch, the default one checked. Built for one show.
+    private void ShowToneMenu(Rectangle bounds)
+    {
+        var menu = new ContextMenuStrip();
+        foreach (SkinTone tone in SkinTones.All)
+        {
+            menu.Items.Add(this.CreateToneItem(tone, tone == this.skinTone, () => this.SetDefaultTone(tone)));
+        }
+
+        ShowOnce(menu, this.detailsPanel, new Point(bounds.Right, bounds.Bottom), ToolStripDropDownDirection.BelowLeft);
+    }
+
+    // The default tone, from the details panel's tone menu; saved. The emojis with a tone of their own keep it.
+    private void SetDefaultTone(SkinTone tone)
+    {
+        if (tone == this.skinTone)
+        {
+            return;
+        }
+
+        this.skinTone = tone;
+        SettingsFile.WriteSkinTone(tone);
+        this.detailsPanel.DefaultTone = tone;
+        this.OnTonesChanged();
+    }
+
+    // Every section is drawn again in the new tones — they are pre-rendered, nothing to rebuild —, and the details
+    // panel's emoji with them.
+    private void OnTonesChanged()
+    {
+        this.grid.Invalidate();
+        this.detailsPanel.RefreshShownEmoji();
     }
 
     // The emoji's counter forgotten: the next one moves up into the section, which reads No emoji used yet once empty.
@@ -1460,9 +1599,10 @@ internal sealed class MainForm : Form
         this.Hide();
         if (target != IntPtr.Zero)
         {
-            EmojiInserter.Type(emoji.Text);
+            EmojiInserter.Type(this.ShownText(emoji));
         }
 
+        // Counted for the emoji itself, whatever its tone.
         this.OnEmojiUsed(emoji.Text);
     }
 
@@ -1484,7 +1624,7 @@ internal sealed class MainForm : Form
             this.shortcutHook.SwallowKeys();
             SetWindowPos(this.Handle, HwndTopmost, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate);
             EmojiInserter.Activate(target);
-            EmojiInserter.Type(emoji.Text);
+            EmojiInserter.Type(this.ShownText(emoji));
             this.handBackTimer.Start();
         }
 
