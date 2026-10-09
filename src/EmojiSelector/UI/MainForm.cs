@@ -557,7 +557,7 @@ internal sealed class MainForm : Form
         base.OnLayout(levent);
     }
 
-    // PROTOTYPE: the Acrylic backdrop asked of Windows or not, every part of the window drawn on it or not.
+    // The Acrylic backdrop asked of Windows or not, every part of the window drawn on it or not.
     private void ApplyBackdrop()
     {
         if (!this.IsHandleCreated)
@@ -629,8 +629,8 @@ internal sealed class MainForm : Form
         {
             CreateParams parameters = base.CreateParams;
             parameters.ExStyle = (parameters.ExStyle | WsExToolWindow) & ~WsExAppWindow;
-            // PROTOTYPE: with the frame extended into the client area, DWM draws the caption's buttons in it — no caption,
-            // no buttons. The resize borders, the shadow and the system menu stay.
+            // With the Acrylic backdrop the frame is extended into the client area, and DWM would draw the caption's buttons
+            // in it: no caption, no buttons. The resize borders, the shadow and the system menu stay.
             if (this.acrylic)
             {
                 parameters.Style &= ~WsCaption;
@@ -1993,7 +1993,7 @@ internal sealed class MainForm : Form
     // as the top resize border.
     private sealed class SearchBar : TableLayoutPanel
     {
-        // PROTOTYPE: drawn on the Acrylic backdrop — a transparent background.
+        // Drawn on the Acrylic backdrop (see Glass): a tinted transparent background.
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool Glass
         {

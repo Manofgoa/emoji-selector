@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- PROTOTYPE: Windows 10 declared, so Windows honours WS_EX_LAYERED on child windows (Windows 8+ apps only). -->
+<!-- Windows 10 declared: Windows honours WS_EX_LAYERED on child windows for Windows 8+ apps only — the native controls
+     made opaque on the Acrylic backdrop (UI/Glass.cs). -->
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
   <assemblyIdentity version="1.0.0.0" name="EmojiSelector.app" />
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">

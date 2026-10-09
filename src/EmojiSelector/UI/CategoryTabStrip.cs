@@ -178,7 +178,7 @@ internal sealed class CategoryTabStrip : Control
         this.Invalidate();
     }
 
-    // PROTOTYPE: drawn on the Acrylic backdrop — a transparent background, GDI+ text.
+    // Drawn on the Acrylic backdrop (see Glass): a tinted transparent background, GDI+ text.
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public bool Glass
     {

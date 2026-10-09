@@ -465,7 +465,7 @@ internal sealed class EmojiGrid : Control
         this.SetSelection(this.FirstVisible(), ensureVisible: false);
     }
 
-    // PROTOTYPE: drawn on the Acrylic backdrop — a transparent background, GDI+ text, the scroll bar opaque.
+    // Drawn on the Acrylic backdrop (see Glass): a tinted transparent background, GDI+ text, the scroll bar opaque.
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public bool Glass
     {

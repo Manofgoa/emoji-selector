@@ -5,11 +5,13 @@ using System.Runtime.InteropServices;
 namespace EmojiSelector.UI;
 
 /// <summary>
-/// PROTOTYPE — drawing on Windows' Acrylic backdrop. Under the frame extended into the client area, DWM blends every
-/// pixel with the blur by its alpha; GDI writes an alpha of 0, so a control drawn on the backdrop paints into a
-/// premultiplied 32-bit buffer with GDI+ (<see cref="Paint"/>, <see cref="DrawText(Graphics, bool, string, Font, Rectangle, Color, TextFormatFlags)"/>)
-/// and copies it, alpha included. A native child (the search box, a button, a scroll bar) cannot: it is made a layered
-/// child at full alpha, so DWM composes it opaque (<see cref="SetOpaque"/>).
+/// Drawing on Windows' <b>Acrylic</b> backdrop, the window's blurred background (<see cref="Apply"/>). Under the frame
+/// extended into the client area, DWM blends every pixel with the blur by its alpha; GDI writes an alpha of 0, so a
+/// control drawn on the backdrop paints into a premultiplied 32-bit buffer with GDI+, over a light <see cref="Tint"/>
+/// (<see cref="Paint"/>, <see cref="DrawText(Graphics, bool, string, Font, Rectangle, Color, TextFormatFlags)"/>,
+/// <see cref="MeasureWidth"/>) and copies it, alpha included. A native child (the search box, a button, a scroll bar)
+/// cannot: it is made a layered child at full alpha, so DWM composes it opaque (<see cref="SetOpaque"/>) — which needs
+/// the app manifest's Windows 10 declaration.
 /// </summary>
 internal static class Glass
 {
