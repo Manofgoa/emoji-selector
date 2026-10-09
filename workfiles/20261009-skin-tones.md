@@ -316,6 +316,20 @@ Other choices the design did not state:
   folder is left as the user had it, its `cache\` aside (rendered with the variants, reused at the
   delivery launch).
 
+### Iteration 6 — 2026-10-09 — ⚙️ Post-implementation — One swatch and a drop-down
+
+The user, testing the delivery: *"I'd rather have a single colour shown, then a drop-down menu. And
+the chosen colour should apply to every emoji that offers one."* Planned:
+
+- The details panel shows **one swatch** — the default tone — under the copy button, in place of the
+  two bars of six; a click opens a **drop-down menu** under it listing the six tones, each with its
+  swatch, the one in use checked. A choice sets the default tone, saved as today (`skinTone`).
+- **One colour for every emoji that has variants**, two-person ones included: both persons take the
+  default tone. The second bar and `secondSkinTone` go (the key is no longer read; a mixed pair
+  stays possible through the right-click menu).
+- The panel's right column narrows back to the button's width; its height counts one swatch.
+- Open: what the choice does to the emojis that have a tone of their own (Q&A 14).
+
 ---
 
 ## Implementation Log
@@ -352,6 +366,7 @@ Questions asked by the agent during design, with user responses.
 | 11 | Counters, groups, tray emoji; pre-render? | Not asked — decided by the agent: base text, the tray's toned text kept; every variant pre-rendered | 2026-10-09 |
 | 12 | The name in the details panel? | Not asked — decided by the agent: the base name | 2026-10-09 |
 | 13 | Tests? | Not asked — decided by the agent: reflection on the dll | 2026-10-09 |
+| 14 | A tone chosen in the panel: what happens to the emojis that have a tone of their own (right-click)? | | |
 
 ---
 
