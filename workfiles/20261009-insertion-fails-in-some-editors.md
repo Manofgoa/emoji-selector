@@ -59,6 +59,9 @@ Type only once the target is **ready**, without blocking the UI thread:
 - After `Activate`, poll (WinForms timer, ~10 ms) until the target is the foreground window **and** its
   GUI thread has a focused window (`GetGUIThreadInfo(…).hwndFocus`), then wait a short **settle delay**
   before `SendInput`; give up waiting after a **timeout** and type anyway (never worse than today).
+- **Normal insertion too**: the hook swallows every physical key-down but the modifiers from the activation
+  to the typing (`ShortcutHook.SwallowKeys` / `StopSwallowing`, as the keep-open insertion does), so a key
+  typed quickly never lands before the emoji. Those keys are lost.
 - The same wait for `InsertKeepingOpen`: the hand-back (`KeepOpenHandBackDelay`) is counted from the typing,
   not from the activation, and the hook swallows keys for the whole wait.
 - Delay and timeout values: set from the live test (see *Open Questions*).
@@ -79,10 +82,13 @@ app, Chrome and the Notepad.
 
 ## Open Questions
 
-- [ ] Confirm the cause with a live test: a script activates the Claude window from another window, then
-      types a marker immediately, then another one after waiting — which one arrives?
-- [ ] Wait strategy: readiness polling + settle delay (proposed), or a fixed delay only?
-- [ ] Normal (hiding) insertion: swallow the user's keys during the wait, like the keep-open one?
+- [ ] Confirm the cause with a live test, run by the user: a script activates the Claude window from its own
+      window, hides it, types `A🙂` at once, then `B🙂` 300 ms later, and logs when Claude is in front and has a
+      focused window — which markers arrive?
+- [x] ~~Wait strategy: readiness polling + settle delay (proposed), or a fixed delay only?~~ → Readiness polling
+      + settle delay, typed anyway after a timeout
+- [x] ~~Normal (hiding) insertion: swallow the user's keys during the wait, like the keep-open one?~~ → Yes: the
+      hook swallows every physical key-down but the modifiers from the activation to the typing
 
 ---
 
@@ -94,6 +100,11 @@ Scope from the user: nothing is inserted in the Claude desktop app's prompt box,
 clipboard fallback, a simple subject. Scout pass: UIPI ruled out, both targets are plain Chromium windows.
 Leading hypothesis: the emoji is typed before the target has its focus back; proposed fix: wait for the
 target to be ready, then type.
+
+### Iteration 2 — 2026-10-09
+
+The user runs the live test himself (`insertion-timing-test.ps1`, from the agent's scratchpad). Wait strategy:
+readiness polling + settle delay. The normal insertion swallows the keys during the wait, like the keep-open one.
 
 ---
 
@@ -115,9 +126,9 @@ target to be ready, then type.
 | 2 | Which other apps fail? | None other tested | 2026-10-09 |
 | 3 | Is a clipboard fallback acceptable? | No, never | 2026-10-09 |
 | 4 | Is the subject straightforward or tricky? | Straightforward | 2026-10-09 |
-| 5 | May the agent run a live test typing markers into the Claude app's prompt box? | | 2026-10-09 |
-| 6 | Wait strategy: readiness polling + settle delay, or a fixed delay? | | 2026-10-09 |
-| 7 | Normal insertion: swallow the user's keys during the wait? | | 2026-10-09 |
+| 5 | May the agent run a live test typing markers into the Claude app's prompt box? | No — the user runs the test script himself | 2026-10-09 |
+| 6 | Wait strategy: readiness polling + settle delay, or a fixed delay? | Readiness polling + settle delay | 2026-10-09 |
+| 7 | Normal insertion: swallow the user's keys during the wait? | Yes | 2026-10-09 |
 
 ---
 
