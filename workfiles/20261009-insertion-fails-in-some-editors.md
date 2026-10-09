@@ -64,7 +64,11 @@ Type only once the target is **ready**, without blocking the UI thread:
   typed quickly never lands before the emoji. Those keys are lost.
 - The same wait for `InsertKeepingOpen`: the hand-back (`KeepOpenHandBackDelay`) is counted from the typing,
   not from the activation, and the hook swallows keys for the whole wait.
-- Delay and timeout values: set from the live test (see *Open Questions*).
+- **Values** (no measurement — tuned after the user's test of the fix): polling every 10 ms, a **settle
+  delay of 100 ms** once the target is ready, a **timeout of 1 s** from the activation.
+- **Confirmation by the fix itself**: the user tests the built app in the Claude app's prompt box, Chrome and
+  the Notepad. Inserted in Claude → the hypothesis holds; still nothing → back to design (the wait stays,
+  harmless).
 
 ---
 
@@ -82,9 +86,10 @@ app, Chrome and the Notepad.
 
 ## Open Questions
 
-- [ ] Confirm the cause with a live test, run by the user: a script activates the Claude window from its own
+- [x] ~~Confirm the cause with a live test, run by the user: a script activates the Claude window from its own
       window, hides it, types `A🙂` at once, then `B🙂` 300 ms later, and logs when Claude is in front and has a
-      focused window — which markers arrive?
+      focused window — which markers arrive?~~ → The script did not run on the user's side; the fix is
+      implemented directly and tested in the app
 - [x] ~~Wait strategy: readiness polling + settle delay (proposed), or a fixed delay only?~~ → Readiness polling
       + settle delay, typed anyway after a timeout
 - [x] ~~Normal (hiding) insertion: swallow the user's keys during the wait, like the keep-open one?~~ → Yes: the
@@ -105,6 +110,11 @@ target to be ready, then type.
 
 The user runs the live test (`insertion-timing-test.ps1`, from the agent's scratchpad). Wait strategy:
 readiness polling + settle delay. The normal insertion swallows the keys during the wait, like the keep-open one.
+
+### Iteration 3 — 2026-10-09
+
+The test script did not run on the user's side: the user asks to implement the fix directly and test it in
+the app. Values chosen without measurement: 10 ms polling, 100 ms settle delay, 1 s timeout.
 
 ---
 
@@ -129,6 +139,7 @@ readiness polling + settle delay. The normal insertion swallows the keys during 
 | 5 | May the agent run a live test typing markers into the Claude app's prompt box? | No — the user runs the test script | 2026-10-09 |
 | 6 | Wait strategy: readiness polling + settle delay, or a fixed delay? | Readiness polling + settle delay | 2026-10-09 |
 | 7 | Normal insertion: swallow the user's keys during the wait? | Yes | 2026-10-09 |
+| 8 | Results of the live test script? | It did not run — implement directly and test with the fix | 2026-10-09 |
 
 ---
 
