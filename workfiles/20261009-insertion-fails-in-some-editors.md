@@ -52,20 +52,31 @@ To be **confirmed by a live test** before the fix is frozen (see *Open Questions
 
 ---
 
-## Proposed Fix
+## Fix
 
 Type only once the target is **ready**, without blocking the UI thread:
 
-- After `Activate`, poll (WinForms timer, ~10 ms) until the target is the foreground window **and** its
-  GUI thread has a focused window (`GetGUIThreadInfo(…).hwndFocus`), then wait a short **settle delay**
-  before `SendInput`; give up waiting after a **timeout** and type anyway (never worse than today).
+- After `Activate`, a WinForms timer (`MainForm.typingTimer`, `TypingPollInterval`) polls until the target is
+  the foreground window **and** its GUI thread has a focused window (`EmojiInserter.IsReady`,
+  `GetGUIThreadInfo(…).hwndFocus`), then waits a **settle delay** (`TypingSettleDelay`) before `SendInput`;
+  after a **timeout** (`TypingTimeout`, from the activation) it types anyway (never worse than before).
+  `MainForm.TypeWhenReady` starts the wait, `OnTypingTick` ends it; the pending insertion is a
+  `PendingTyping` record.
+- A hiding insertion whose window was **shown again** during the wait (the tray icon) types nothing: the
+  emoji would land in the app's own window.
+- **One insertion at a time**: one started while the typing or a keep-open hand-back is pending is ignored
+  (the guard moved from `InsertKeepingOpen` to `InsertEmoji`).
 - **Normal insertion too**: the hook swallows every physical key-down but the modifiers from the activation
   to the typing (`ShortcutHook.SwallowKeys` / `StopSwallowing`, as the keep-open insertion does), so a key
-  typed quickly never lands before the emoji. Those keys are lost.
+  typed quickly never lands before the emoji. Those keys are lost. The hook's safety limit
+  (`MaxSwallowMilliseconds`) goes from 1 s to **1.5 s**, to cover the timeout, the settle delay and the
+  keep-open hand-back.
 - The same wait for `InsertKeepingOpen`: the hand-back (`KeepOpenHandBackDelay`) is counted from the typing,
   not from the activation, and the hook swallows keys for the whole wait.
 - **Values** (no measurement — tuned after the user's test of the fix): polling every 10 ms, a **settle
   delay of 100 ms** once the target is ready, a **timeout of 1 s** from the activation.
+- **Docs**: RULES.md § Categories and Insertion, § Keep-Open Insertion and § Shortcut. The READMEs are
+  unchanged: no visible behaviour changes besides the fix.
 - **Confirmation by the fix itself**: the user tests the built app in the Claude app's prompt box, Chrome and
   the Notepad. Inserted in Claude → the hypothesis holds; still nothing → back to design (the wait stays,
   harmless).
@@ -120,15 +131,27 @@ the app. Values chosen without measurement: 10 ms polling, 100 ms settle delay, 
 
 Go given: code and documentation (no test project), in a worktree on `feature/insertion-fails-in-some-editors`.
 
+### Iteration 5 — 2026-10-09 — 🧭 Implementation choices
+
+- **Hook limit raised**: `ShortcutHook.MaxSwallowMilliseconds` 1 s → 1.5 s. The 1 s timeout plus the settle
+  delay and the hand-back could outlast the old limit, letting keys through before the emoji.
+- **Guard moved**: the "one insertion at a time" check now sits in `InsertEmoji`, covering both paths,
+  instead of `InsertKeepingOpen` alone.
+- **Shown again during the wait**: a hiding insertion types nothing when its window is visible again by the
+  time the emoji is due (tray icon click) — not in the design, added so the emoji never lands in the
+  search box.
+- **No README change**: the fix changes no documented behaviour.
+- No rule broken.
+
 ---
 
 ## Implementation Log
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | No test project — see *Test Impact* |
-| README | | | |
+| Code | 4, 5 | 2026-10-09 | `EmojiInserter.IsReady`, hook swallowing for every insertion, `MainForm.TypeWhenReady` |
+| Unit tests | 4 | 2026-10-09 | Not applicable: no test project — see *Test Impact* |
+| README | 4, 5 | 2026-10-09 | RULES.md updated; READMEs unchanged (no visible behaviour change) |
 
 ---
 
