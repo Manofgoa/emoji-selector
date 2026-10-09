@@ -28,8 +28,9 @@ Relevant code: `UI/MainForm.cs` (`ShowToneMenu`, `CreateSkinToneMenu`, `CreateTo
 
 ## Preview State
 
-- `MainForm` keeps a **preview**, separate from the real tones (`skinTone`, `skinToneChoices`), at most one at a
-  time:
+- `MainForm` keeps a **preview** (`tonePreview`), separate from the real tones (`skinTone`, `skinToneChoices`), at
+  most one at a time — a `DefaultTonePreview` or an `OwnTonePreview`, each **owned by its highlighted item**: an item
+  losing the highlight clears the preview only while it still owns it, so the next item's preview is never undone:
 
   | Preview | Holds | Applies to |
   |---|---|---|
@@ -48,8 +49,8 @@ Relevant code: `UI/MainForm.cs` (`ShowToneMenu`, `CreateSkinToneMenu`, `CreateTo
 ## Triggers
 
 - **The highlight**: a tone item becoming the highlighted item of its menu — the mouse over it, or the arrow keys
-  reaching it — sets the preview to its tone. The mechanism (WinForms has no public "selection changed" event on a
-  `ToolStripItem`) is left to the implementation.
+  reaching it — sets the preview to its tone. The mechanism is `ToolStripItem.SelectedChanged`, raised for the mouse
+  and the keyboard alike (`MainForm.PreviewWhileHighlighted`, hooked on every tone item and on `Use default tone`).
 
   | Highlighted item | Preview |
   |---|---|
@@ -63,7 +64,8 @@ Relevant code: `UI/MainForm.cs` (`ShowToneMenu`, `CreateSkinToneMenu`, `CreateTo
 - **A click** saves the choice as today (`SetDefaultTone`, `SetOwnTone`), then the preview is cleared: the real
   tones are now the clicked one, nothing flickers.
 - **The menu closing without a click** — Esc, a click elsewhere, the window hiding — clears the preview: the real
-  tones are drawn again. Nothing is written.
+  tones are drawn again. Nothing is written. Hooked on the root menu's `Closed` (the swatch's menu; the right-click
+  menu when it holds `Skin tone ▸`), on top of the items losing the highlight.
 
 ---
 
@@ -138,6 +140,18 @@ tone item shows the real tones; a preview may end the copy button's check mark. 
 Go given: code, unit tests and documentation, in a worktree (`.claude/worktrees/skin-tone-hover-preview`, branch
 `feature/skin-tone-hover-preview`). Scope frozen as described above.
 
+### Iteration 4 — 2026-10-10 — 🧭 Implementation choices
+
+- **Highlight mechanism**: `ToolStripItem.SelectedChanged` — public, raised by the mouse and the arrow keys alike —
+  rather than `MouseEnter` (mouse only) or a `ToolStripMenuItem` subclass.
+- **Preview ownership**: the preview records (`DefaultTonePreview`, `OwnTonePreview`) carry their item; an item losing
+  the highlight clears only its own preview, whatever order WinForms raises the old item's and the new one's events in.
+- **Clearing on close**: the root menus' `Closed` clears it too — the swatch's menu always, the right-click menu only
+  when it holds `Skin tone ▸` (the only case it can preview).
+- **The swatch**: `EmojiDetailsPanel.DefaultTone` is set by `SetTonePreview` at every change — the previewed default
+  tone, else the real one — so its tooltip follows too.
+- No project rule broken; no other divergence from the frozen design.
+
 ---
 
 ## Implementation Log
@@ -147,9 +161,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | Not applicable: no test project (see *Test Impact*) |
-| README | | | |
+| Code | 4 | 2026-10-10 | `UI/MainForm.cs` — built, 0 warning; checked by hand (the menus cannot be driven from a script) |
+| Unit tests | 4 | 2026-10-10 | Not applicable: no test project (see *Test Impact*) |
+| RULES.md | 4 | 2026-10-10 | § *Skin Tones* → new *Preview* subsection, pointers from *Default tone* and *Own tone* |
+| README | 4 | 2026-10-10 | § *Skin tones*, `README.md` and `README.fr.md` in the same commit |
 
 ---
 
