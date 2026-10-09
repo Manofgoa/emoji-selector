@@ -6,7 +6,7 @@
 | Feature | Raised in | Status |
 |---|---|---|
 | **Recents tab** — a first tab (the clock in Win+;) listing the emojis picked lately | [20261007-category-tabs.md](20261007-category-tabs.md) | [20261008-frequent-tab.md](20261008-frequent-tab.md) — the most used, not the latest |
-| **Skin tones** — pick the skin tone variant of the emojis that have one | [20261007-category-tabs.md](20261007-category-tabs.md) | To design |
+| **Skin tones** — pick the skin tone variant of the emojis that have one | [20261007-category-tabs.md](20261007-category-tabs.md) | [20261009-skin-tones.md](20261009-skin-tones.md) |
 | **Search box** — filter the emojis by keyword at the top of the window | [20261007-category-tabs.md](20261007-category-tabs.md) | [20261007-search-box.md](20261007-search-box.md) |
 | **Flags tab** — Segoe UI Emoji has no flag glyphs (they show as two letters): needs bundled images, e.g. Twemoji (CC-BY 4.0, attribution required) | [20261007-category-tabs.md](20261007-category-tabs.md) | To design |
 | **Click action** — what clicking an emoji does (copy to the clipboard, insert into the previous window…) | [20261007-category-tabs.md](20261007-category-tabs.md) | Delivered there: insert into the previous window |
@@ -19,4 +19,4 @@
 
 ---
 
-*Last updated: 2026-10-08*
+*Last updated: 2026-10-09*
