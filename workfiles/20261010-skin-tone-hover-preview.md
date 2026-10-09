@@ -165,6 +165,7 @@ says so rather than staying blank.
 | Unit tests | 4 | 2026-10-10 | Not applicable: no test project (see *Test Impact*) |
 | RULES.md | 4 | 2026-10-10 | § *Skin Tones* → new *Preview* subsection, pointers from *Default tone* and *Own tone* |
 | README | 4 | 2026-10-10 | § *Skin tones*, `README.md` and `README.fr.md` in the same commit |
+| Merge | 4 | 2026-10-10 | Merged into `main` (`--no-ff`, no conflict, `main` built after it with the acrylic prototype's merge); worktree and branch removed |
 
 ---
 
