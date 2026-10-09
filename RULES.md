@@ -118,7 +118,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   without running its code. A move, or a drag to a monitor of another scale, saves nothing.
 - `settings.json` is the app's **shared settings file** (`Data/SettingsFile.cs`): `{ "windowWidth":
   …, "windowHeight": …, "trayEmoji": …, "showFrequent": …, "showFrench": …, "highlightColor": …, "opacity": …,
-  "skinTone": …, "secondSkinTone": … }`;
+  "skinTone": … }`;
   a write keeps the keys it does not
   know. Written through `settings.json.new` then a replace, the emojis as themselves
   (`EmojiUsage.ReadableEmojis`).
@@ -577,13 +577,13 @@ selected emoji changes — the same cell may hold another emoji once the section
   emoji's **first code point** (`U+1F602`; a sequence shows its first one). A click copies **the
   emoji itself** to the clipboard as text (`Clipboard.SetText`), in its skin tone; the glyph turns into a check mark
   (`E73E`) for about a second. A copy neither hides the window nor counts as a use. A clipboard held
-  by another app copies nothing and shows no check mark. Under it, the **tone bars** (see *Skin
+  by another app copies nothing and shows no check mark. Under it, the **tone swatch** (see *Skin
   Tones*).
 - The emoji drawn large and copied is its **shown text** (see *Skin Tones*); the names and tags are
   the base emoji's — Emojibase gives the variants none.
 - **Height**: fixed, the one the emoji with the **most text** needs at the window's width, French row
   included while shown (`EmojiDetailsPanel.HeightFor`, over the whole catalog, word widths cached),
-  and at least the right column's — the button, then the tone bars when the catalog has variants:
+  and at least the right column's — the button, then the tone swatch when the catalog has variants:
   moving the selection never moves the grid. `MainForm.OnLayout` fits it **before** the docking
   places the controls — set during it, the grid would keep the old space. The window's minimum
   height is 240 logical pixels plus the panel's height.
@@ -615,9 +615,8 @@ tone**. `Data/SkinTone.cs` holds the tones and the resolution, `SkinTones.ShownT
   couples, 19 of them): a tone per person. Unicode has no "one yellow, one toned".
 - **The shown text** — what the grid draws (`EmojiGrid.ShownText`), what is inserted, what the
   details panel draws and copies, what `Use as tray icon` takes — is the variant of the emoji's own
-  tone, else of the default one (`skinTone`, and for a two-person emoji's second person
-  `secondSkinTone`, missing → the same as the first); the emoji itself for `None`, or when no variant
-  holds the tones.
+  tone, else of the default one (`skinTone`) — for both persons of a two-person emoji; the emoji
+  itself for `None`, or when no variant holds the tones.
 - **Base text everywhere else**: the counters (`usage.json`), the custom groups
   (`custom-groups.json`) and the own tones are keyed by the emoji's own text — a use of 👍🏽 counts
   for 👍; the menus act on it. Only the tray emoji keeps the toned text (see *Window and Tray Icon*).
@@ -627,18 +626,18 @@ tone**. `Data/SkinTone.cs` holds the tones and the resolution, `SkinTones.ShownT
 
 ### Default tone
 
-- **The tone bar**, in the details panel under the copy button, right-aligned with it, shown while
-  the selection has variants: six round swatches on two rows of three — `None` (yellow), then the
-  five tones —, the default tone ringed in the accent colour. A click sets it at once and saves it as
-  `skinTone` in `settings.json` (`SettingsFile.ReadSkinTone`; missing or unknown → `None`). Each
-  swatch's tooltip: `Default skin tone: Medium`.
-- **The second bar**, under the first and a thin line, for a two-person selection: the second
-  person's default tone, `secondSkinTone`. Its first slot, an empty ring, is "same as the first
-  person" (tooltip `Second person: same as the first`): a click on it, or on the tone the first
-  person already has, removes the key. Never `None`. Dimmed and inactive while the default tone is
-  `None` — the emoji is yellow whatever it holds.
-- The bars show the **default** tones, not the selection's own: the emoji drawn large shows the tone
-  in use.
+- **The tone swatch**, in the details panel under the copy button, as large as it, shown while the
+  selection has variants: the default tone's colour in a circle (yellow for `None`), on the copy
+  button's hover colour while hovered; its tooltip `Skin tone: Medium`.
+- A click opens a **drop-down menu** under it, its right edge on the swatch's (`MainForm.ShowToneMenu`,
+  built for one show, like the settings menu): the six tones — `No tone`, `Light` … `Dark` —, each
+  with its swatch (`MainForm.SetSwatch`), the default one checked. A choice sets the default tone at
+  once and saves it as `skinTone` in `settings.json` (`SettingsFile.ReadSkinTone`; missing or unknown
+  → `None`). The panel only raises `ToneSwatchClicked`.
+- **One tone for every emoji with variants**: both persons of a two-person emoji take it; a mixed
+  pair is an own tone. An emoji with a tone of its own **keeps it** when the default changes.
+- The swatch shows the **default** tone, not the selection's own: the emoji drawn large shows the
+  tone in use.
 - Mouse only: the panel is not selectable; the keyboard reaches an emoji's own tone through its
   right-click menu.
 
@@ -666,7 +665,7 @@ tone**. `Data/SkinTone.cs` holds the tones and the resolution, `SkinTones.ShownT
 - An agent checking the tones cannot click the details panel nor the menus from a script
   (custom-drawn): it checks `SkinTones`, `SkinToneChoices`, `SettingsFile` and `EmojiCatalog` by
   reflection on the dll of a **copy** of the build folder (`APP_CONTEXT_BASE_DIRECTORY`, see *Reset
-  All Settings*), and sees the bars by writing `skinTone` in the build's `settings.json`, launching
+  All Settings*), and sees the swatch by writing `skinTone` in the build's `settings.json`, launching
   the exe, typing a search into the box (`WM_SETTEXT`) and capturing the window (`PrintWindow`).
 
 ## Repository Docs
