@@ -707,7 +707,8 @@ tone**. `Data/SkinTone.cs` holds the tones and the resolution, `SkinTones.ShownT
     changes the panel's height (`RequestHeight`); with variants, toggling never moves the grid.
 - A click opens a **drop-down menu** under it, its right edge on the swatch's (`MainForm.ShowToneMenu`,
   built for one show, like the settings menu): the six tones — `No tone`, `Light` … `Dark` —, each
-  with its swatch (`MainForm.SetSwatch`), the default one checked. A choice sets the default tone at
+  with its swatch (`MainForm.SetSwatch`), the default one checked, the highlighted one previewed (see
+  *Preview* below). A choice sets the default tone at
   once and saves it as `skinTone` in `settings.json` (`SettingsFile.ReadSkinTone`; missing or unknown
   → `None`). The panel only raises `ToneSwatchClicked`.
 - **One tone for every emoji with variants**: both persons of a two-person emoji take it; a mixed
@@ -731,7 +732,8 @@ tone**. `Data/SkinTone.cs` holds the tones and the resolution, `SkinTones.ShownT
   | | `First person ▸`, `Second person ▸` — the five tones each, its own pair checked |
 
 - A person's tone keeps the other person's **shown** tone, or takes the same one while the emoji is
-  shown yellow. No confirmation; the window stays.
+  shown yellow. No confirmation; the window stays. The highlighted item is previewed (see *Preview*
+  below).
 - **`skin-tones.json`**, next to the exe (`Data/SkinToneChoices.cs`): a JSON object keyed by the
   emoji's own text, the value a tone (`"medium"`, `"none"`) or a pair (`["light", "dark"]`), the
   emojis as themselves (`EmojiUsage.ReadableEmojis`). Read once at launch — missing or invalid → no
@@ -743,6 +745,33 @@ tone**. `Data/SkinTone.cs` holds the tones and the resolution, `SkinTones.ShownT
   reflection on the dll of a **copy** of the build folder (`APP_CONTEXT_BASE_DIRECTORY`, see *Reset
   All Settings*), and sees the swatch by writing `skinTone` in the build's `settings.json`, launching
   the exe, typing a search into the box (`WM_SETTEXT`) and capturing the window (`PrintWindow`).
+
+### Preview
+
+Both skin-tone menus — the tone swatch's and `Skin tone ▸` with its person submenus — **preview** the
+tone of the highlighted item, live, before anything is chosen (origin:
+`workfiles/20261010-skin-tone-hover-preview.md`).
+
+- **The highlight**: an item becoming its menu's highlighted one — the mouse over it, or the arrow
+  keys reaching it (`ToolStripItem.SelectedChanged`, `MainForm.PreviewWhileHighlighted`) — sets the
+  preview to the tone a click on it would save: the swatch menu's tone as the default tone; in
+  `Skin tone ▸`, that tone or pair as the emoji's own — the pair a person's tone would make, `Use
+  default tone` showing the emoji in the default tone. Any other item, or none → the real tones.
+- **One preview at a time** (`MainForm.tonePreview`: `DefaultTonePreview` / `OwnTonePreview`, owned
+  by its item), read by `MainForm.ShownText` alone: a default-tone preview applies to every emoji
+  with variants **without an own tone**, an own-tone preview to its emoji only. An item losing the
+  highlight clears it only while it still owns it — the next item may already have set its own.
+- **What follows** (`MainForm.SetTonePreview` → `OnTonesChanged`): the grid, the details panel's
+  emoji — the selection, the right-clicked emoji for `Skin tone ▸` — and, for the default tone, the
+  tone swatch (`EmojiDetailsPanel.DefaultTone`, its tooltip with it). A preview ends the copy
+  button's check mark, like any tone change.
+- **Never saved**: `skinTone` and `skinToneChoices` keep the real tones; `settings.json` and
+  `skin-tones.json` are written by a click only, as before. The menus' check marks, `Use as tray
+  icon`, the insertion and the copy read the real tones — none of them runs while a menu is open.
+- **The menu closing** clears the preview (`Closed`): without a click — Esc, a click elsewhere, the
+  window hiding — the real tones are drawn again; after a click, they already are the clicked one.
+- An agent cannot check the preview from a script: the menus open from the custom-drawn grid and
+  details panel (see *Own tone* above). It is checked by hand.
 
 ## Repository Docs
 
