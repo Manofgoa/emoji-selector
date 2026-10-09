@@ -103,7 +103,7 @@ target to be ready, then type.
 
 ### Iteration 2 — 2026-10-09
 
-The user runs the live test himself (`insertion-timing-test.ps1`, from the agent's scratchpad). Wait strategy:
+The user runs the live test (`insertion-timing-test.ps1`, from the agent's scratchpad). Wait strategy:
 readiness polling + settle delay. The normal insertion swallows the keys during the wait, like the keep-open one.
 
 ---
@@ -126,7 +126,7 @@ readiness polling + settle delay. The normal insertion swallows the keys during 
 | 2 | Which other apps fail? | None other tested | 2026-10-09 |
 | 3 | Is a clipboard fallback acceptable? | No, never | 2026-10-09 |
 | 4 | Is the subject straightforward or tricky? | Straightforward | 2026-10-09 |
-| 5 | May the agent run a live test typing markers into the Claude app's prompt box? | No — the user runs the test script himself | 2026-10-09 |
+| 5 | May the agent run a live test typing markers into the Claude app's prompt box? | No — the user runs the test script | 2026-10-09 |
 | 6 | Wait strategy: readiness polling + settle delay, or a fixed delay? | Readiness polling + settle delay | 2026-10-09 |
 | 7 | Normal insertion: swallow the user's keys during the wait? | Yes | 2026-10-09 |
 
