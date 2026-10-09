@@ -116,6 +116,10 @@ readiness polling + settle delay. The normal insertion swallows the keys during 
 The test script did not run on the user's side: the user asks to implement the fix directly and test it in
 the app. Values chosen without measurement: 10 ms polling, 100 ms settle delay, 1 s timeout.
 
+### Iteration 4 — 2026-10-09 — ✅ Implemented
+
+Go given: code and documentation (no test project), in a worktree on `feature/insertion-fails-in-some-editors`.
+
 ---
 
 ## Implementation Log
