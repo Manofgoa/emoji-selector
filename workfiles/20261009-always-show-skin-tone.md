@@ -156,6 +156,11 @@ swatch **is shown** while the setting is on. The panel therefore keeps the swatc
 catalog has variants **or** the setting is on; in that edge case only, toggling the setting changes
 the panel's height, fitted again through `RequestHeight` as `ShowFrench` does. No open question left.
 
+### Iteration 4 — 2026-10-09 — ✅ Implemented
+
+Go given: code, tests and documentation, in a worktree (`.claude/worktrees/always-show-skin-tone`,
+branch `feature/always-show-skin-tone`). The scope is frozen as the sections above stand.
+
 ---
 
 ## Implementation Log
