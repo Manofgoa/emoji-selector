@@ -60,6 +60,8 @@ internal sealed class MainForm : Form
 
     public const string HighlightColorText = "Highlight color…";
 
+    public const string AlwaysShowSkinToneText = "Always show skin tone";
+
     public const string StartWithWindowsText = "Start with Windows";
 
     public const string StartupFailedText = "Could not change the startup shortcut: {0}";
@@ -309,6 +311,7 @@ internal sealed class MainForm : Form
         {
             Dock = DockStyle.Bottom,
             ShowFrench = SettingsFile.ReadShowFrench(),
+            AlwaysShowTone = SettingsFile.ReadAlwaysShowSkinTone(),
             HighlightColor = SettingsFile.ReadHighlightColor() ?? EmojiDetailsPanel.DefaultHighlightColor,
             ShownText = this.ShownText,
             DefaultTone = this.skinTone,
@@ -720,6 +723,9 @@ internal sealed class MainForm : Form
         var highlightColorItem = new ToolStripMenuItem(HighlightColorText);
         highlightColorItem.Click += (_, _) => this.ChooseHighlightColor();
         menu.Items.Add(highlightColorItem);
+        var alwaysShowSkinToneItem = new ToolStripMenuItem(AlwaysShowSkinToneText);
+        alwaysShowSkinToneItem.Click += (_, _) => this.SetAlwaysShowSkinTone(!this.detailsPanel.AlwaysShowTone);
+        menu.Items.Add(alwaysShowSkinToneItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
         var windowOpacity = new ToolStripMenuItem(WindowOpacityText);
@@ -746,6 +752,7 @@ internal sealed class MainForm : Form
             showFrequentItem.Checked = this.showFrequent;
             clearFrequent.Enabled = !this.usage.IsEmpty;
             showFrenchItem.Checked = this.detailsPanel.ShowFrench;
+            alwaysShowSkinToneItem.Checked = this.detailsPanel.AlwaysShowTone;
             foreach (ToolStripMenuItem item in windowOpacity.DropDownItems)
             {
                 item.Checked = (int)item.Tag! == this.opacityPercent;
@@ -792,6 +799,17 @@ internal sealed class MainForm : Form
         {
             this.detailsPanel.ShowFrench = show;
             SettingsFile.WriteShowFrench(show);
+        }
+    }
+
+    // The details panel's tone swatch shown whatever the selection, or only while it has variants, from the settings
+    // menu; saved.
+    private void SetAlwaysShowSkinTone(bool show)
+    {
+        if (show != this.detailsPanel.AlwaysShowTone)
+        {
+            this.detailsPanel.AlwaysShowTone = show;
+            SettingsFile.WriteAlwaysShowSkinTone(show);
         }
     }
 

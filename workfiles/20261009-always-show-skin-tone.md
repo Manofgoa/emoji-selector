@@ -82,7 +82,10 @@ key), RULES.md, README.md / README.fr.md.
 - `RightColumnHeight` keeps the swatch's room while `hasVariants` **or** `AlwaysShowTone`.
 - `OnPaint` returns early with no selection today: the swatch is painted **before** that return when
   `ShowsTone`, so an empty panel still draws it.
-- `UpdateToolTip`'s tone case no longer requires a shown emoji.
+- `UpdateToolTip`'s tone case no longer requires a shown emoji; `HitTest` gives the copy button only
+  while an emoji is shown, the swatch whenever it shows.
+- `UpdateHovered` — the part under a still mouse and its tooltip — is shared by `ShownEmoji` and
+  `AlwaysShowTone`.
 - `MainForm`: the panel built with `AlwaysShowTone = SettingsFile.ReadAlwaysShowSkinTone()`, the item
   checked in the menu's `Opening` handler, `SetAlwaysShowSkinTone(bool)` applying and saving — the
   `SetShowFrench` pattern.
@@ -156,6 +159,32 @@ swatch **is shown** while the setting is on. The panel therefore keeps the swatc
 catalog has variants **or** the setting is on; in that edge case only, toggling the setting changes
 the panel's height, fitted again through `RequestHeight` as `ShowFrench` does. No open question left.
 
+### Iteration 4 — 2026-10-09 — ✅ Implemented
+
+Go given: code, tests and documentation, in a worktree (`.claude/worktrees/always-show-skin-tone`,
+branch `feature/always-show-skin-tone`). The scope is frozen as the sections above stand.
+
+### Iteration 5 — 2026-10-09 — 🧭 Implementation choices
+
+No rule broken. The choices the frozen design did not state:
+
+- **Branch**: the worktree's own, `feature/always-show-skin-tone` — no Branch Gate.
+- **`UpdateHovered`**: the hovered part and tooltip refresh, extracted from `ShownEmoji`'s setter so
+  `AlwaysShowTone` shares it.
+- **Paint order**: the swatch is painted right after the top line, before the empty-selection
+  return — one call instead of two.
+- **`HitTest`**: the early return on no selection is gone; the copy button needs a shown emoji, the
+  swatch only `ShowsTone`.
+- **README**: the setting is named twice, as the other details panel settings are — in the *Window*
+  bullet's menu sentence and in the *Skin tones* bullet, which says what it changes.
+- **Check**: by hand, as the Test Impact planned — two copies of the build, `settings.json` with the
+  setting on (missing key) and off, a `medium` default tone; searches `thumbs` (variants), `cat` (no
+  variants) and `zzqqxx` (no result) sent with `WM_SETTEXT`, the window captured with `PrintWindow`.
+  All six cases as designed: on → the swatch on 👍, on 🐱 and alone in the empty panel; off → on 👍
+  only. The check instances were started and ended inside one PowerShell command (a script waiting
+  for them), so the *Never `Start-Process`* rule — about the delivery launch surviving the command —
+  is not concerned.
+
 ---
 
 ## Implementation Log
@@ -165,10 +194,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | No test project in the app — not applicable |
-| README | | | |
-| RULES.md | | | |
+| Code | 4 | 2026-10-09 | `SettingsFile` key, `EmojiDetailsPanel.AlwaysShowTone`, the ⚙ menu item; checked by hand (Iteration 5) |
+| Unit tests | 4 | 2026-10-09 | No test project in the app — not applicable |
+| README | 4 | 2026-10-09 | `README.md` / `README.fr.md`: the gear's menu sentence, the *Skin tones* bullet |
+| RULES.md | 4 | 2026-10-09 | § Window and Tray Icon (table, menu sections), § Size (keys), § Details Panel (height), § Skin Tones › Default tone |
 
 ---
 

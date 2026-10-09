@@ -9,7 +9,8 @@ namespace EmojiSelector.Data;
 /// <summary>
 /// The app's settings, in <see cref="FileName"/> next to the exe: the size the user resized the window to, its client
 /// area in logical pixels (96 DPI), the window's opacity, the emoji the user chose for the tray icon, whether the
-/// frequent tab is shown, the details panel's French row and highlight colour, and the default skin tone.
+/// frequent tab is shown, the details panel's French row and highlight colour, whether it always shows the tone swatch,
+/// and the default skin tone.
 /// A write keeps the keys it does not know, should later settings add some.
 /// </summary>
 /// <remarks>
@@ -28,6 +29,7 @@ internal static class SettingsFile
     private const string TrayEmojiKey = "trayEmoji";
     private const string ShowFrequentKey = "showFrequent";
     private const string ShowFrenchKey = "showFrench";
+    private const string AlwaysShowSkinToneKey = "alwaysShowSkinTone";
     private const string HighlightColorKey = "highlightColor";
     private const string OpacityKey = "opacity";
     private const string SkinToneKey = "skinTone";
@@ -101,6 +103,21 @@ internal static class SettingsFile
     {
         JsonObject settings = Read() ?? [];
         settings[ShowFrenchKey] = show;
+        Write(settings);
+    }
+
+    /// <summary>
+    /// Whether the details panel shows its tone swatch whatever the selection; true when the file, the key or a readable
+    /// value is missing.
+    /// </summary>
+    public static bool ReadAlwaysShowSkinTone() =>
+        Read()?[AlwaysShowSkinToneKey] is not JsonValue value || !value.TryGetValue(out bool show) || show;
+
+    /// <summary>Saves whether the details panel shows its tone swatch whatever the selection.</summary>
+    public static void WriteAlwaysShowSkinTone(bool show)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[AlwaysShowSkinToneKey] = show;
         Write(settings);
     }
 

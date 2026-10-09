@@ -34,6 +34,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Show groups ▸` | Every custom group, checked while shown: a click hides it or shows it again (see *Custom Tab* below) |
 | Settings button ⚙ → `Show French names` | Checked while the details panel shows its French row: a click hides it or shows it again (see *Details Panel* below) |
 | Settings button ⚙ → `Highlight color…` | Windows' colour dialog: the colour highlighting the search's matches in the details panel (see *Details Panel* below) |
+| Settings button ⚙ → `Always show skin tone` | Checked while the details panel's tone swatch shows whatever the selection: a click turns it off — the swatch only on an emoji with variants — or on again (see *Skin Tones* below); the window stays |
 | Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept — moved only as far as needed to stay inside the working area —, and the saved size removed (see *Size* and *Corner* below); the window stays |
 | Settings button ⚙ → `Window opacity ▸` | `100%`, `98%`, `96%`, `94%`, `92%`, the one in use checked: a click applies it to the whole window at once and saves it (see *Opacity* below); the window stays |
 | Settings button ⚙ → `Open app folder` | Opens the exe's folder in the File Explorer, the exe selected; the window stays |
@@ -97,7 +98,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 - The settings menu has **five sections**, one per feature, in the window's order, separated by
   lines and **untitled** (`MainForm.CreateSettingsMenu`): *frequently used* (`Show frequently used`,
   `Clear frequently used`), *custom groups* (`New group…`, `Show groups ▸`), *details panel* (`Show
-  French names`, `Highlight color…`), *window* (`Reset window size`, `Window opacity ▸`), *app* (`Open app folder`,
+  French names`, `Highlight color…`, `Always show skin tone`), *window* (`Reset window size`, `Window opacity ▸`), *app* (`Open app folder`,
   `Start with Windows`, `Check for emoji updates…`, `Reset all settings…`). A new item joins the section of its feature; the labels say their
   subject on their own.
 - A **colour item** shows the colour in use as its image (`MainForm.SetSwatch`): a rounded square of
@@ -120,7 +121,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   without running its code. A move, or a drag to a monitor of another scale, saves nothing.
 - `settings.json` is the app's **shared settings file** (`Data/SettingsFile.cs`): `{ "windowWidth":
   …, "windowHeight": …, "trayEmoji": …, "showFrequent": …, "showFrench": …, "highlightColor": …, "opacity": …,
-  "skinTone": … }`;
+  "skinTone": …, "alwaysShowSkinTone": … }`;
   a write keeps the keys it does not
   know. Written through `settings.json.new` then a replace, the emojis as themselves
   (`EmojiUsage.ReadableEmojis`).
@@ -645,7 +646,8 @@ selected emoji changes — the same cell may hold another emoji once the section
   the base emoji's — Emojibase gives the variants none.
 - **Height**: fixed, the one the emoji with the **most text** needs at the window's width, French row
   included while shown (`EmojiDetailsPanel.HeightFor`, over the whole catalog, word widths cached),
-  and at least the right column's — the button, then the tone swatch when the catalog has variants:
+  and at least the right column's — the button, then the tone swatch when the catalog has variants or
+  `Always show skin tone` is on:
   moving the selection never moves the grid. `MainForm.OnLayout` fits it **before** the docking
   places the controls — set during it, the grid would keep the old space. The window's minimum
   height is 240 logical pixels plus the panel's height.
@@ -689,9 +691,20 @@ tone**. `Data/SkinTone.cs` holds the tones and the resolution, `SkinTones.ShownT
 
 ### Default tone
 
-- **The tone swatch**, in the details panel under the copy button, as large as it, shown while the
-  selection has variants: the default tone's colour in a circle (yellow for `None`), on the copy
-  button's hover colour while hovered; its tooltip `Skin tone: Medium`.
+- **The tone swatch**, in the details panel under the copy button, as large as it: the default tone's
+  colour in a circle (yellow for `None`), on the copy button's hover colour while hovered; its tooltip
+  `Skin tone: Medium`.
+- **When it shows** (origin: `workfiles/20261009-always-show-skin-tone.md`): **whatever the
+  selection** while `Always show skin tone` is on — an emoji without variants, no selection at all (a
+  search with no result: alone in the empty panel, at its place under the copy button's) —, else only
+  while the selection has variants (`EmojiDetailsPanel.AlwaysShowTone`, `ShowsTone`). Shown, it is
+  always clickable.
+  - **`Always show skin tone`**, a checked item in the settings menu's *details panel* section after
+    `Highlight color…`: **on by default**, applied at once, saved as `alwaysShowSkinTone` in
+    `settings.json` (`SettingsFile.ReadAlwaysShowSkinTone`; missing or unreadable → on).
+  - The panel keeps the swatch's room while the catalog has variants **or** the setting is on — so
+    with emoji data holding no variant, the swatch still shows while it is on, and toggling it then
+    changes the panel's height (`RequestHeight`); with variants, toggling never moves the grid.
 - A click opens a **drop-down menu** under it, its right edge on the swatch's (`MainForm.ShowToneMenu`,
   built for one show, like the settings menu): the six tones — `No tone`, `Light` … `Dark` —, each
   with its swatch (`MainForm.SetSwatch`), the default one checked. A choice sets the default tone at

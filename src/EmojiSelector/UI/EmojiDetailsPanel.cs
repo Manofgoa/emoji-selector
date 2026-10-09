@@ -15,8 +15,9 @@ namespace EmojiSelector.UI;
 /// characters the search matches are highlighted in <see cref="HighlightColor"/>.
 /// <para>
 /// The emoji is drawn and copied as its <see cref="ShownText"/>: in the skin tone in use. While it has skin-tone
-/// variants, a <b>tone swatch</b> under the copy button shows the <see cref="DefaultTone"/>; a click raises
-/// <see cref="ToneSwatchClicked"/>, the parent opening the tones' menu under it.
+/// variants — or whatever the selection, an empty panel included, while <see cref="AlwaysShowTone"/> —, a <b>tone
+/// swatch</b> under the copy button shows the <see cref="DefaultTone"/>; a click raises <see cref="ToneSwatchClicked"/>,
+/// the parent opening the tones' menu under it.
 /// </para>
 /// <para>
 /// Its height is fixed: the one the emoji with the most text needs at the panel's width (<see cref="HeightFor"/>), set
@@ -91,6 +92,7 @@ internal sealed class EmojiDetailsPanel : Control
     private bool showFrench = true;
     private Color highlightColor = DefaultHighlightColor;
     private SkinTone defaultTone;
+    private bool alwaysShowTone = true;
 
     // The part under the mouse, and the one the left button went down on.
     private Part hovered;
@@ -131,9 +133,29 @@ internal sealed class EmojiDetailsPanel : Control
             this.RenderEmoji();
 
             // The swatch comes and goes with the emoji: the part under a still mouse may be another.
-            this.hovered = this.IsHandleCreated ? this.HitTest(this.PointToClient(Cursor.Position)) : default;
-            this.UpdateToolTip();
+            this.UpdateHovered();
             this.Invalidate();
+        }
+    }
+
+    /// <summary>
+    /// Whether the tone swatch shows whatever the selection — an emoji without variants, none at all —, rather than
+    /// only while the selection has variants. The room for it is kept while it is on, even in a catalog without
+    /// variants.
+    /// </summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool AlwaysShowTone
+    {
+        get => this.alwaysShowTone;
+        set
+        {
+            if (value != this.alwaysShowTone)
+            {
+                this.alwaysShowTone = value;
+                this.RequestHeight();
+                this.UpdateHovered();
+                this.Invalidate();
+            }
         }
     }
 
@@ -226,11 +248,12 @@ internal sealed class EmojiDetailsPanel : Control
     private Rectangle ToneBounds => new(this.ButtonBounds.X, this.ButtonBounds.Bottom + this.LogicalToDeviceUnits(LogicalToneGap),
         this.ButtonSize, this.ButtonSize);
 
-    // The copy button, then the tone swatch under it when the catalog has variants.
-    private int RightColumnHeight => this.hasVariants ? this.ToneBounds.Bottom - this.PanelPadding : this.ButtonSize;
+    // The copy button, then the tone swatch under it when the catalog has variants or the swatch always shows.
+    private int RightColumnHeight =>
+        this.hasVariants || this.alwaysShowTone ? this.ToneBounds.Bottom - this.PanelPadding : this.ButtonSize;
 
-    // Whether the shown emoji has its tone swatch.
-    private bool ShowsTone => this.shownEmoji is { Variants.Count: > 0 };
+    // Whether the tone swatch shows: always, or while the shown emoji has variants.
+    private bool ShowsTone => this.alwaysShowTone || this.shownEmoji is { Variants.Count: > 0 };
 
     /// <summary>
     /// The panel's height at <paramref name="width"/>: the emoji with the most text, the French row included while
@@ -302,6 +325,12 @@ internal sealed class EmojiDetailsPanel : Control
             graphics.DrawLine(border, 0, 0, this.Width, 0);
         }
 
+        // Before the selection: the swatch may show in an empty panel, at its place under the copy button's.
+        if (this.ShowsTone)
+        {
+            this.PaintTone(graphics);
+        }
+
         if (this.shownEmoji is not Emoji emoji)
         {
             return;
@@ -343,10 +372,6 @@ internal sealed class EmojiDetailsPanel : Control
         }
 
         this.PaintButton(graphics);
-        if (this.ShowsTone)
-        {
-            this.PaintTone(graphics);
-        }
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -608,20 +633,23 @@ internal sealed class EmojiDetailsPanel : Control
         graphics.SmoothingMode = smoothing;
     }
 
-    // The part of the panel at a point: the copy button, the tone swatch while shown, or nothing.
+    // The part of the panel at a point: the copy button while an emoji is shown, the tone swatch while shown — an empty
+    // panel included —, or nothing.
     private Part HitTest(Point point)
     {
-        if (this.shownEmoji is null)
-        {
-            return Part.None;
-        }
-
-        if (this.ButtonBounds.Contains(point))
+        if (this.shownEmoji is not null && this.ButtonBounds.Contains(point))
         {
             return Part.Button;
         }
 
         return this.ShowsTone && this.ToneBounds.Contains(point) ? Part.Tone : Part.None;
+    }
+
+    // The part under a still mouse, and its tooltip: the swatch may have come or gone under it.
+    private void UpdateHovered()
+    {
+        this.hovered = this.IsHandleCreated ? this.HitTest(this.PointToClient(Cursor.Position)) : default;
+        this.UpdateToolTip();
     }
 
     // The area to paint again for a part.
@@ -653,7 +681,7 @@ internal sealed class EmojiDetailsPanel : Control
         string? text = (this.hovered, this.shownEmoji) switch
         {
             (Part.Button, Emoji emoji) => "U+" + emoji.Hexcode.Split('-')[0],
-            (Part.Tone, not null) => string.Format(ToneToolTip, SkinTones.NameOf(this.defaultTone)),
+            (Part.Tone, _) => string.Format(ToneToolTip, SkinTones.NameOf(this.defaultTone)),
             _ => null,
         };
         this.toolTip.SetToolTip(this, text);
