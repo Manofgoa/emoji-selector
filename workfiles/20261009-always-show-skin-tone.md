@@ -62,7 +62,7 @@ key), RULES.md, README.md / README.fr.md.
   copy button's hover colour while hovered, its tooltip `Skin tone: Medium`, a click opening the
   tones' drop-down menu under it (`ToneSwatchClicked` → `MainForm.ShowToneMenu`).
 - Its **place does not move**: under the copy button's place, as large as it — with no selection,
-  where the copy button would be is left empty (see Open Questions).
+  where the copy button would be is left empty, the swatch alone below it (Q&A 5).
 - **No height change**: the panel already keeps room for the swatch whenever the catalog has variants
   (`EmojiDetailsPanel.RightColumnHeight`), so toggling the setting never moves the grid.
 - A **catalog with no variant at all** (`hasVariants` false): no swatch, whatever the setting (see
@@ -113,9 +113,9 @@ captured (`PrintWindow`).
 
 ## Open Questions
 
-- [ ] With no selection (a search with no result), the copy button is not drawn: does the swatch stay
+- [x] ~~With no selection (a search with no result), the copy button is not drawn: does the swatch stay
   **alone at its place**, under the empty slot of the copy button (recommended: nothing moves), or
-  move up into that slot?
+  move up into that slot?~~ → At its place: nothing moves
 - [ ] With a catalog holding **no variant at all** (an emoji data version without `skins`), is the
   swatch still shown when the setting is on (recommended: **no** — no emoji could take the tone, and
   the panel keeps no room for it)?
@@ -138,6 +138,12 @@ the swatch is shown and clickable whatever the selection, an empty panel include
 behaviour. Single exploration pass done directly (one chained question: where the swatch is shown,
 how a ⚙ setting is stored): the room is already kept, so no height change; no test project. Two
 open questions left: the swatch's place in an empty panel, a catalog without variants.
+
+### Iteration 2 — 2026-10-09
+
+Q&A 5 answered: with no selection, the swatch stays at its place under the empty slot of the copy
+button — nothing moves. Q&A 6 (a catalog without variants) was not understood: asked again in
+simpler words (Q&A 7).
 
 ---
 
@@ -165,8 +171,9 @@ Questions asked by the agent during design, with user responses.
 | 2 | Setting on, the selection without variants or none: what does the swatch do? | Shown and clickable, even with no selection | 2026-10-09 |
 | 3 | Which label and place in the ⚙ menu? | `Always show skin tone`, *details panel* section after `Highlight color…`, checked by default | 2026-10-09 |
 | 4 | Expected exploration depth? | Straightforward — a single pass | 2026-10-09 |
-| 5 | With no selection, the swatch alone at its place or moved up into the copy button's slot? | | |
-| 6 | A catalog with no variant at all: the swatch shown when the setting is on? | | |
+| 5 | With no selection, the swatch alone at its place or moved up into the copy button's slot? | At its place — nothing moves | 2026-10-09 |
+| 6 | A catalog with no variant at all: the swatch shown when the setting is on? | Not understood — to be asked again in simpler words | 2026-10-09 |
+| 7 | (Q6 reworded) If the emoji list has no emoji that can change colour, should the colour circle still show? | | |
 
 ---
 
