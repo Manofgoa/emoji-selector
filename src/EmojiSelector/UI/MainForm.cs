@@ -45,6 +45,7 @@ internal sealed class MainForm : Form
     public const string ResetWindowSizeText = "Reset window size";
 
     public const string WindowOpacityText = "Window opacity";
+    public const string AcrylicText = "Acrylic";
 
     // The opacities the settings menu offers, percent, the most opaque first: a saved value that is not one of them
     // takes the nearest, a tie going to the more opaque (see NearestOpacity).
@@ -215,6 +216,9 @@ internal sealed class MainForm : Form
     // The window's opacity, percent: one of OpacityPercents, 100 when nothing is saved.
     private int opacityPercent = NearestOpacity(SettingsFile.ReadOpacity() ?? 100);
 
+    // Windows' Acrylic backdrop under the whole window, in place of the opacity: the two are one setting.
+    private bool acrylic = SettingsFile.ReadAcrylic();
+
     // How many sections the custom tab has in the grid: one per shown group, the placeholder alone while there is no
     // group, none — and no custom tab — while every group is hidden.
     private int customSectionCount;
@@ -284,7 +288,8 @@ internal sealed class MainForm : Form
 
         // Below 100 %, a layered window: the whole of it fades, in front or not. Set before the handle exists, so a
         // --background launch shows it at its opacity from the first show.
-        this.Opacity = this.opacityPercent / 100.0;
+        // With the Acrylic backdrop, fully opaque: a layered window has no backdrop.
+        this.Opacity = this.acrylic ? 1.0 : this.opacityPercent / 100.0;
 
         // The search box on top, the tabs below it, the details panel at the bottom, the grid filling the rest. Docking
         // runs from the last control added: the search bar first, then the strip, then the panel.
@@ -519,6 +524,7 @@ internal sealed class MainForm : Form
     {
         this.SetClientArea(SettingsFile.ReadWindowSize() is Size saved ? this.LogicalToDeviceUnits(saved) : this.DefaultClientSize());
         base.OnLoad(e);
+        this.ApplyBackdrop();
         if (this.showAnchor is Rectangle anchor)
         {
             this.PlaceAt(anchor);
@@ -549,6 +555,38 @@ internal sealed class MainForm : Form
         // Null while the base constructor runs.
         this.detailsPanel?.FitHeight(this.ClientSize.Width);
         base.OnLayout(levent);
+    }
+
+    // PROTOTYPE: the Acrylic backdrop asked of Windows or not, every part of the window drawn on it or not.
+    private void ApplyBackdrop()
+    {
+        if (!this.IsHandleCreated)
+        {
+            return;
+        }
+
+        ((SearchBar)this.searchBar).Glass = this.acrylic;
+        UI.Glass.SetOpaque(this.searchBox, this.acrylic);
+        UI.Glass.SetOpaque(this.clearButton, this.acrylic);
+        this.tabStrip.Glass = this.acrylic;
+        this.grid.Glass = this.acrylic;
+        this.detailsPanel.Glass = this.acrylic;
+        this.UpdateStyles();
+        UI.Glass.Apply(this.Handle, this.acrylic);
+        this.Invalidate(invalidateChildren: true);
+    }
+
+    // The Acrylic backdrop, from the opacity menu: in place of the opacity — the window fully opaque, a layered window
+    // having no backdrop —, applied at once, saved.
+    private void SetAcrylic()
+    {
+        if (!this.acrylic)
+        {
+            this.acrylic = true;
+            this.Opacity = 1.0;
+            SettingsFile.WriteAcrylic();
+            this.ApplyBackdrop();
+        }
     }
 
     protected override void OnResizeBegin(EventArgs e)
@@ -591,6 +629,13 @@ internal sealed class MainForm : Form
         {
             CreateParams parameters = base.CreateParams;
             parameters.ExStyle = (parameters.ExStyle | WsExToolWindow) & ~WsExAppWindow;
+            // PROTOTYPE: with the frame extended into the client area, DWM draws the caption's buttons in it — no caption,
+            // no buttons. The resize borders, the shadow and the system menu stay.
+            if (this.acrylic)
+            {
+                parameters.Style &= ~WsCaption;
+            }
+
             return parameters;
         }
     }
@@ -736,6 +781,11 @@ internal sealed class MainForm : Form
             windowOpacity.DropDownItems.Add(item);
         }
 
+        // The Acrylic backdrop, last: in place of an opacity, never with one.
+        windowOpacity.DropDownItems.Add(new ToolStripSeparator());
+        var acrylicItem = new ToolStripMenuItem(AcrylicText);
+        acrylicItem.Click += (_, _) => this.SetAcrylic();
+        windowOpacity.DropDownItems.Add(acrylicItem);
         menu.Items.Add(windowOpacity);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
@@ -753,9 +803,9 @@ internal sealed class MainForm : Form
             clearFrequent.Enabled = !this.usage.IsEmpty;
             showFrenchItem.Checked = this.detailsPanel.ShowFrench;
             alwaysShowSkinToneItem.Checked = this.detailsPanel.AlwaysShowTone;
-            foreach (ToolStripMenuItem item in windowOpacity.DropDownItems)
+            foreach (ToolStripMenuItem item in windowOpacity.DropDownItems.OfType<ToolStripMenuItem>())
             {
-                item.Checked = (int)item.Tag! == this.opacityPercent;
+                item.Checked = item == acrylicItem ? this.acrylic : !this.acrylic && (int)item.Tag! == this.opacityPercent;
             }
 
             this.SetSwatch(highlightColorItem, this.detailsPanel.HighlightColor);
@@ -813,11 +863,17 @@ internal sealed class MainForm : Form
         }
     }
 
-    // The window's opacity, from the settings menu: applied at once, saved.
+    // The window's opacity, from the settings menu: applied at once — the Acrylic backdrop left —, saved.
     private void SetOpacity(int percent)
     {
-        if (percent != this.opacityPercent)
+        if (percent != this.opacityPercent || this.acrylic)
         {
+            if (this.acrylic)
+            {
+                this.acrylic = false;
+                this.ApplyBackdrop();
+            }
+
             this.opacityPercent = percent;
             this.Opacity = percent / 100.0;
             SettingsFile.WriteOpacity(percent);
@@ -1918,6 +1974,7 @@ internal sealed class MainForm : Form
     private const int WsExTopmost = 0x8;
     private const int WsExToolWindow = 0x80;
     private const int WsExAppWindow = 0x40000;
+    private const int WsCaption = 0xC00000;
     private const int DwmwaExtendedFrameBounds = 9;
     private const int DwmwaCloaked = 14;
     private const int DwmwaWindowCornerPreference = 33;
@@ -1936,6 +1993,32 @@ internal sealed class MainForm : Form
     // as the top resize border.
     private sealed class SearchBar : TableLayoutPanel
     {
+        // PROTOTYPE: drawn on the Acrylic backdrop — a transparent background.
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool Glass
+        {
+            get => this.glass;
+            set
+            {
+                this.glass = value;
+                this.Invalidate();
+            }
+        }
+
+        private bool glass;
+
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            if (this.glass)
+            {
+                UI.Glass.Paint(e, _ => { });
+            }
+            else
+            {
+                base.OnPaintBackground(e);
+            }
+        }
+
         protected override void WndProc(ref Message m)
         {
             if (m.Msg == WindowFrame.WmNcHitTest && WindowFrame.IsInTopResizeBand(this, m.LParam))

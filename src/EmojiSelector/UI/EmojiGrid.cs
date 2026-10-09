@@ -46,7 +46,8 @@ internal sealed class EmojiGrid : Control
     // distance from the top of its cell, and the caption's font size in points.
     private const int LogicalCaptionedCellHeight = 54;
     private const int LogicalCaptionedEmojiTop = 4;
-    private const float CaptionFontSize = 8.25F;
+    // The captions a little smaller than the text: 8.25 points beside Windows' 9.
+    private const float CaptionFontShrink = 0.75F;
 
     // One notch of the mouse wheel scrolls this many rows.
     private const int RowsPerWheelNotch = 2;
@@ -106,7 +107,7 @@ internal sealed class EmojiGrid : Control
         this.SetStyle(ControlStyles.Selectable, false);
         this.BackColor = SystemColors.Window;
         this.headerFont = new Font(this.Font, FontStyle.Bold);
-        this.captionFont = new Font(this.Font.FontFamily, CaptionFontSize);
+        this.captionFont = new Font(this.Font.FontFamily, this.Font.Size - CaptionFontShrink);
         this.scrollBar.ValueChanged += (_, _) => this.OnScrolled();
         this.Controls.Add(this.scrollBar);
         this.layout = this.CreateLayout();
@@ -464,10 +465,44 @@ internal sealed class EmojiGrid : Control
         this.SetSelection(this.FirstVisible(), ensureVisible: false);
     }
 
+    // PROTOTYPE: drawn on the Acrylic backdrop — a transparent background, GDI+ text, the scroll bar opaque.
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool Glass
+    {
+        get => this.glass;
+        set
+        {
+            this.glass = value;
+            UI.Glass.SetOpaque(this.scrollBar, value);
+            this.Invalidate();
+        }
+    }
+
+    private bool glass;
+
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        if (!this.glass)
+        {
+            base.OnPaintBackground(e);
+        }
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
-        Graphics graphics = e.Graphics;
+        if (this.glass)
+        {
+            UI.Glass.Paint(e, graphics => this.PaintContent(graphics, e.ClipRectangle));
+        }
+        else
+        {
+            this.PaintContent(e.Graphics, e.ClipRectangle);
+        }
+    }
+
+    private void PaintContent(Graphics graphics, Rectangle clip)
+    {
         int offset = this.Offset;
         int width = this.ClientSize.Width - this.scrollBar.Width;
 
@@ -475,7 +510,7 @@ internal sealed class EmojiGrid : Control
         {
             var header = new Rectangle(this.layout.Padding, this.layout.HeaderTop(section) - offset,
                 width - 2 * this.layout.Padding, this.layout.HeaderHeight);
-            if (header.IntersectsWith(e.ClipRectangle))
+            if (header.IntersectsWith(clip))
             {
                 // The name ends before the header's button: its ellipsis never runs under it.
                 Rectangle name = header;
@@ -485,7 +520,7 @@ internal sealed class EmojiGrid : Control
                     this.PaintHeaderButton(graphics, section, button);
                 }
 
-                TextRenderer.DrawText(graphics, this.sections[section].Name, this.headerFont, name, SystemColors.ControlText,
+                UI.Glass.DrawText(graphics, this.glass, this.sections[section].Name, this.headerFont, name, SystemColors.ControlText,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
             }
 
@@ -493,13 +528,13 @@ internal sealed class EmojiGrid : Control
             if (this.sections[section] is { Emojis.Count: 0, EmptyText: string emptyText })
             {
                 var message = new Rectangle(this.layout.Padding, header.Bottom, width - 2 * this.layout.Padding, this.layout.RowHeight(section));
-                TextRenderer.DrawText(graphics, emptyText, this.Font, message, SystemColors.GrayText,
+                UI.Glass.DrawText(graphics, this.glass, emptyText, this.Font, message, SystemColors.GrayText,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
             }
         }
 
         int emojiSize = this.EmojiSize;
-        foreach ((int section, int index) in this.layout.CellsIn(offset + e.ClipRectangle.Top, offset + e.ClipRectangle.Bottom))
+        foreach ((int section, int index) in this.layout.CellsIn(offset + clip.Top, offset + clip.Bottom))
         {
             Rectangle cell = this.layout.CellBounds(section, index);
             cell.Offset(0, -offset);
@@ -515,7 +550,7 @@ internal sealed class EmojiGrid : Control
                 int emojiY = cell.Y + this.LogicalToDeviceUnits(LogicalCaptionedEmojiTop);
                 graphics.DrawImage(bitmap, cell.X + (cell.Width - emojiSize) / 2, emojiY, emojiSize, emojiSize);
                 var caption = new Rectangle(cell.X, emojiY + emojiSize, cell.Width, cell.Bottom - emojiY - emojiSize);
-                TextRenderer.DrawText(graphics, captions[index], this.captionFont, caption, SystemColors.GrayText,
+                UI.Glass.DrawText(graphics, this.glass, captions[index], this.captionFont, caption, SystemColors.GrayText,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
             }
             else
@@ -569,7 +604,7 @@ internal sealed class EmojiGrid : Control
         this.headerFont = new Font(this.Font, FontStyle.Bold);
         previous.Dispose();
         Font previousCaption = this.captionFont;
-        this.captionFont = new Font(this.Font.FontFamily, CaptionFontSize);
+        this.captionFont = new Font(this.Font.FontFamily, this.Font.Size - CaptionFontShrink);
         previousCaption.Dispose();
         this.Invalidate();
     }
@@ -906,7 +941,7 @@ internal sealed class EmojiGrid : Control
         }
 
         bool done = section == this.reorderSection;
-        TextRenderer.DrawText(graphics, done ? DoneText : MenuText, this.headerFont, bounds,
+        UI.Glass.DrawText(graphics, this.glass, done ? DoneText : MenuText, this.headerFont, bounds,
             done ? SystemColors.Highlight : SystemColors.GrayText,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
     }

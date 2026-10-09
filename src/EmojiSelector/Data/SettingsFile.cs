@@ -32,6 +32,7 @@ internal static class SettingsFile
     private const string AlwaysShowSkinToneKey = "alwaysShowSkinTone";
     private const string HighlightColorKey = "highlightColor";
     private const string OpacityKey = "opacity";
+    private const string AcrylicValue = "acrylic";
     private const string SkinToneKey = "skinTone";
 
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, FileName);
@@ -146,6 +147,21 @@ internal static class SettingsFile
     {
         JsonObject settings = Read() ?? [];
         settings[OpacityKey] = percent;
+        Write(settings);
+    }
+
+    /// <summary>
+    /// Whether the window shows Windows' Acrylic backdrop in place of an opacity: the opacity key holds
+    /// <see cref="AcrylicValue"/> instead of a percentage — so it is one or the other.
+    /// </summary>
+    public static bool ReadAcrylic() =>
+        Read()?[OpacityKey] is JsonValue value && value.TryGetValue(out string? text) && text == AcrylicValue;
+
+    /// <summary>Saves the Acrylic backdrop as the window's opacity, replacing a percentage.</summary>
+    public static void WriteAcrylic()
+    {
+        JsonObject settings = Read() ?? [];
+        settings[OpacityKey] = AcrylicValue;
         Write(settings);
     }
 
