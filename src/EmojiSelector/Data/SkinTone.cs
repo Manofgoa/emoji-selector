@@ -120,19 +120,17 @@ internal static class SkinTones
 
     /// <summary>
     /// The text <paramref name="emoji"/> is shown, inserted and copied as: the variant of its own tone when it has one,
-    /// else of the default tone — <paramref name="secondDefaultTone"/> for a two-person emoji's second person, null the
-    /// same as the first. The emoji itself when it has no variant, when the tone is <see cref="SkinTone.None"/>, or
-    /// when no variant holds the tones asked for.
+    /// else of the default tone — for both persons of a two-person emoji. The emoji itself when it has no variant, when
+    /// the tone is <see cref="SkinTone.None"/>, or when no variant holds the tones asked for.
     /// </summary>
-    public static string ShownText(Emoji emoji, SkinTonePair? ownTone, SkinTone defaultTone, SkinTone? secondDefaultTone)
+    public static string ShownText(Emoji emoji, SkinTonePair? ownTone, SkinTone defaultTone)
     {
         if (emoji.Variants.Count == 0)
         {
             return emoji.Text;
         }
 
-        SkinTonePair tones = ownTone
-            ?? new SkinTonePair(defaultTone, emoji.IsTwoPerson ? secondDefaultTone ?? defaultTone : defaultTone);
+        SkinTonePair tones = ownTone ?? SkinTonePair.Of(defaultTone);
         if (tones.First == SkinTone.None || tones.Second == SkinTone.None)
         {
             return emoji.Text;
