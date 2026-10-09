@@ -192,8 +192,8 @@ No test project: checked on the built app, by reflection on the dll, like the pr
 | The catalog reads `skins`: 330 emojis with variants, 5 for 👍, 25 for 🧑‍🤝‍🧑, none for 🍎 | Reflection script (scratchpad) | Create |
 | A variant's tones are read from its text: 👍🏽 → Medium; 🧑🏻‍🤝‍🧑🏼 → (Light, Medium-light) | Reflection script | Create |
 | Shown text: default Medium → 👍🏽; own Dark on 👍 → 👍🏿 whatever the default; 🍎 unchanged; default None → 👍 | Reflection script | Create |
-| Two-person shown text follows the pair (🤝 Dark + Medium-dark → `1FAF1-1F3FF-200D-1FAF2-1F3FE`), second default missing → same as the first | Reflection script | Create |
-| `skinTone` / `secondSkinTone` read / written in `settings.json`; missing or unknown → None / same | Reflection script | Create |
+| Two-person shown text follows the own pair (🤝 Dark + Medium-dark → `1FAF1-1F3FF-200D-1FAF2-1F3FE`), kept over the default; the default tone → both persons | Reflection script | Create |
+| `skinTone` read / written in `settings.json`; missing or unknown → None; no second tone left | Reflection script | Create |
 | `skin-tones.json`: round trip, keyed by the base text, tones and pairs, an unknown emoji kept | Reflection script | Create |
 | `AppReset` deletes `skin-tones.json` | Reflection script | Create |
 | The pre-render list: base emojis then variants, each once | Reflection script | Create |
@@ -207,6 +207,12 @@ array, a removal; the pre-render list (count, base emojis first, variants after,
 `AppReset` deleting `skin-tones.json`. On screen: the build launched with `skinTone` = `medium`, the
 search box filled by `WM_SETTEXT` (`thumbs`, `holding hands`, `handshake`) and the window captured
 (`PrintWindow`): the grid and the panel in the medium tone, one bar for 👍, two for 🧑‍🤝‍🧑 and 🤝.
+
+**Checks run again** (Iteration 6): the script adapted — the second-tone checks replaced by "the
+default tone → both persons" (🧑‍🤝‍🧑, 🤝), "an own pair kept over the default", "no second tone left" —
+**41 checks, 0 failure**. On screen: `handshake` searched, the panel showing the single swatch (the
+user's `light`) under the copy button; the drop-down itself is a menu window a script does not
+capture — left to the user's test.
 
 ---
 
@@ -331,11 +337,11 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | 4, 5 | 2026-10-09 | `Data/SkinTone.cs`, `Data/SkinToneChoices.cs` (new); `Emoji`, `EmojiCatalog`, `SettingsFile`, `AppReset`; `EmojiGrid`, `EmojiDetailsPanel`, `MainForm` |
-| Unit tests | 5 | 2026-10-09 | No test project — 44 reflection checks on a copy of the build, all passing (*Test Impact* § Checks run) |
-| README | 5 | 2026-10-09 | `README.md` and `README.fr.md`: *Skin tones*, tray icon, categories, reset, planned |
-| RULES.md | 5 | 2026-10-09 | New § Skin Tones; § Window and Tray Icon (menu, tray emoji), § Size (`settings.json` keys), § Categories and Insertion, § Reset All Settings, § Details Panel |
-| GLOSSARY | 5 | 2026-10-09 | *Skin tone* (*teinte de peau*), *Default tone* (*teinte par défaut*) — `GLOSSARY.md` and `GLOSSARY.fr.md` |
+| Code | 4, 5, 6 | 2026-10-09 | `Data/SkinTone.cs`, `Data/SkinToneChoices.cs` (new); `Emoji`, `EmojiCatalog`, `SettingsFile`, `AppReset`; `EmojiGrid`, `EmojiDetailsPanel`, `MainForm` |
+| Unit tests | 5, 6 | 2026-10-09 | No test project — reflection checks on a copy of the build: 44 then 41 (Iteration 6), all passing (*Test Impact* § Checks run) |
+| README | 5, 6 | 2026-10-09 | `README.md` and `README.fr.md`: *Skin tones*, tray icon, categories, reset, planned |
+| RULES.md | 5, 6 | 2026-10-09 | New § Skin Tones; § Window and Tray Icon (menu, tray emoji), § Size (`settings.json` keys), § Categories and Insertion, § Reset All Settings, § Details Panel |
+| GLOSSARY | 5, 6 | 2026-10-09 | *Skin tone* (*teinte de peau*), *Default tone* (*teinte par défaut*) — `GLOSSARY.md` and `GLOSSARY.fr.md` |
 
 ---
 
