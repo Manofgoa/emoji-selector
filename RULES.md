@@ -36,7 +36,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Highlight color…` | Windows' colour dialog: the colour highlighting the search's matches in the details panel (see *Details Panel* below) |
 | Settings button ⚙ → `Always show skin tone` | Checked while the details panel's tone swatch shows whatever the selection: a click turns it off — the swatch only on an emoji with variants — or on again (see *Skin Tones* below); the window stays |
 | Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept — moved only as far as needed to stay inside the working area —, and the saved size removed (see *Size* and *Corner* below); the window stays |
-| Settings button ⚙ → `Window opacity ▸` | `100%`, `98%`, `96%`, `94%`, `92%`, the one in use checked: a click applies it to the whole window at once and saves it (see *Opacity* below); the window stays |
+| Settings button ⚙ → `Window opacity ▸` | `100%`, `98%`, `96%`, `94%`, `92%`, then `Acrylic` — Windows' blurred background —, the one in use checked: a click applies it to the whole window at once and saves it (see *Opacity* and *Acrylic* below); the window stays |
 | Settings button ⚙ → `Open app folder` | Opens the exe's folder in the File Explorer, the exe selected; the window stays |
 | Settings button ⚙ → `Start with Windows` | Checked while Windows starts this exe at sign-in: a click writes or deletes the **startup shortcut** (see *Start with Windows* below); the window stays |
 | Settings button ⚙ → `Check for emoji updates…` | The latest Emojibase version online; a newer one offered, downloaded, then a restart offered (see *Emoji Data* below) |
@@ -171,21 +171,70 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 ### Opacity
 
 - **`Window opacity ▸`**, in the settings menu's *window* section after `Reset window size`: `100%`,
-  `98%`, `96%`, `94%`, `92%` (`MainForm.OpacityPercents`), the one in use checked at each opening of the
-  menu. A click applies it at once (`MainForm.SetOpacity`) and saves it; no confirmation.
+  `98%`, `96%`, `94%`, `92%` (`MainForm.OpacityPercents`), then a separator and `Acrylic` (see *Acrylic*
+  below), the one in use checked at each opening of the menu. A click applies it at once
+  (`MainForm.SetOpacity`) and saves it; no confirmation.
 - **`Form.Opacity`**: below 100 %, a layered window (`WS_EX_LAYERED`, `LWA_ALPHA`) — the whole window
   fades, search bar, tabs, grid and details panel, **always**: in front or not. The frame stays
   Windows' own (see *Frame*). The menus and dialogs are windows of their own: they stay opaque.
 - Set in the constructor, before the handle exists: a `--background` launch shows the window at its
   opacity from the first show.
 - **Saved** as `opacity` in `settings.json`, the percentage (`SettingsFile.ReadOpacity` /
-  `WriteOpacity`). Missing, or not an integer → 100 %. An integer that is not one of the five
+  `WriteOpacity`) — or `"acrylic"` (see *Acrylic*). Missing, or neither an integer nor `"acrylic"` → 100 %. An integer that is not one of the five
   (written by hand) → the **nearest**, a tie to the more opaque (`MainForm.NearestOpacity`): `97` →
   98 %, `90` → 92 %, `120` → 100 % — the key left as it is until the next choice.
 - `Reset window size` leaves it alone; `Reset all settings…` brings it back to 100 %.
 - An agent checking the opacity from a script cannot click the settings button: it writes `opacity`
   in the build's `settings.json`, launches the exe and reads `GetLayeredWindowAttributes` (no
   `WS_EX_LAYERED` → 100 %).
+
+### Acrylic
+
+- **`Acrylic`**, last in `Window opacity ▸`, after a separator: Windows' Acrylic backdrop — the windows
+  behind seen blurred, like the Win+; panel — under the whole window, **in place of** an opacity, never
+  with one: a layered window has no backdrop, so `Form.Opacity` is 1 meanwhile. Checked while in use, no
+  percentage checked then; a percentage leaves it (`MainForm.SetAcrylic` / `SetOpacity`, then
+  `ApplyBackdrop`).
+- **Saved** in the same `opacity` key: `"acrylic"` in place of the percentage
+  (`SettingsFile.ReadAcrylic` / `WriteAcrylic`) — one setting, so never both. A build without Acrylic
+  reads no integer there → 100 %.
+- **Windows' own effect** (`UI/Glass.cs`, `Glass.Apply`): `DWMWA_SYSTEMBACKDROP_TYPE` =
+  `DWMSBT_TRANSIENTWINDOW`, the frame extended over the whole client area
+  (`DwmExtendFrameIntoClientArea`, margins −1). Windows 11 22H2 or later; elsewhere — or with the
+  transparency effects off, in energy saver — Windows draws a plain background in its place.
+- **No caption style** while it is on (`CreateParams` takes `WS_CAPTION` out, `UpdateStyles`): with the
+  frame extended, DWM would draw the caption's buttons in the window's top-right corner. The resize
+  borders, the shadow, the rounded corners and the system menu stay (see *Frame*).
+- **Drawing on it**: DWM blends each pixel with the blur by its alpha, and GDI writes an alpha of 0 —
+  its black turns transparent. While their `Glass` is set, the custom-drawn controls (the search bar,
+  the tab strip, the grid, the details panel) paint into a premultiplied 32-bit buffer with GDI+, over
+  a white veil at 40 % (`Glass.Tint`) keeping the text readable whatever is behind, then copy it, alpha
+  included (`Glass.Paint`); their `OnPaintBackground` paints nothing.
+  - Text goes through `Glass.DrawText` — `TextRenderer` off the backdrop, GDI+'s `DrawString` on it
+    (grey-scale anti-aliasing, no ClearType) —, and the details panel measures its words with
+    `Glass.MeasureWidth` there, so the spaces between them stay even.
+  - `SystemColors.GrayText` is drawn darker on it (`Glass.GrayText`, `#3C3C3C`): the system grey is
+    unreadable on the blur.
+- **Native controls** — the search box, its ✕, the grid's scroll bar — cannot draw with alpha: they
+  are made **layered children** at full alpha (`Glass.SetOpaque`), which DWM composes opaque. Windows
+  honours `WS_EX_LAYERED` on a child window only for an app declaring Windows 8 or later:
+  `app.manifest` declares Windows 10 (`supportedOS`). A control without a handle yet — the ✕, hidden at
+  launch — is set once it is created.
+- `Reset all settings…` brings it back to 100 %.
+- An agent checking it from a script writes `"opacity": "acrylic"` in the build's `settings.json` and
+  launches the exe. It captures the screen (`CopyFromScreen`) **only while the window is in front**
+  (`GetForegroundWindow`): the capture takes whatever is on screen there, the user's own windows
+  included. `PrintWindow` never shows the backdrop, and with `PW_RENDERFULLCONTENT` lays two renderings
+  on top of each other — never used to judge the text.
+
+### Text Size
+
+- **10 points**, a point above Windows' 9: `ApplicationDefaultFont` in the `.csproj`, applied by
+  `ApplicationConfiguration.Initialize` to every control's font, the search box's included — the texts
+  read too small on a 4K screen.
+- The use counts and the emoticons stay 0.75 point smaller than the text (`EmojiGrid.CaptionFontShrink`,
+  `EmojiDetailsPanel.EmoticonFontShrink`). The icon glyphs — tabs, ⚙, ✕, copy — keep their sizes in
+  pixels.
 
 ## Start with Windows
 
