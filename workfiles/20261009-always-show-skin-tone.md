@@ -184,7 +184,7 @@ Questions asked by the agent during design, with user responses.
 | 4 | Expected exploration depth? | Straightforward — a single pass | 2026-10-09 |
 | 5 | With no selection, the swatch alone at its place or moved up into the copy button's slot? | At its place — nothing moves | 2026-10-09 |
 | 6 | A catalog with no variant at all: the swatch shown when the setting is on? | Not understood — to be asked again in simpler words | 2026-10-09 |
-| 7 | (Q6 reworded) If the emoji list has no emoji that can change colour, should the colour circle still show? | Yes, shown | 2026-10-09 |
+| 7 | (Q6 reworded) If the emoji list has no emoji that can change colour, should the colour circle still show? | Yes, shown — the user adds it is the very reason of the feature: the swatch shows whether or not an emoji can take the tone | 2026-10-09 |
 
 ---
 
