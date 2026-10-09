@@ -268,7 +268,10 @@ internal sealed class EmojiDetailsPanel : Control
 
     private int RightColumnHeight => this.ButtonSize
         + (this.hasVariants ? this.BarGap + this.BarHeight : 0)
-        + (this.hasTwoPerson ? this.BarGap + this.BarHeight : 0);
+        + (this.hasTwoPerson ? this.SecondBarSpacing + this.BarHeight : 0);
+
+    // Between the two bars: a thin line, a bar gap above and under it, like the language rows' separator.
+    private int SecondBarSpacing => 2 * this.BarGap + 1;
 
     // Whether the shown emoji has its tone bar, and its second one.
     private bool ShowsBar => this.shownEmoji is { Variants.Count: > 0 };
@@ -634,6 +637,14 @@ internal sealed class EmojiDetailsPanel : Control
         // A tone's slot is its place in SkinTones.All, the enum's order; the second bar's slot 0 is "same".
         int ringed = bar == Part.FirstBar ? (int)this.defaultTone : (int)(this.secondTone ?? SkinTone.None);
         int ringWidth = this.LogicalToDeviceUnits(LogicalRingWidth);
+        if (bar == Part.SecondBar)
+        {
+            Rectangle first = this.SwatchBounds(bar, 0);
+            int lineY = first.Y - this.BarGap - 1;
+            using var separator = new Pen(SystemColors.ControlLight);
+            graphics.DrawLine(separator, first.X, lineY, first.X + this.BarWidth, lineY);
+        }
+
         SmoothingMode smoothing = graphics.SmoothingMode;
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
         // The hover first: a ring reaches into the gap the neighbour's hover covers.
@@ -699,11 +710,12 @@ internal sealed class EmojiDetailsPanel : Control
         return default;
     }
 
-    // A swatch: its bar right-aligned with the button, the first one a bar gap under it, the second one under the first.
+    // A swatch: its bar right-aligned with the button, the first one a bar gap under it, the second one under the first
+    // and its line.
     private Rectangle SwatchBounds(Part bar, int slot)
     {
         int left = this.Width - this.PanelPadding - this.BarWidth;
-        int top = this.PanelPadding + this.ButtonSize + this.BarGap + (bar == Part.SecondBar ? this.BarHeight + this.BarGap : 0);
+        int top = this.PanelPadding + this.ButtonSize + this.BarGap + (bar == Part.SecondBar ? this.BarHeight + this.SecondBarSpacing : 0);
         int step = this.SwatchSize + this.SwatchGap;
         return new Rectangle(left + slot % SwatchesPerRow * step, top + slot / SwatchesPerRow * step, this.SwatchSize, this.SwatchSize);
     }
