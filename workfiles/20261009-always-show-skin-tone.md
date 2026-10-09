@@ -55,6 +55,7 @@ key), RULES.md, README.md / README.fr.md.
 |---|---|---|
 | On | Any emoji, with or without variants | Shown, clickable |
 | On | None (a search with no result: the panel is empty) | Shown, clickable |
+| On | — the emoji data has **no emoji with variants** at all | Shown, clickable — the tone picked applies to no emoji until the data has some |
 | Off | An emoji with variants | Shown, clickable (today's behaviour) |
 | Off | An emoji without variants, or none | Hidden |
 
@@ -63,19 +64,22 @@ key), RULES.md, README.md / README.fr.md.
   tones' drop-down menu under it (`ToneSwatchClicked` → `MainForm.ShowToneMenu`).
 - Its **place does not move**: under the copy button's place, as large as it — with no selection,
   where the copy button would be is left empty, the swatch alone below it (Q&A 5).
-- **No height change**: the panel already keeps room for the swatch whenever the catalog has variants
-  (`EmojiDetailsPanel.RightColumnHeight`), so toggling the setting never moves the grid.
-- A **catalog with no variant at all** (`hasVariants` false): no swatch, whatever the setting (see
-  Open Questions).
+- **Room for the swatch**: the panel keeps it while the catalog has variants **or** the setting is on
+  (`EmojiDetailsPanel.RightColumnHeight`). With today's emoji data — which has variants — toggling the
+  setting never changes the panel's height, so never moves the grid.
+- A **catalog with no variant at all** (`hasVariants` false — an emoji data version without `skins`):
+  the swatch is **shown while the setting is on** (Q&A 7), the room kept for it; off, neither. Only in
+  that case does toggling the setting change the panel's height — fitted again like `ShowFrench`
+  does (`RequestHeight`).
 - The tooltip and the hovered part are refreshed when the setting changes under a still mouse, as
   `ShownEmoji` does today.
 
 ### Code shape
 
-- `EmojiDetailsPanel.AlwaysShowTone` (bool, default true): set, it repaints, refreshes the hovered
-  part and the tooltip.
-- `ShowsTone` becomes: the catalog has variants **and** (`AlwaysShowTone` **or** the shown emoji has
-  variants).
+- `EmojiDetailsPanel.AlwaysShowTone` (bool, default true): set, it fits the height again
+  (`RequestHeight`), repaints, refreshes the hovered part and the tooltip.
+- `ShowsTone` becomes: `AlwaysShowTone` **or** the shown emoji has variants.
+- `RightColumnHeight` keeps the swatch's room while `hasVariants` **or** `AlwaysShowTone`.
 - `OnPaint` returns early with no selection today: the swatch is painted **before** that return when
   `ShowsTone`, so an empty panel still draws it.
 - `UpdateToolTip`'s tone case no longer requires a shown emoji.
@@ -116,9 +120,9 @@ captured (`PrintWindow`).
 - [x] ~~With no selection (a search with no result), the copy button is not drawn: does the swatch stay
   **alone at its place**, under the empty slot of the copy button (recommended: nothing moves), or
   move up into that slot?~~ → At its place: nothing moves
-- [ ] With a catalog holding **no variant at all** (an emoji data version without `skins`), is the
+- [x] ~~With a catalog holding **no variant at all** (an emoji data version without `skins`), is the
   swatch still shown when the setting is on (recommended: **no** — no emoji could take the tone, and
-  the panel keeps no room for it)?
+  the panel keeps no room for it)?~~ → **Yes**, shown: the room is kept while the setting is on
 
 ---
 
@@ -144,6 +148,13 @@ open questions left: the swatch's place in an empty panel, a catalog without var
 Q&A 5 answered: with no selection, the swatch stays at its place under the empty slot of the copy
 button — nothing moves. Q&A 6 (a catalog without variants) was not understood: asked again in
 simpler words (Q&A 7).
+
+### Iteration 3 — 2026-10-09
+
+Q&A 7 answered, against the recommendation: with emoji data holding no emoji with variants, the
+swatch **is shown** while the setting is on. The panel therefore keeps the swatch's room while the
+catalog has variants **or** the setting is on; in that edge case only, toggling the setting changes
+the panel's height, fitted again through `RequestHeight` as `ShowFrench` does. No open question left.
 
 ---
 
@@ -173,7 +184,7 @@ Questions asked by the agent during design, with user responses.
 | 4 | Expected exploration depth? | Straightforward — a single pass | 2026-10-09 |
 | 5 | With no selection, the swatch alone at its place or moved up into the copy button's slot? | At its place — nothing moves | 2026-10-09 |
 | 6 | A catalog with no variant at all: the swatch shown when the setting is on? | Not understood — to be asked again in simpler words | 2026-10-09 |
-| 7 | (Q6 reworded) If the emoji list has no emoji that can change colour, should the colour circle still show? | | |
+| 7 | (Q6 reworded) If the emoji list has no emoji that can change colour, should the colour circle still show? | Yes, shown | 2026-10-09 |
 
 ---
 
