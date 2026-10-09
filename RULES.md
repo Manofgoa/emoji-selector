@@ -44,8 +44,10 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Tray icon, right click → `Exit` | Ends the app |
 | Win+; or Win+. — or an app's "Emoji — Windows+Period" menu entry that sends it | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
 | Emoji clicked in the grid — not one of the group in reorder mode | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below); its use counted (see *Frequent Tab* below) |
+| Emoji Ctrl+clicked in the grid — Ctrl alone, not one of the group in reorder mode | Inserted into the previous window, the window **kept open** (see *Keep-Open Insertion* below) |
 | Emoji right-clicked in the grid — or the Menu key / Shift+F10 on the grid's selection | Its menu: `Use as tray icon`, `Skin tone ▸` on an emoji with variants (see *Skin Tones* below), then `Add to ▸` the custom groups, `Remove` in a group (see *Custom Tab* below), `Remove from frequently used` in the frequent section (see *Frequent Tab* below) |
 | Enter, in the search box or the grid | Inserts the **selection**, like a click on it (see *Keyboard* below) — never an emoji of the group in reorder mode |
+| Ctrl+Enter, in the search box or the grid | Inserts the selection like Enter, the window **kept open** (see *Keep-Open Insertion* below) |
 | Esc, in the search box or the grid | Ends the reorder mode; otherwise clears the box; already empty → hides the window to the tray |
 | Any other close reason — Windows shutting down, the Task Manager, a `WM_CLOSE` sent by another process | Ends the app, never blocked |
 
@@ -253,6 +255,11 @@ launch the app at sign-in, hidden in the notification area. Off by default.
   Start menu. The hook injects a **dummy key** right away (`0xE8`, unassigned), marked in
   `dwExtraInfo` so it lets it through; being the last app to send input also lets the app take the
   foreground.
+- **During a keep-open insertion** (see *Keep-Open Insertion*), from `SwallowKeys` to
+  `StopSwallowing` — one second at most —, the hook swallows every physical key-down **but the
+  modifiers**: the previous window has the keyboard, and a quick second Ctrl+Enter or Enter's
+  auto-repeat would land there. Those keys are lost. A key-up is swallowed only when its key-down was:
+  one whose key-down went through must reach Windows, or the key would stay down.
 - **Placement**: `Input/CaretLocator.cs` looks for the text cursor of the previous window — the
   Win32 caret, the MSAA caret, the UI Automation caret range, the UI Automation focused element (of
   that window's app only) — else takes the mouse pointer. The sources asking the other app run off
@@ -292,6 +299,32 @@ launch the app at sign-in, hidden in the notification area. Off by default.
   back to the foreground **before** the window hides (only the foreground app may hand it over),
   then the emoji is typed with `SendInput` / `KEYEVENTF_UNICODE` — never through the clipboard —, in
   its skin tone (see *Skin Tones*).
+  A Ctrl key held is released before the characters and pressed again after them, in the same call
+  (`EmojiInserter.Type`): the window sees plain characters, never a Ctrl shortcut. Every injected key
+  carries `ShortcutHook.InjectedMarker`.
+
+### Keep-Open Insertion
+
+**Ctrl+Enter** and **Ctrl+click** — Ctrl alone — insert the emoji as Enter and a click do, its use
+counted, but the window **stays open** (`MainForm.InsertKeepingOpen`): several emojis in a row, or the
+same one several times, without reopening it.
+
+- **Sequence**: the window made topmost (`HWND_TOPMOST`, no activation), so the previous window
+  brought to the front never covers it; the hook swallowing (see *Shortcut*); the previous window
+  activated, the emoji typed; then, `KeepOpenHandBackDelay` (50 ms) later — `SendInput` is
+  asynchronous, the characters must reach the previous window first —, `HandForegroundBack`: the
+  foreground taken back (`TakeForeground`), the topmost band left (`HWND_NOTOPMOST`), the hook stops
+  swallowing.
+- **Kept**: the keyboard where it was (search box or grid: the activation restores the focused
+  control), the selection on the emoji, the search text. No show, so no `OnVisibleChanged` reset.
+- The previous window stays the target: `ForegroundTracker` skips the app's own windows.
+- One started while a hand-back is pending is **ignored**. No previous window → nothing typed, the
+  window stays, the use counted.
+- The frequent section is rebuilt **at once**, the selection kept on its emoji (see *Frequent Tab*).
+- An agent cannot check it with posted messages: Ctrl is read from the keyboard's state. Real input
+  (`SendInput`) goes to whatever window is in front — another session's instance, which hooks Win+.
+  too, or the user's own apps, where Ctrl+Enter may send a message: on a desktop in use, it is checked
+  by hand.
 
 ## Emoji Data
 
@@ -398,8 +431,10 @@ and the grid, built from the counters (`MainForm.CreateFrequentCategory`), not f
   columns line up and the limit stays `3 × Columns`, taller to hold the count
   (`EmojiGridLayout.Section.RowHeight`).
 - **Selection** (see *Keyboard*): its frame follows the cell — a rectangle around the emoji and its
-  count. Replacing the section (`EmojiGrid.ReplaceCategory`, after a use or *Clear*) puts it back on
-  the first emoji in view: the cell it was on may be gone.
+  count. Replacing the section (`EmojiGrid.ReplaceCategory`, after a use, a removal or *Clear*) keeps
+  it on its emoji: wherever that one moved in the section, on its cell in another section — the view
+  then moving with the section's change of height, so the emoji keeps its place on screen (under the
+  mouse for a repeated Ctrl+click). Gone from the section, it goes back to the first emoji in view.
 - **Empty**: the tab stays, the section reads `No emoji used yet` (`EmojiCategory.EmptyText`, one row
   kept for it — the mechanism `No emoji found` uses too).
 - **Every show** scrolls the grid to the top, on the first section — this one while shown
@@ -486,11 +521,23 @@ The **search box** sits above the tab strip (`UI/MainForm.cs`); the matching and
   `compact.en.json` is the list; `compact.fr.json`, joined by hexcode, only adds keywords. Both are
   embedded with `WithCulture="false"`: without it the `.en` / `.fr` in their names make MSBuild move
   them to satellite assemblies, out of the exe.
-- **Matching**: case and diacritics ignored (`é` → `e`, `œ` → `oe`); an emoji is a result when every
-  typed word is **contained** in a word of its keywords.
-- **Ranking**, in tiers: the whole word → its start → anywhere else; then the share of the word
-  covered; then a name before a tag. Several typed words: the worst tier, then the lowest coverage,
-  then the most name matches. Ties keep the catalog order. `caca` → 💩 before 🥜 *cacahuète*.
+- **Matching**: case and diacritics ignored (`é` → `e`, `œ` → `oe`); the typed text is split at
+  spaces, and an emoji is a result when every typed word is **contained** in a word of its keywords.
+  The keywords' words are their letters and digits: every other character splits them.
+- **Symbols**: a typed word holding a character neither a letter nor a digit (`?`, `:)`, `up!`) is
+  looked for, with its symbols, in the emoji's **symbol keywords** (`Emoji.SymbolKeywords`): the
+  words of its names and tags, split at spaces, that hold one (`?`, `+`, `up!`, `d’or`), and its
+  emoticons — folded by `EmojiSearch.Fold`, the symbols kept, `’` read as `'`. None holds it → its
+  letters-and-digits parts are looked for as if typed apart (`d'or` → `d`, `or`), as before symbols
+  were searched.
+- **Characters** (`Data/EmojiCharacters.cs`): the text an emoji shows, as typed — `1` for 1️⃣, `?`
+  for ❓, `=` for 🟰, `OK` for 🆗, `月` for 🈷️. **One list written by hand**, keyed by the emoji's
+  text without `FE0F`: Unicode's compatibility form gives only a few, and Emojibase lacks some
+  (`=`, `$`). The catalog adds them to the emoji's tags, in both languages (see *Details Panel*).
+- **Ranking**, in tiers: one of the emoji's **characters or emoticons**, typed whole (`Character`) →
+  the whole word → its start → anywhere else; then the share of the word covered; then a name before
+  a tag. Several typed words: the worst tier, then the lowest coverage, then the most name matches.
+  Ties keep the catalog order. `caca` → 💩 before 🥜 *cacahuète*; `1` → 1️⃣ first, `:)` → 🙂 first.
 - **Every show** clears the box and focuses it (`OnVisibleChanged`), and brings the grid back to the
   top on its first emoji (see *Keyboard*). The placeholder is the native
   cue banner shown while focused (`EM_SETCUEBANNER`): `PlaceholderText` hides on focus, and the box
@@ -520,7 +567,7 @@ routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
 |---|---|---|
 | Search box, with text | ← / →, Home / End | The text caret — ← / → at the text's edge aside, next row |
 | Search box, with text | ← with the caret at the start of the text, → at its end — no text selected, no modifier | As in the grid, from the selection, and the grid gets the keyboard — even when the selection cannot move; no result → nothing, the keyboard stays in the box |
-| Search box, with text | ↓ | The grid gets the keyboard, the selection on its first emoji; no result → nothing, the keyboard stays in the box |
+| Search box, with text | ↓ | As in the grid, from the selection — one row down —, and the grid gets the keyboard — even when the selection cannot move; no result → nothing, the keyboard stays in the box |
 | Search box, with text | Page Up / Page Down, Tab / Shift+Tab | Ignored |
 | Search box, empty | ← / →, ↑ / ↓, Home / End, Ctrl+Home / Ctrl+End, Page Up / Page Down, Tab / Shift+Tab | As in the grid, from the selection, and the grid gets the keyboard — even when the selection cannot move. ↑ on the grid's first row → nothing, the keyboard stays in the box |
 | Search box | Menu key, Shift+F10 | The box's own menu (Cut, Copy, Paste…) |
@@ -533,6 +580,7 @@ routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
 | Grid | A character, Backspace | Back to the search box, the key typed into it |
 | Grid | Menu key, Shift+F10 | The selection's right-click menu, under its cell (scrolled into view first), its first enabled item highlighted (`EmojiGrid.OpenSelectionMenu`) |
 | Both | Enter | Inserts the selection (nothing when there is none, or when it is in the group in reorder mode) |
+| Both | Ctrl+Enter | As Enter, the window kept open, the keyboard staying where it is (see *Keep-Open Insertion*) |
 | Both | Esc | Ends the reorder mode; otherwise clears the box; already empty → hides the window |
 
 - **Empty** means no character at all (`TextLength == 0`): a box holding only spaces is *with text*,
@@ -570,6 +618,9 @@ selected emoji changes — the same cell may hold another emoji once the section
   then the name in bold (the French name capitalized like the English one), then **every tag**,
   joined with `, ` and **wrapped** at spaces — never truncated, never an ellipsis. The names of both
   rows line up after the widest flag.
+- **Characters among the tags**: the emoji's characters (see *Search Box*) end both rows' tags, each
+  row skipping one it already holds, case ignored (❓ already has `?`, 🆗 `ok`) — the French row only
+  when the French data has the emoji.
 - **Flags**: images embedded in the exe (`UI/Flags/`, `us` and `fr`, 1× and `@2x`, the 2× one above
   144 DPI), drawn at 12 logical pixels high with a thin edge — Segoe UI Emoji has no flag glyphs.
   Generated from the public-domain flag designs, never downloaded.
@@ -587,12 +638,13 @@ selected emoji changes — the same cell may hold another emoji once the section
   moving the selection never moves the grid. `MainForm.OnLayout` fits it **before** the docking
   places the controls — set during it, the grid would keep the old space. The window's minimum
   height is 240 logical pixels plus the panel's height.
-- **Search highlight**: while the search box holds text, the characters it matches in the names and
-  tags are highlighted in `highlightColor` (settings menu, `Highlight color…`, which shows it as a
+- **Search highlight**: while the search box holds text, the characters it matches in the names,
+  the tags and the emoticons are highlighted in `highlightColor` (settings menu, `Highlight color…`, which shows it as a
   swatch; `#RRGGBB` in `settings.json`; default fluorescent yellow `#FFFF00`), the text keeping its
   colour. Exactly the
   matched characters, every occurrence, matched as the search matches (`EmojiSearch.MatchSpans`:
-  accents and case ignored, inside one word).
+  accents and case ignored, inside one word). A typed word holding a symbol is highlighted whole
+  where the text holds it (`?`, `d’or`), its letters-and-digits parts elsewhere.
 - **No selection** (a search with no result): the panel stays, empty, at the same height.
 - The panel is not selectable: a click on it leaves the keyboard where it was.
 

@@ -23,6 +23,18 @@ internal sealed record Emoji(string Text, string Name, IReadOnlyList<EmojiKeywor
     public IReadOnlyList<string> Emoticons { get; init; } = [];
 
     /// <summary>
+    /// The words of its names and tags that hold a symbol, and its emoticons, folded for the search box
+    /// (<see cref="EmojiSearch.Fold"/>): <c>?</c>, <c>up!</c>, <c>:)</c>.
+    /// </summary>
+    public IReadOnlyList<EmojiKeyword> SymbolKeywords { get; init; } = [];
+
+    /// <summary>
+    /// Its <b>characters</b> (see <see cref="EmojiCharacters"/>) and its emoticons, folded: a typed word equal to one
+    /// ranks the emoji first.
+    /// </summary>
+    public IReadOnlyList<string> CharacterKeys { get; init; } = [];
+
+    /// <summary>
     /// Its skin-tone variants, in Emojibase's order — five for a one-person emoji, up to twenty-five for a two-person
     /// one; most emojis have none. The emoji itself (<see cref="Text"/>) is the yellow one.
     /// </summary>

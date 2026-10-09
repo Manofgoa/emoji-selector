@@ -9,6 +9,7 @@ Les mots utilisés dans le code, la documentation, les workfiles et la conversat
 | Émoji (*emoji*) | Un pictogramme proposé par l'application, inséré sous forme de sa séquence de caractères Unicode — variante de teinte de peau ou de genre comprise |
 | Zone de recherche (*search box*) | Le champ de texte en haut de la fenêtre où l'on tape des **mots-clés** pour filtrer les émojis |
 | Mot-clé (*keyword*) | Un mot par lequel on trouve un émoji dans la zone de recherche — son nom ou l'une de ses étiquettes, en anglais ou en français |
+| Caractère (*character*) | Le texte qu'un émoji montre, tel qu'on le tape — `1` pour 1️⃣, `?` pour ❓, `OK` pour 🆗 : tapé dans la zone de recherche, il trouve l'émoji en premier ; listé à la main dans l'application, et affiché parmi ses étiquettes |
 | Catégorie (*category*) | Un groupe d'émojis par thème (Smileys & People, Animals & Nature, Food & Drink…), que l'on parcourt sans rien taper : un onglet et une section de la grille chacune |
 | Fenêtre précédente (*previous window*) | La fenêtre d'une autre application qui était devant avant celle de l'application — celle où un émoji cliqué est inséré |
 | Sélection (*selection*) | L'unique émoji de la grille encadré dans la couleur d'accentuation, déplacé par le clavier et par la souris — celui qu'Entrée insère |
@@ -19,7 +20,7 @@ Les mots utilisés dans le code, la documentation, les workfiles et la conversat
 | Données des émojis (*emoji data*) | Les fichiers d'Emojibase d'où viennent la liste des émojis, leurs noms et leurs mots-clés : dans le dossier `emoji-data` à côté de l'exe, écrits à partir de la copie que porte l'exe, remplacés par *Check for emoji updates…* |
 | Fréquent (*frequent*) | Un émoji compté selon ses utilisations — chaque utilisation ajoute 1 à son compteur, gardé dans `usage.json` à côté de l'exe ; les plus utilisés sont affichés dans le premier onglet, *Frequently used* |
 | Panneau de détails (*details panel*) | La bande en bas de la fenêtre qui montre la **sélection** en grand, avec ses noms et ses étiquettes en anglais et en français, son émoticône, et un bouton qui la copie dans le presse-papiers |
-| Surlignage (*highlight*) | La couleur derrière les caractères des noms et des étiquettes du panneau de détails que le texte de la zone de recherche trouve — jaune fluo par défaut |
+| Surlignage (*highlight*) | La couleur derrière les caractères des noms, des étiquettes et des émoticônes du panneau de détails que le texte de la zone de recherche trouve — jaune fluo par défaut |
 | Teinte de peau (*skin tone*) | La couleur d'un émoji de personne, de main ou de partie du corps : aucune — l'émoji jaune — ou l'une des cinq d'Unicode, de claire à foncée ; un émoji à deux personnes en a une par personne. Chaque émoji est affiché, inséré et copié dans sa propre teinte quand il en a une, sinon dans la **teinte par défaut** |
 | Teinte par défaut (*default tone*) | La **teinte de peau** de tous les émojis qui n'en ont pas de propre — les deux personnes d'un émoji à deux personnes —, choisie depuis la pastille de teinte du panneau de détails |
 | Raccourci de démarrage (*startup shortcut*) | Le raccourci `Emoji Selector.lnk` du dossier Démarrage de l'utilisateur qu'écrit *Start with Windows* : Windows l'exécute à l'ouverture de session, l'application démarrant masquée dans la zone de notification — pas le **raccourci** Win+; |

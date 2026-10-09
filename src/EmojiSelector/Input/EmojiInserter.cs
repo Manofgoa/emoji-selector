@@ -27,28 +27,57 @@ internal static class EmojiInserter
         SetForegroundWindow(window);
     }
 
-    /// <summary>Types <paramref name="emoji"/> into the foreground window.</summary>
+    /// <summary>
+    /// Types <paramref name="emoji"/> into the foreground window. A Ctrl key held — Ctrl+Enter, Ctrl+click — is
+    /// released before the characters and pressed again after them, in the same call: the window sees plain
+    /// characters, never a Ctrl shortcut, and the keyboard's state matches the user's fingers once done. Every event
+    /// carries <see cref="ShortcutHook.InjectedMarker"/>: the hook lets them through.
+    /// </summary>
     public static void Type(string emoji)
     {
-        var inputs = new Input[emoji.Length * 2];
-        for (int i = 0; i < emoji.Length; i++)
+        ushort[] heldControls = [.. ControlKeys.Where(IsDown)];
+        var inputs = new List<Input>(emoji.Length * 2 + heldControls.Length * 2);
+        inputs.AddRange(heldControls.Select(key => VirtualKeyInput(key, KeyEventFKeyUp)));
+        foreach (char codeUnit in emoji)
         {
-            inputs[2 * i] = KeyInput(emoji[i], KeyEventFUnicode);
-            inputs[2 * i + 1] = KeyInput(emoji[i], KeyEventFUnicode | KeyEventFKeyUp);
+            inputs.Add(KeyInput(codeUnit, KeyEventFUnicode));
+            inputs.Add(KeyInput(codeUnit, KeyEventFUnicode | KeyEventFKeyUp));
         }
 
-        SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Input>());
+        inputs.AddRange(heldControls.Select(key => VirtualKeyInput(key, 0)));
+        SendInput((uint)inputs.Count, [.. inputs], Marshal.SizeOf<Input>());
     }
 
     private static Input KeyInput(char codeUnit, uint flags) => new()
     {
         Type = InputKeyboard,
-        Union = new InputUnion { Keyboard = new KeyboardInput { Scan = codeUnit, Flags = flags } },
+        Union = new InputUnion { Keyboard = new KeyboardInput { Scan = codeUnit, Flags = flags, ExtraInfo = ShortcutHook.InjectedMarker } },
     };
 
+    // The right Ctrl key is an extended key: without the flag, Windows would see the left one.
+    private static Input VirtualKeyInput(ushort virtualKey, uint flags) => new()
+    {
+        Type = InputKeyboard,
+        Union = new InputUnion
+        {
+            Keyboard = new KeyboardInput
+            {
+                VirtualKey = virtualKey,
+                Flags = virtualKey == VkRControl ? flags | KeyEventFExtendedKey : flags,
+                ExtraInfo = ShortcutHook.InjectedMarker,
+            },
+        },
+    };
+
+    private static bool IsDown(ushort virtualKey) => (GetAsyncKeyState(virtualKey) & 0x8000) != 0;
+
     private const uint InputKeyboard = 1;
+    private const uint KeyEventFExtendedKey = 0x0001;
     private const uint KeyEventFKeyUp = 0x0002;
     private const uint KeyEventFUnicode = 0x0004;
+    private const ushort VkLControl = 0xA2;
+    private const ushort VkRControl = 0xA3;
+    private static readonly ushort[] ControlKeys = [VkLControl, VkRControl];
     private const int SwRestore = 9;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -98,6 +127,9 @@ internal static class EmojiInserter
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern bool IsIconic(IntPtr window);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern short GetAsyncKeyState(int virtualKey);
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern bool ShowWindow(IntPtr window, int command);

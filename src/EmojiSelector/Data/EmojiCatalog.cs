@@ -95,20 +95,37 @@ internal static class EmojiCatalog
         return entries;
     }
 
+    // The emoji's characters are added to its tags, in both languages: the details panel shows them, and they are
+    // keywords like the others.
     private static Emoji CreateEmoji(Entry english, Entry? french)
     {
+        IReadOnlyList<string> characters = EmojiCharacters.Of(english.Unicode);
+        IReadOnlyList<string> emoticons = Emoticons(english.Emoticon);
         IReadOnlyList<SkinVariant> variants = Variants(english.Skins);
-        return new(english.Unicode, Capitalize(english.Label), Keywords(english, french))
+        string[] englishTags = WithCharacters(english.Tags ?? [], characters);
+        string[] frenchTags = french is null ? [] : WithCharacters(french.Tags ?? [], characters);
+        (string Label, string[] Tags)[] languages = french is null
+            ? [(english.Label, englishTags)]
+            : [(english.Label, englishTags), (french.Label, frenchTags)];
+        return new(english.Unicode, Capitalize(english.Label), Keywords(languages, EmojiSearch.Words))
         {
             Hexcode = english.Hexcode,
             FrenchName = french is null ? "" : Capitalize(french.Label),
-            EnglishTags = english.Tags ?? [],
-            FrenchTags = french?.Tags ?? [],
-            Emoticons = Emoticons(english.Emoticon),
+            EnglishTags = englishTags,
+            FrenchTags = frenchTags,
+            Emoticons = emoticons,
+            SymbolKeywords = [.. Keywords(languages, EmojiSearch.SymbolWords)
+                .Concat(emoticons.Select(emoticon => new EmojiKeyword(EmojiSearch.Fold(emoticon), IsName: false)))
+                .DistinctBy(keyword => keyword.Word)],
+            CharacterKeys = [.. characters.Concat(emoticons).Select(EmojiSearch.Fold).Distinct()],
             Variants = variants,
             IsTwoPerson = variants.Any(variant => variant.First != variant.Second),
         };
     }
+
+    // The tags, then every character they lack, case ignored: 🆗's tag ok already stands for its OK.
+    private static string[] WithCharacters(string[] tags, IReadOnlyList<string> characters) =>
+        [.. tags, .. characters.Where(character => !tags.Contains(character, StringComparer.OrdinalIgnoreCase))];
 
     // Emojibase's skin-tone variants, their tones read from their text; one holding no tone, or the tones of an
     // earlier one, is left out.
@@ -120,22 +137,18 @@ internal static class EmojiCatalog
         .ToList();
 
     // The words of an emoji's names and tags, in English and in French, each once: a name's when a name has it.
-    private static IReadOnlyList<EmojiKeyword> Keywords(Entry english, Entry? french)
+    private static IReadOnlyList<EmojiKeyword> Keywords(
+        (string Label, string[] Tags)[] languages, Func<string, IEnumerable<string>> wordsOf)
     {
         var words = new Dictionary<string, bool>();
-        foreach (Entry? entry in new[] { english, french })
+        foreach ((string label, string[] tags) in languages)
         {
-            if (entry is null)
-            {
-                continue;
-            }
-
-            foreach (string word in EmojiSearch.Words(entry.Label))
+            foreach (string word in wordsOf(label))
             {
                 words[word] = true;
             }
 
-            foreach (string word in (entry.Tags ?? []).SelectMany(EmojiSearch.Words))
+            foreach (string word in tags.SelectMany(wordsOf))
             {
                 words.TryAdd(word, false);
             }

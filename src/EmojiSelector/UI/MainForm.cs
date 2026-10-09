@@ -118,6 +118,10 @@ internal sealed class MainForm : Form
     // A use count beyond this one shows as "999+": it never overflows its cell.
     private const int MaxShownCount = 999;
 
+    // A keep-open insertion takes the foreground back this long after typing, milliseconds: SendInput is asynchronous,
+    // and taking it back at once could route the emoji's characters to this window.
+    private const int KeepOpenHandBackDelay = 50;
+
     public const string CustomHeader = "Custom";
 
     public const string NoGroupText = "Create a group from ⚙ → New group…";
@@ -205,6 +209,9 @@ internal sealed class MainForm : Form
     private List<int> shownGroups = [];
     private readonly ForegroundTracker foregroundTracker = new();
     private readonly ShortcutHook shortcutHook;
+
+    // Running while a keep-open insertion waits to take the foreground back (see InsertKeepingOpen).
+    private readonly System.Windows.Forms.Timer handBackTimer = new() { Interval = KeepOpenHandBackDelay };
 
     // The invisible resize borders around the visible frame, read the last time the window was shown: a hidden
     // window has no frame to read them from.
@@ -318,7 +325,7 @@ internal sealed class MainForm : Form
         this.grid.SelectedEmojiChanged += (_, _) => this.detailsPanel.ShownEmoji = this.grid.SelectedEmoji;
         this.detailsPanel.SizeChanged += (_, _) => this.UpdateMinimumHeight();
         this.detailsPanel.ToneSwatchClicked += (_, bounds) => this.ShowToneMenu(bounds);
-        this.grid.EmojiClicked += (_, emoji) => this.InsertEmoji(emoji);
+        this.grid.EmojiClicked += (_, click) => this.InsertEmoji(click.Emoji, click.KeepOpen);
         this.grid.EmojiRightClicked += (_, click) => this.ShowEmojiMenu(click);
         this.grid.SectionMenuClicked += (_, request) => this.ShowSectionMenu(request);
         this.grid.EmojiMoved += (_, move) => this.MoveEmoji(move);
@@ -335,6 +342,7 @@ internal sealed class MainForm : Form
         // Created after the controls: the hook posts Win+; through the UI thread's synchronization context.
         this.shortcutHook = new ShortcutHook();
         this.shortcutHook.Pressed += this.OnShortcutPressed;
+        this.handBackTimer.Tick += (_, _) => this.HandForegroundBack();
         this.singleInstance.ShowRequested += this.OnShowRequested;
         this.singleInstance.Listen();
     }
@@ -421,13 +429,13 @@ internal sealed class MainForm : Form
                 return true;
             }
 
-            // With text, a plain ← / → at its edge — the caret at its start / end, no text selected — has nowhere left to
-            // go in the box: it acts as in the grid, from the selection, and hands the keyboard over — even when the
-            // selection cannot move. No result: nothing to select, the keyboard stays in the box.
+            // With text, ↓ — and a plain ← / → at the text's edge: the caret at its start / end, no text selected — has
+            // nowhere to go in the box: it acts as in the grid, from the selection, and hands the keyboard over — even
+            // when the selection cannot move. No result: nothing to select, the keyboard stays in the box.
             bool atEdge = this.searchBox.SelectionLength == 0
                 && (keyData == Keys.Left && this.searchBox.SelectionStart == 0
                     || keyData == Keys.Right && this.searchBox.SelectionStart == this.searchBox.TextLength);
-            if (atEdge)
+            if (atEdge || keyData == Keys.Down)
             {
                 if (this.grid.SelectedEmoji is not null)
                 {
@@ -438,33 +446,22 @@ internal sealed class MainForm : Form
                 return true;
             }
 
-            switch (keyData)
+            // With text in the box, only ↓ and ← / → at the text's edge leave it.
+            if (keyData is Keys.PageUp or Keys.PageDown or Keys.Tab or (Keys.Shift | Keys.Tab))
             {
-                // No result: nothing to select, the keyboard stays in the box.
-                case Keys.Down:
-                    this.grid.ResetToTop();
-                    if (this.grid.SelectedEmoji is not null)
-                    {
-                        this.grid.Focus();
-                    }
-
-                    return true;
-
-                // With text in the box, only ↓ — and ← / → at the text's edge — leave it.
-                case Keys.PageUp or Keys.PageDown or Keys.Tab or (Keys.Shift | Keys.Tab):
-                    return true;
+                return true;
             }
         }
 
         if (this.grid.Focused || this.searchBox.Focused)
         {
             // Enter inserts the selection: the first result while searching, unless the arrows moved it. Never an emoji
-            // of the group in reorder mode.
-            if (keyData == Keys.Enter)
+            // of the group in reorder mode. Ctrl+Enter inserts it too, the window kept open.
+            if (keyData is Keys.Enter or (Keys.Control | Keys.Enter))
             {
                 if (this.grid.SelectedEmoji is Emoji emoji && !this.grid.IsSelectionReordered)
                 {
-                    this.InsertEmoji(emoji);
+                    this.InsertEmoji(emoji, keepOpen: keyData != Keys.Enter);
                 }
 
                 return true;
@@ -616,6 +613,7 @@ internal sealed class MainForm : Form
         if (disposing && !this.IsDisposed)
         {
             this.shortcutHook.Dispose();
+            this.handBackTimer.Dispose();
             this.settingsMenu.Dispose();
             this.trayIcon.Dispose();
             this.foregroundTracker.Dispose();
@@ -1582,9 +1580,16 @@ internal sealed class MainForm : Form
 
     // A clicked emoji goes into the window that was in front before this one, then the window hides to the tray,
     // like Win+;. The previous window is brought back while this app is still in front: only the foreground app may
-    // hand the foreground over. No previous window: the window hides, nothing is typed.
-    private void InsertEmoji(Emoji emoji)
+    // hand the foreground over. No previous window: the window hides, nothing is typed. Kept open — Ctrl+Enter,
+    // Ctrl+click —: see InsertKeepingOpen.
+    private void InsertEmoji(Emoji emoji, bool keepOpen = false)
     {
+        if (keepOpen)
+        {
+            this.InsertKeepingOpen(emoji);
+            return;
+        }
+
         IntPtr target = this.foregroundTracker.PreviousWindow;
         if (target != IntPtr.Zero)
         {
@@ -1599,6 +1604,51 @@ internal sealed class MainForm : Form
 
         // Counted for the emoji itself, whatever its tone.
         this.OnEmojiUsed(emoji.Text);
+    }
+
+    // Inserts the emoji as InsertEmoji does, but the window stays open: topmost, so the previous window brought to the
+    // front never covers it, the keys pressed meanwhile swallowed by the hook, so none lands in the previous window —
+    // until HandForegroundBack, once the characters reached it. The keyboard, the selection and the search text stay
+    // where they were. One started while a hand-back is pending is ignored: its Ctrl+Enter was swallowed anyway, a
+    // Ctrl+click would type into this window. No previous window: nothing typed, the use counted.
+    private void InsertKeepingOpen(Emoji emoji)
+    {
+        if (this.handBackTimer.Enabled)
+        {
+            return;
+        }
+
+        IntPtr target = this.foregroundTracker.PreviousWindow;
+        if (target != IntPtr.Zero)
+        {
+            this.shortcutHook.SwallowKeys();
+            SetWindowPos(this.Handle, HwndTopmost, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate);
+            EmojiInserter.Activate(target);
+            EmojiInserter.Type(this.ShownText(emoji));
+            this.handBackTimer.Start();
+        }
+
+        this.OnEmojiUsed(emoji.Text);
+    }
+
+    // The end of a keep-open insertion: the window takes the foreground back — the focused control with it —, then
+    // leaves the topmost band, still above the previous window, and the keys go through again. A window hidden
+    // meanwhile stays hidden.
+    private void HandForegroundBack()
+    {
+        this.handBackTimer.Stop();
+        try
+        {
+            if (this.Visible)
+            {
+                this.TakeForeground();
+            }
+        }
+        finally
+        {
+            SetWindowPos(this.Handle, HwndNoTopmost, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate);
+            this.shortcutHook.StopSwallowing();
+        }
     }
 
     // Hidden → shown in the corner of the mouse's monitor. Shown but covered by another window → brought to the front.
@@ -1784,6 +1834,8 @@ internal sealed class MainForm : Form
     private const uint SwpNoZOrder = 0x4;
     private const uint SwpNoActivate = 0x10;
     private const uint SwpFrameChanged = 0x20;
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private static readonly IntPtr HwndNoTopmost = new(-2);
 
     // The search bar sits at the window's top: its top band lets the hit test through to the window, which answers it
     // as the top resize border.
