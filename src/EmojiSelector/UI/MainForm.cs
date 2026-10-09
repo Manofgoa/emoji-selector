@@ -210,6 +210,10 @@ internal sealed class MainForm : Form
     // The default skin tone: every emoji with variants without a tone of its own, both persons of a two-person one.
     private SkinTone skinTone = SettingsFile.ReadSkinTone();
 
+    // The tone a skin-tone menu's highlighted item previews (see PreviewWhileHighlighted), null while none is. Never
+    // saved: skinTone and skinToneChoices keep the real tones.
+    private TonePreview? tonePreview;
+
     // Whether the frequent tab is shown: its tab and its section first, or neither. The counters count either way.
     private bool showFrequent = SettingsFile.ReadShowFrequent();
 
@@ -1385,6 +1389,7 @@ internal sealed class MainForm : Form
         if (click.Emoji.Variants.Count > 0)
         {
             menu.Items.Add(this.CreateSkinToneMenu(click.Emoji));
+            menu.Closed += (_, _) => this.SetTonePreview(null);
         }
 
         menu.Items.Add(new ToolStripSeparator());
@@ -1419,18 +1424,21 @@ internal sealed class MainForm : Form
 
     // Skin tone ▸, for an emoji with variants: Use default tone, checked while it has no tone of its own, then its own
     // tone — one of the six for a one-person emoji; No tone then a tone per person for a two-person one —, each tone
-    // with its swatch, the emoji's own checked. The swatches go with the menu.
+    // with its swatch, the emoji's own checked. The swatches go with the menu. Each item previews the tone it would
+    // save while highlighted.
     private ToolStripMenuItem CreateSkinToneMenu(Emoji emoji)
     {
         SkinTonePair? own = this.skinToneChoices.Get(emoji.Text);
         var skinTone = new ToolStripMenuItem(SkinToneText);
         var useDefault = new ToolStripMenuItem(UseDefaultToneText) { Checked = own is null };
         useDefault.Click += (_, _) => this.SetOwnTone(emoji, null);
+        this.PreviewWhileHighlighted(useDefault, item => new OwnTonePreview(item, emoji.Text, null));
         skinTone.DropDownItems.Add(useDefault);
         if (emoji.IsTwoPerson)
         {
+            SkinTonePair yellow = SkinTonePair.Of(SkinTone.None);
             skinTone.DropDownItems.Add(this.CreateToneItem(SkinTone.None, own is { First: SkinTone.None },
-                () => this.SetOwnTone(emoji, SkinTonePair.Of(SkinTone.None))));
+                () => this.SetOwnTone(emoji, yellow), item => new OwnTonePreview(item, emoji.Text, yellow)));
             skinTone.DropDownItems.Add(new ToolStripSeparator());
             SkinTonePair shown = this.ShownTones(emoji);
             foreach ((string text, bool first) in new[] { (FirstPersonText, true), (SecondPersonText, false) })
@@ -1443,7 +1451,8 @@ internal sealed class MainForm : Form
                         ? new SkinTonePair(tone, shown.Second == SkinTone.None ? tone : shown.Second)
                         : new SkinTonePair(shown.First == SkinTone.None ? tone : shown.First, tone);
                     bool isOwn = own is SkinTonePair ownPair && (first ? ownPair.First : ownPair.Second) == tone;
-                    person.DropDownItems.Add(this.CreateToneItem(tone, isOwn, () => this.SetOwnTone(emoji, pair)));
+                    person.DropDownItems.Add(this.CreateToneItem(tone, isOwn, () => this.SetOwnTone(emoji, pair),
+                        item => new OwnTonePreview(item, emoji.Text, pair)));
                 }
 
                 skinTone.DropDownItems.Add(person);
@@ -1454,26 +1463,74 @@ internal sealed class MainForm : Form
             skinTone.DropDownItems.Add(new ToolStripSeparator());
             foreach (SkinTone tone in SkinTones.All)
             {
-                skinTone.DropDownItems.Add(this.CreateToneItem(tone, own?.First == tone, () => this.SetOwnTone(emoji, SkinTonePair.Of(tone))));
+                SkinTonePair tones = SkinTonePair.Of(tone);
+                skinTone.DropDownItems.Add(this.CreateToneItem(tone, own?.First == tone, () => this.SetOwnTone(emoji, tones),
+                    item => new OwnTonePreview(item, emoji.Text, tones)));
             }
         }
 
         return skinTone;
     }
 
-    // A tone's item: its name, its swatch, checked when it is the emoji's own; its swatch disposed with it.
-    private ToolStripMenuItem CreateToneItem(SkinTone tone, bool isChecked, Action choose)
+    // A tone's item: its name, its swatch, checked when it is the emoji's own, previewing its tone while highlighted;
+    // its swatch disposed with it.
+    private ToolStripMenuItem CreateToneItem(SkinTone tone, bool isChecked, Action choose, Func<ToolStripItem, TonePreview> preview)
     {
         var item = new ToolStripMenuItem(SkinTones.NameOf(tone)) { Checked = isChecked };
         this.SetSwatch(item, SkinTones.ColorOf(tone));
         item.Click += (_, _) => choose();
         item.Disposed += (_, _) => item.Image?.Dispose();
+        this.PreviewWhileHighlighted(item, preview);
         return item;
     }
 
-    // The text an emoji is shown, inserted and copied as: in its own skin tone, else the default one.
-    private string ShownText(Emoji emoji) =>
-        SkinTones.ShownText(emoji, this.skinToneChoices.Get(emoji.Text), this.skinTone);
+    // While the item is highlighted — the mouse over it, or the arrow keys on it — the grid, the details panel's emoji
+    // and, for the default tone, its swatch show the tone it would save; nothing is saved. Leaving it puts the real
+    // tones back, unless the next highlighted item already previews its own.
+    private void PreviewWhileHighlighted(ToolStripItem item, Func<ToolStripItem, TonePreview> preview) =>
+        item.SelectedChanged += (_, _) =>
+        {
+            if (item.Selected)
+            {
+                this.SetTonePreview(preview(item));
+            }
+            else if (this.tonePreview?.Item == item)
+            {
+                this.SetTonePreview(null);
+            }
+        };
+
+    // The tones previewed from now on — null, the real ones —, drawn at once; the swatch shows the previewed default
+    // tone, else the real one.
+    private void SetTonePreview(TonePreview? preview)
+    {
+        if (this.tonePreview == preview)
+        {
+            return;
+        }
+
+        this.tonePreview = preview;
+        this.detailsPanel.DefaultTone = preview is DefaultTonePreview defaultPreview ? defaultPreview.Tone : this.skinTone;
+        this.OnTonesChanged();
+    }
+
+    // The text an emoji is shown, inserted and copied as: in its own skin tone, else the default one — while a menu
+    // previews a tone, the previewed default tone, or the previewed emoji's previewed own tone.
+    private string ShownText(Emoji emoji) => this.tonePreview switch
+    {
+        DefaultTonePreview preview => SkinTones.ShownText(emoji, this.skinToneChoices.Get(emoji.Text), preview.Tone),
+        OwnTonePreview preview when preview.Emoji == emoji.Text => SkinTones.ShownText(emoji, preview.Tones, this.skinTone),
+        _ => SkinTones.ShownText(emoji, this.skinToneChoices.Get(emoji.Text), this.skinTone),
+    };
+
+    // A tone a skin-tone menu previews, owned by its highlighted item.
+    private abstract record TonePreview(ToolStripItem Item);
+
+    // The default tone previewed: every emoji with variants without a tone of its own.
+    private sealed record DefaultTonePreview(ToolStripItem Item, SkinTone Tone) : TonePreview(Item);
+
+    // An emoji's own tone previewed — null, Use default tone: that emoji only.
+    private sealed record OwnTonePreview(ToolStripItem Item, string Emoji, SkinTonePair? Tones) : TonePreview(Item);
 
     // The tones of the variant an emoji is shown as; None twice when shown yellow.
     private SkinTonePair ShownTones(Emoji emoji)
@@ -1493,15 +1550,17 @@ internal sealed class MainForm : Form
     }
 
     // The details panel's tone swatch clicked: the six tones under it, its right edge on the swatch's, each with its
-    // swatch, the default one checked. Built for one show.
+    // swatch, the default one checked, each one previewed while highlighted. Built for one show.
     private void ShowToneMenu(Rectangle bounds)
     {
         var menu = new ContextMenuStrip();
         foreach (SkinTone tone in SkinTones.All)
         {
-            menu.Items.Add(this.CreateToneItem(tone, tone == this.skinTone, () => this.SetDefaultTone(tone)));
+            menu.Items.Add(this.CreateToneItem(tone, tone == this.skinTone, () => this.SetDefaultTone(tone),
+                item => new DefaultTonePreview(item, tone)));
         }
 
+        menu.Closed += (_, _) => this.SetTonePreview(null);
         ShowOnce(menu, this.detailsPanel, new Point(bounds.Right, bounds.Bottom), ToolStripDropDownDirection.BelowLeft);
     }
 
