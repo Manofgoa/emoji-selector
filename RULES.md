@@ -255,10 +255,11 @@ launch the app at sign-in, hidden in the notification area. Off by default.
   Start menu. The hook injects a **dummy key** right away (`0xE8`, unassigned), marked in
   `dwExtraInfo` so it lets it through; being the last app to send input also lets the app take the
   foreground.
-- **During a keep-open insertion** (see *Keep-Open Insertion*), from `SwallowKeys` to
-  `StopSwallowing` — one second at most —, the hook swallows every physical key-down **but the
-  modifiers**: the previous window has the keyboard, and a quick second Ctrl+Enter or Enter's
-  auto-repeat would land there. Those keys are lost. A key-up is swallowed only when its key-down was:
+- **During an insertion** (see *Insertion* and *Keep-Open Insertion*), from `SwallowKeys` to
+  `StopSwallowing` — 1.5 seconds at most (`MaxSwallowMilliseconds`) —, the hook swallows every
+  physical key-down **but the modifiers**: the previous window has the keyboard, and a key typed
+  quickly would land there before the emoji — after it too, a quick second Ctrl+Enter or Enter's
+  auto-repeat, when the window stays open. Those keys are lost. A key-up is swallowed only when its key-down was:
   one whose key-down went through must reach Windows, or the key would stay down.
 - **Placement**: `Input/CaretLocator.cs` looks for the text cursor of the previous window — the
   Win32 caret, the MSAA caret, the UI Automation caret range, the UI Automation focused element (of
@@ -299,6 +300,15 @@ launch the app at sign-in, hidden in the notification area. Off by default.
   back to the foreground **before** the window hides (only the foreground app may hand it over),
   then the emoji is typed with `SendInput` / `KEYEVENTF_UNICODE` — never through the clipboard —, in
   its skin tone (see *Skin Tones*).
+- **Typed once the previous window is ready** (`MainForm.TypeWhenReady`), never right after its
+  activation: `SetForegroundWindow` only queues it, and a Chromium app hands the keyboard focus on to
+  its page later still — characters typed before that are dropped (the Claude desktop app's prompt
+  box). A timer checks every `TypingPollInterval` (10 ms) that the window is in front and its thread
+  has a focused window (`EmojiInserter.IsReady`), then waits `TypingSettleDelay` (100 ms) more; after
+  `TypingTimeout` (1 s) from the activation the emoji is typed anyway. The UI thread is never blocked.
+  The hook swallows the keys from the activation to the typing (see *Shortcut*). The window shown
+  again meanwhile — the tray icon — types nothing: the emoji would land in it. An insertion started
+  while another one is under way is **ignored**.
   A Ctrl key held is released before the characters and pressed again after them, in the same call
   (`EmojiInserter.Type`): the window sees plain characters, never a Ctrl shortcut. Every injected key
   carries `ShortcutHook.InjectedMarker`.
@@ -311,14 +321,15 @@ same one several times, without reopening it.
 
 - **Sequence**: the window made topmost (`HWND_TOPMOST`, no activation), so the previous window
   brought to the front never covers it; the hook swallowing (see *Shortcut*); the previous window
-  activated, the emoji typed; then, `KeepOpenHandBackDelay` (50 ms) later — `SendInput` is
+  activated, the emoji typed once it is ready (see *Insertion*); then, `KeepOpenHandBackDelay` (50 ms)
+  later — `SendInput` is
   asynchronous, the characters must reach the previous window first —, `HandForegroundBack`: the
   foreground taken back (`TakeForeground`), the topmost band left (`HWND_NOTOPMOST`), the hook stops
   swallowing.
 - **Kept**: the keyboard where it was (search box or grid: the activation restores the focused
   control), the selection on the emoji, the search text. No show, so no `OnVisibleChanged` reset.
 - The previous window stays the target: `ForegroundTracker` skips the app's own windows.
-- One started while a hand-back is pending is **ignored**. No previous window → nothing typed, the
+- One started while the typing or the hand-back is pending is **ignored**. No previous window → nothing typed, the
   window stays, the use counted.
 - The frequent section is rebuilt **at once**, the selection kept on its emoji (see *Frequent Tab*).
 - An agent cannot check it with posted messages: Ctrl is read from the keyboard's state. Real input
