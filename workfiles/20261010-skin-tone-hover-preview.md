@@ -57,8 +57,8 @@ Relevant code: `UI/MainForm.cs` (`ShowToneMenu`, `CreateSkinToneMenu`, `CreateTo
   | `Skin tone ▸`: `No tone`, `Light` … `Dark` (one person) | Own tone of the emoji = that tone |
   | `Skin tone ▸`: `No tone` (two persons) | Own tone = `None` |
   | `First person ▸` / `Second person ▸`: a tone | Own tone = the pair the click would save (the other person keeps its shown tone, or takes this one while the emoji is yellow) |
-  | `Skin tone ▸`: `Use default tone` | *(see Open Questions)* |
-  | Any other item, or none | *(see Open Questions)* |
+  | `Skin tone ▸`: `Use default tone` | Own tone of the emoji = `null`: the emoji shown in the default tone |
+  | Any other item — `First person ▸` / `Second person ▸` themselves, `Skin tone ▸`, the right-click menu's other items — or none (the mouse off the items) | No preview: the real tones |
 
 - **A click** saves the choice as today (`SetDefaultTone`, `SetOwnTone`), then the preview is cleared: the real
   tones are now the clicked one, nothing flickers.
@@ -71,7 +71,8 @@ Relevant code: `UI/MainForm.cs` (`ShowToneMenu`, `CreateSkinToneMenu`, `CreateTo
 
 - Every change of the preview, its clearing included, goes through `OnTonesChanged`: the grid invalidated (every
   variant is pre-rendered, nothing to rebuild — a variant not rendered yet shows the green cell, as today) and the
-  details panel's emoji rendered again (`RefreshShownEmoji`).
+  details panel's emoji rendered again (`RefreshShownEmoji`) — which ends the copy button's check mark, as a tone
+  change does today: accepted.
 - **The tone swatch**: during a default-tone preview, `EmojiDetailsPanel.DefaultTone` is set to the previewed tone
   (colour and tooltip follow), and back to the real one when cleared. An own-tone preview leaves it alone — it
   shows the default tone.
@@ -103,14 +104,13 @@ the details panel and its menus are not clickable from a script). It is checked 
 
 ## Open Questions
 
-- [ ] In `Skin tone ▸`, does highlighting **`Use default tone`** preview the emoji in the default tone? *(proposed:
-  yes — the emoji's own tone previewed as `null`)*
-- [ ] When the highlight is on **no tone item** — `First person ▸` / `Second person ▸` themselves, the `Skin tone ▸`
-  item, the other items of the right-click menu, or nothing (mouse off the items) — what is shown? *(proposed: the
-  real tones — the preview follows the highlighted tone item only)*
-- [ ] The copy button's **check mark** (shown about a second after a copy) is ended by `RefreshShownEmoji`: may a
-  preview end it early? *(proposed: yes — a copy then a tone menu within a second is rare, and the check mark only
-  confirms the copy)*
+- [x] ~~In `Skin tone ▸`, does highlighting **`Use default tone`** preview the emoji in the default tone?~~ → Yes:
+  the emoji's own tone previewed as `null`
+- [x] ~~When the highlight is on **no tone item** — `First person ▸` / `Second person ▸` themselves, the `Skin tone ▸`
+  item, the other items of the right-click menu, or nothing (mouse off the items) — what is shown?~~ → The real
+  tones: the preview follows the highlighted tone item only
+- [x] ~~The copy button's **check mark** (shown about a second after a copy) is ended by `RefreshShownEmoji`: may a
+  preview end it early?~~ → Yes
 
 ---
 
@@ -127,6 +127,11 @@ Initial design, from the scoping answers (Q1–Q4): both menus preview; the grid
 tone swatch follow; the mouse and the keyboard highlight trigger it; closing without a click puts the real tones
 back and saves nothing. The preview is one state in `MainForm` read by `ShownText`, redrawn through
 `OnTonesChanged`. Three open points left: `Use default tone`, the non-tone items, the copy check mark.
+
+### Iteration 2 — 2026-10-10
+
+Open points settled (Q5): highlighting `Use default tone` previews the emoji in the default tone; a highlight on no
+tone item shows the real tones; a preview may end the copy button's check mark. No open question left.
 
 ---
 
@@ -153,7 +158,7 @@ Questions asked by the agent during design, with user responses.
 | 2 | What changes in real time during the hover? | The grid's emojis, the details panel's large emoji, and the tone swatch | 2026-10-10 |
 | 3 | What triggers the preview, and what happens when the menu closes without a choice? | Mouse hover and keyboard highlight; closing without a click puts the real tone back, nothing saved | 2026-10-10 |
 | 4 | Straightforward or tricky / long? | Straightforward — a single exploration pass | 2026-10-10 |
-| 5 | `Use default tone` previewed? Non-tone items → real tones? Copy check mark ended by a preview? | | |
+| 5 | `Use default tone` previewed? Non-tone items → real tones? Copy check mark ended by a preview? | `Use default tone` previewed in the default tone; non-tone items → the real tones; a preview may end the check mark | 2026-10-10 |
 
 ---
 
