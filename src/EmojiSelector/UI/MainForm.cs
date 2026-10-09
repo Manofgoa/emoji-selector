@@ -122,6 +122,18 @@ internal sealed class MainForm : Form
     // and taking it back at once could route the emoji's characters to this window.
     private const int KeepOpenHandBackDelay = 50;
 
+    // An insertion checks this often whether the previous window is ready to receive the emoji (see TypeWhenReady),
+    // milliseconds.
+    private const int TypingPollInterval = 10;
+
+    // Once the previous window is ready, the emoji is typed this long after, milliseconds: a Chromium app hands the
+    // keyboard focus on to its page — the Claude desktop app's prompt box — after its window got it.
+    private const int TypingSettleDelay = 100;
+
+    // The emoji is typed this long after the previous window was activated whether it is ready or not, milliseconds:
+    // never worse than typing at once.
+    private const int TypingTimeout = 1000;
+
     public const string CustomHeader = "Custom";
 
     public const string NoGroupText = "Create a group from ⚙ → New group…";
@@ -212,6 +224,12 @@ internal sealed class MainForm : Form
 
     // Running while a keep-open insertion waits to take the foreground back (see InsertKeepingOpen).
     private readonly System.Windows.Forms.Timer handBackTimer = new() { Interval = KeepOpenHandBackDelay };
+
+    // Running while an insertion waits for the previous window before typing (see TypeWhenReady).
+    private readonly System.Windows.Forms.Timer typingTimer = new() { Interval = TypingPollInterval };
+
+    // The insertion typingTimer waits for; null when none.
+    private PendingTyping? pendingTyping;
 
     // The invisible resize borders around the visible frame, read the last time the window was shown: a hidden
     // window has no frame to read them from.
@@ -343,6 +361,7 @@ internal sealed class MainForm : Form
         this.shortcutHook = new ShortcutHook();
         this.shortcutHook.Pressed += this.OnShortcutPressed;
         this.handBackTimer.Tick += (_, _) => this.HandForegroundBack();
+        this.typingTimer.Tick += (_, _) => this.OnTypingTick();
         this.singleInstance.ShowRequested += this.OnShowRequested;
         this.singleInstance.Listen();
     }
@@ -614,6 +633,7 @@ internal sealed class MainForm : Form
         {
             this.shortcutHook.Dispose();
             this.handBackTimer.Dispose();
+            this.typingTimer.Dispose();
             this.settingsMenu.Dispose();
             this.trayIcon.Dispose();
             this.foregroundTracker.Dispose();
@@ -1580,10 +1600,17 @@ internal sealed class MainForm : Form
 
     // A clicked emoji goes into the window that was in front before this one, then the window hides to the tray,
     // like Win+;. The previous window is brought back while this app is still in front: only the foreground app may
-    // hand the foreground over. No previous window: the window hides, nothing is typed. Kept open — Ctrl+Enter,
-    // Ctrl+click —: see InsertKeepingOpen.
+    // hand the foreground over. The emoji is typed once that window is ready (TypeWhenReady), the keys pressed
+    // meanwhile swallowed by the hook, so none lands before it. No previous window: the window hides, nothing is
+    // typed. Kept open — Ctrl+Enter, Ctrl+click —: see InsertKeepingOpen. One started while another is under way is
+    // ignored: its keys were swallowed anyway, a click would type into this window.
     private void InsertEmoji(Emoji emoji, bool keepOpen = false)
     {
+        if (this.typingTimer.Enabled || this.handBackTimer.Enabled)
+        {
+            return;
+        }
+
         if (keepOpen)
         {
             this.InsertKeepingOpen(emoji);
@@ -1593,13 +1620,14 @@ internal sealed class MainForm : Form
         IntPtr target = this.foregroundTracker.PreviousWindow;
         if (target != IntPtr.Zero)
         {
+            this.shortcutHook.SwallowKeys();
             EmojiInserter.Activate(target);
         }
 
         this.Hide();
         if (target != IntPtr.Zero)
         {
-            EmojiInserter.Type(this.ShownText(emoji));
+            this.TypeWhenReady(new PendingTyping(target, this.ShownText(emoji), KeepOpen: false, Environment.TickCount64));
         }
 
         // Counted for the emoji itself, whatever its tone.
@@ -1609,26 +1637,75 @@ internal sealed class MainForm : Form
     // Inserts the emoji as InsertEmoji does, but the window stays open: topmost, so the previous window brought to the
     // front never covers it, the keys pressed meanwhile swallowed by the hook, so none lands in the previous window —
     // until HandForegroundBack, once the characters reached it. The keyboard, the selection and the search text stay
-    // where they were. One started while a hand-back is pending is ignored: its Ctrl+Enter was swallowed anyway, a
-    // Ctrl+click would type into this window. No previous window: nothing typed, the use counted.
+    // where they were. No previous window: nothing typed, the use counted.
     private void InsertKeepingOpen(Emoji emoji)
     {
-        if (this.handBackTimer.Enabled)
-        {
-            return;
-        }
-
         IntPtr target = this.foregroundTracker.PreviousWindow;
         if (target != IntPtr.Zero)
         {
             this.shortcutHook.SwallowKeys();
             SetWindowPos(this.Handle, HwndTopmost, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate);
             EmojiInserter.Activate(target);
-            EmojiInserter.Type(this.ShownText(emoji));
-            this.handBackTimer.Start();
+            this.TypeWhenReady(new PendingTyping(target, this.ShownText(emoji), KeepOpen: true, Environment.TickCount64));
         }
 
         this.OnEmojiUsed(emoji.Text);
+    }
+
+    // The previous window, just activated, gets the emoji once it is ready (EmojiInserter.IsReady) and TypingSettleDelay
+    // has passed since — or TypingTimeout after its activation, ready or not. Activating it only queues the activation,
+    // and an app gives the keyboard back to its text field later still: typed at once, the characters may be dropped.
+    private void TypeWhenReady(PendingTyping typing)
+    {
+        this.pendingTyping = typing;
+        this.typingTimer.Start();
+    }
+
+    // Then a keep-open insertion hands the foreground back after KeepOpenHandBackDelay; a hiding one lets the keys
+    // through again at once. A hiding insertion whose window was shown again meanwhile — the tray icon — types nothing:
+    // the emoji would land in this window.
+    private void OnTypingTick()
+    {
+        if (this.pendingTyping is not PendingTyping typing)
+        {
+            this.typingTimer.Stop();
+            return;
+        }
+
+        long now = Environment.TickCount64;
+        if (typing.ReadyAt == 0 && EmojiInserter.IsReady(typing.Target))
+        {
+            typing.ReadyAt = now;
+        }
+
+        bool settled = typing.ReadyAt != 0 && now - typing.ReadyAt >= TypingSettleDelay;
+        if (!settled && now - typing.ActivatedAt < TypingTimeout)
+        {
+            return;
+        }
+
+        this.typingTimer.Stop();
+        this.pendingTyping = null;
+        if (typing.KeepOpen)
+        {
+            EmojiInserter.Type(typing.Text);
+            this.handBackTimer.Start();
+            return;
+        }
+
+        if (!this.Visible)
+        {
+            EmojiInserter.Type(typing.Text);
+        }
+
+        this.shortcutHook.StopSwallowing();
+    }
+
+    // An insertion waiting for its previous window (see TypeWhenReady). ActivatedAt and ReadyAt are
+    // Environment.TickCount64 values; ReadyAt is 0 until the window is first seen ready.
+    private sealed record PendingTyping(IntPtr Target, string Text, bool KeepOpen, long ActivatedAt)
+    {
+        public long ReadyAt { get; set; }
     }
 
     // The end of a keep-open insertion: the window takes the foreground back — the focused control with it —, then
