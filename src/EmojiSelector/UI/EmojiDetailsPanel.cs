@@ -52,8 +52,8 @@ internal sealed class EmojiDetailsPanel : Control
     private const int LogicalToneGap = 4;
     private const int LogicalToneCircleSize = 16;
 
-    // The emoticons' font size in points, the grid's captions'.
-    private const float EmoticonFontSize = 8.25F;
+    // How much smaller than the text the emoticons are, in points: the grid's captions' size.
+    private const float EmoticonFontShrink = 0.75F;
 
     private const char CopyGlyph = '';
     private const char CheckGlyph = '';
@@ -111,7 +111,7 @@ internal sealed class EmojiDetailsPanel : Control
         this.SetStyle(ControlStyles.Selectable, false);
         this.BackColor = SystemColors.Window;
         this.nameFont = new Font(this.Font, FontStyle.Bold);
-        this.emoticonFont = new Font(this.Font.FontFamily, EmoticonFontSize);
+        this.emoticonFont = new Font(this.Font.FontFamily, this.Font.Size - EmoticonFontShrink);
         this.iconFont = this.CreateIconFont();
         this.copiedTimer.Tick += (_, _) => this.EndCopied();
     }
@@ -292,7 +292,7 @@ internal sealed class EmojiDetailsPanel : Control
         Font previousName = this.nameFont;
         Font previousEmoticon = this.emoticonFont;
         this.nameFont = new Font(this.Font, FontStyle.Bold);
-        this.emoticonFont = new Font(this.Font.FontFamily, EmoticonFontSize);
+        this.emoticonFont = new Font(this.Font.FontFamily, this.Font.Size - EmoticonFontShrink);
         previousName.Dispose();
         previousEmoticon.Dispose();
         this.wordWidths.Clear();
@@ -314,10 +314,47 @@ internal sealed class EmojiDetailsPanel : Control
         this.Invalidate();
     }
 
+    // Drawn on the Acrylic backdrop (see Glass): a tinted transparent background, GDI+ text.
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool Glass
+    {
+        get => this.glass;
+        set
+        {
+            this.glass = value;
+            // The words are measured as they are drawn: GDI+ on the backdrop.
+            this.wordWidths.Clear();
+            this.lineHeights.Clear();
+            this.RequestHeight();
+            this.Invalidate();
+        }
+    }
+
+    private bool glass;
+
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        if (!this.glass)
+        {
+            base.OnPaintBackground(e);
+        }
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
-        Graphics graphics = e.Graphics;
+        if (this.glass)
+        {
+            UI.Glass.Paint(e, this.PaintContent);
+        }
+        else
+        {
+            this.PaintContent(e.Graphics);
+        }
+    }
+
+    private void PaintContent(Graphics graphics)
+    {
 
         // The line between the grid and the panel.
         using (var border = new Pen(SystemColors.ControlLight))
@@ -554,7 +591,7 @@ internal sealed class EmojiDetailsPanel : Control
                     }
                 }
 
-                TextRenderer.DrawText(graphics, text.Substring(start, length), font, new Point(left + x, y), color, TextFlags);
+                UI.Glass.DrawText(graphics, this.glass, text.Substring(start, length), font, new Point(left + x, y), color, TextFlags);
             }
 
             y += lineHeight;
@@ -576,7 +613,7 @@ internal sealed class EmojiDetailsPanel : Control
                 lineHeight);
         }
 
-        TextRenderer.DrawText(graphics, emoticons, this.emoticonFont, new Point(left, top), SystemColors.GrayText, TextFlags);
+        UI.Glass.DrawText(graphics, this.glass, emoticons, this.emoticonFont, new Point(left, top), SystemColors.GrayText, TextFlags);
     }
 
     // The flag at the DPI's resolution, scaled to its logical size, edged.
@@ -604,7 +641,7 @@ internal sealed class EmojiDetailsPanel : Control
             graphics.FillRectangle(hover, bounds);
         }
 
-        TextRenderer.DrawText(graphics, (this.copied ? CheckGlyph : CopyGlyph).ToString(), this.iconFont, bounds,
+        UI.Glass.DrawText(graphics, this.glass, (this.copied ? CheckGlyph : CopyGlyph).ToString(), this.iconFont, bounds,
             this.copied ? SystemColors.Highlight : SystemColors.ControlText,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFlags);
     }
@@ -752,8 +789,11 @@ internal sealed class EmojiDetailsPanel : Control
         return height;
     }
 
-    private static int MeasureWidth(string text, Font font) =>
-        text.Length == 0 ? 0 : TextRenderer.MeasureText(text, font, Size.Empty, TextFlags).Width;
+    // Measured as drawn: GDI+ on the backdrop, GDI otherwise — the words keep even spaces between them.
+    private int MeasureWidth(string text, Font font) =>
+        text.Length == 0 ? 0
+        : this.glass ? UI.Glass.MeasureWidth(text, font)
+        : TextRenderer.MeasureText(text, font, Size.Empty, TextFlags).Width;
 
     private Font CreateIconFont()
     {

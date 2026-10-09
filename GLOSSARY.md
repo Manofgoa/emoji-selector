@@ -21,6 +21,7 @@ each.
 | Emoji data (*données des émojis*) | Emojibase's files the emoji list, the emojis' names and their keywords come from: in the `emoji-data` folder next to the exe, written from the copy the exe carries, replaced by *Check for emoji updates…* |
 | Frequent (*fréquent*) | An emoji counted by its uses — each use adds 1 to its counter, kept in `usage.json` next to the exe; the most used are shown in the first tab, *Frequently used* |
 | Details panel (*panneau de détails*) | The band at the bottom of the window showing the **selection** large, with its names and tags in English and in French, its emoticon, and a button copying it to the clipboard |
+| Acrylic (*Acrylic*) | Windows' blurred background, the one of the Win+; panel: the windows behind the app's seen blurred through it, under a light veil. A choice of *Window opacity*, in place of a percentage |
 | Highlight (*surlignage*) | The colour behind the characters of the details panel's names, tags and emoticons that the search box's text matches — fluorescent yellow by default |
 | Skin tone (*teinte de peau*) | The colour of a person, hand or body part emoji: none — the yellow emoji — or one of Unicode's five, light to dark; a two-person emoji has one per person. Each emoji is shown, inserted and copied in its own tone when it has one, else in the **default tone** |
 | Default tone (*teinte par défaut*) | The **skin tone** of every emoji that has none of its own — both persons of a two-person one —, picked from the details panel's tone swatch |
