@@ -15,10 +15,8 @@ namespace EmojiSelector.UI;
 /// characters the search matches are highlighted in <see cref="HighlightColor"/>.
 /// <para>
 /// The emoji is drawn and copied as its <see cref="ShownText"/>: in the skin tone in use. While it has skin-tone
-/// variants, a <b>tone bar</b> under the copy button shows the six tones, the <see cref="DefaultTone"/> ringed; a click
-/// raises <see cref="DefaultToneChosen"/>. A two-person emoji gets a second bar under it, the second person's
-/// <see cref="SecondTone"/> — its first slot "same as the first person" —, raising <see cref="SecondToneChosen"/>;
-/// dimmed and inactive while the default tone is <see cref="SkinTone.None"/>.
+/// variants, a <b>tone swatch</b> under the copy button shows the <see cref="DefaultTone"/>; a click raises
+/// <see cref="ToneSwatchClicked"/>, the parent opening the tones' menu under it.
 /// </para>
 /// <para>
 /// Its height is fixed: the one the emoji with the most text needs at the panel's width (<see cref="HeightFor"/>), set
@@ -49,15 +47,9 @@ internal sealed class EmojiDetailsPanel : Control
     private const int LogicalTagsGap = 2;
     private const int LogicalRowGap = 6;
 
-    // The tone bars: three swatches a row, two rows; the gap above each bar; the ring around the tone in use.
-    private const int LogicalSwatchSize = 12;
-    private const int LogicalSwatchGap = 4;
-    private const int LogicalBarGap = 6;
-    private const int LogicalRingWidth = 2;
-    private const int SwatchesPerRow = 3;
-
-    // A dimmed bar's swatches, out of 255.
-    private const int DimmedAlpha = 80;
+    // The tone swatch: as large as the copy button, under it, its colour a circle in the middle.
+    private const int LogicalToneGap = 4;
+    private const int LogicalToneCircleSize = 16;
 
     // The emoticons' font size in points, the grid's captions'.
     private const float EmoticonFontSize = 8.25F;
@@ -70,18 +62,14 @@ internal sealed class EmojiDetailsPanel : Control
 
     private const string TagSeparator = ", ";
 
-    private const string DefaultToneToolTip = "Default skin tone: {0}";
-    private const string SecondToneToolTip = "Second person: {0}";
-    private const string SameToneToolTip = "Second person: same as the first";
+    private const string ToneToolTip = "Skin tone: {0}";
 
     private const TextFormatFlags TextFlags = TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix;
 
     private readonly IReadOnlyList<Emoji> catalog;
 
-    // Whether the catalog has emojis with variants, and two-person ones: the room the tone bars take, whatever the
-    // selection.
+    // Whether the catalog has emojis with variants: the room the tone swatch takes, whatever the selection.
     private readonly bool hasVariants;
-    private readonly bool hasTwoPerson;
     private readonly EmojiRenderer renderer = new();
     private readonly ToolTip toolTip = new();
     private readonly System.Windows.Forms.Timer copiedTimer = new() { Interval = CopiedMilliseconds };
@@ -103,11 +91,10 @@ internal sealed class EmojiDetailsPanel : Control
     private bool showFrench = true;
     private Color highlightColor = DefaultHighlightColor;
     private SkinTone defaultTone;
-    private SkinTone? secondTone;
 
     // The part under the mouse, and the one the left button went down on.
-    private Hit hovered;
-    private Hit pressed;
+    private Part hovered;
+    private Part pressed;
     private bool copied;
 
     // The width FitHeight last fitted the height to: -1 to fit it again.
@@ -118,7 +105,6 @@ internal sealed class EmojiDetailsPanel : Control
     {
         this.catalog = catalog;
         this.hasVariants = catalog.Any(emoji => emoji.Variants.Count > 0);
-        this.hasTwoPerson = catalog.Any(emoji => emoji.IsTwoPerson);
         this.DoubleBuffered = true;
         this.SetStyle(ControlStyles.Selectable, false);
         this.BackColor = SystemColors.Window;
@@ -144,7 +130,7 @@ internal sealed class EmojiDetailsPanel : Control
             this.EndCopied();
             this.RenderEmoji();
 
-            // The bars come and go with the emoji: the part under a still mouse may be another.
+            // The swatch comes and goes with the emoji: the part under a still mouse may be another.
             this.hovered = this.IsHandleCreated ? this.HitTest(this.PointToClient(Cursor.Position)) : default;
             this.UpdateToolTip();
             this.Invalidate();
@@ -198,7 +184,7 @@ internal sealed class EmojiDetailsPanel : Control
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public Func<Emoji, string> ShownText { get; set; } = emoji => emoji.Text;
 
-    /// <summary>The default skin tone, ringed in the tone bar.</summary>
+    /// <summary>The default skin tone, the tone swatch's colour.</summary>
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public SkinTone DefaultTone
     {
@@ -206,30 +192,13 @@ internal sealed class EmojiDetailsPanel : Control
         set
         {
             this.defaultTone = value;
+            this.UpdateToolTip();
             this.Invalidate();
         }
     }
 
-    /// <summary>The second person's default skin tone, ringed in the second bar; null, the same as the first person's.</summary>
-    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-    public SkinTone? SecondTone
-    {
-        get => this.secondTone;
-        set
-        {
-            this.secondTone = value;
-            this.Invalidate();
-        }
-    }
-
-    /// <summary>A swatch of the tone bar was clicked: the tone it shows.</summary>
-    public event EventHandler<SkinTone>? DefaultToneChosen;
-
-    /// <summary>
-    /// A swatch of the second bar was clicked: the tone it shows — null for "same as the first person", or for the tone
-    /// the first person already has.
-    /// </summary>
-    public event EventHandler<SkinTone?>? SecondToneChosen;
+    /// <summary>The tone swatch was clicked: its bounds, in the panel's coordinates — the tones' menu opens under it.</summary>
+    public event EventHandler<Rectangle>? ToneSwatchClicked;
 
     /// <summary>The shown emoji drawn again: its <see cref="ShownText"/> changed with a tone.</summary>
     public void RefreshShownEmoji()
@@ -253,37 +222,19 @@ internal sealed class EmojiDetailsPanel : Control
 
     private Rectangle ButtonBounds => new(this.Width - this.PanelPadding - this.ButtonSize, this.PanelPadding, this.ButtonSize, this.ButtonSize);
 
-    private int SwatchSize => this.LogicalToDeviceUnits(LogicalSwatchSize);
+    // The tone swatch: under the copy button, as large as it.
+    private Rectangle ToneBounds => new(this.ButtonBounds.X, this.ButtonBounds.Bottom + this.LogicalToDeviceUnits(LogicalToneGap),
+        this.ButtonSize, this.ButtonSize);
 
-    private int SwatchGap => this.LogicalToDeviceUnits(LogicalSwatchGap);
+    // The copy button, then the tone swatch under it when the catalog has variants.
+    private int RightColumnHeight => this.hasVariants ? this.ToneBounds.Bottom - this.PanelPadding : this.ButtonSize;
 
-    private int BarGap => this.LogicalToDeviceUnits(LogicalBarGap);
-
-    private int BarWidth => SwatchesPerRow * this.SwatchSize + (SwatchesPerRow - 1) * this.SwatchGap;
-
-    private int BarHeight => 2 * this.SwatchSize + this.SwatchGap;
-
-    // The copy button, then the tone bars under it when the catalog has variants: as wide as the widest.
-    private int RightColumnWidth => this.hasVariants ? Math.Max(this.ButtonSize, this.BarWidth) : this.ButtonSize;
-
-    private int RightColumnHeight => this.ButtonSize
-        + (this.hasVariants ? this.BarGap + this.BarHeight : 0)
-        + (this.hasTwoPerson ? this.SecondBarSpacing + this.BarHeight : 0);
-
-    // Between the two bars: a thin line, a bar gap above and under it, like the language rows' separator.
-    private int SecondBarSpacing => 2 * this.BarGap + 1;
-
-    // Whether the shown emoji has its tone bar, and its second one.
-    private bool ShowsBar => this.shownEmoji is { Variants.Count: > 0 };
-
-    private bool ShowsSecondBar => this.shownEmoji is { IsTwoPerson: true };
-
-    // The second bar answers only while the default tone gives the first person one.
-    private bool SecondBarActive => this.defaultTone != SkinTone.None;
+    // Whether the shown emoji has its tone swatch.
+    private bool ShowsTone => this.shownEmoji is { Variants.Count: > 0 };
 
     /// <summary>
     /// The panel's height at <paramref name="width"/>: the emoji with the most text, the French row included while
-    /// shown, fits, and so do the copy button and the tone bars — device pixels, at the current DPI.
+    /// shown, fits, and so do the copy button and the tone swatch — device pixels, at the current DPI.
     /// </summary>
     public int HeightFor(int width)
     {
@@ -394,14 +345,9 @@ internal sealed class EmojiDetailsPanel : Control
         }
 
         this.PaintButton(graphics);
-        if (this.ShowsBar)
+        if (this.ShowsTone)
         {
-            this.PaintBar(graphics, Part.FirstBar);
-        }
-
-        if (this.ShowsSecondBar)
-        {
-            this.PaintBar(graphics, Part.SecondBar);
+            this.PaintTone(graphics);
         }
     }
 
@@ -420,41 +366,37 @@ internal sealed class EmojiDetailsPanel : Control
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
-        if (e.Button == MouseButtons.Left && this.hovered.Part != Part.None)
+        if (e.Button == MouseButtons.Left && this.hovered != Part.None)
         {
             this.pressed = this.hovered;
             this.Invalidate(this.BoundsOf(this.pressed));
         }
     }
 
-    // The button and the swatches act when released over the part pressed.
+    // The copy button and the tone swatch act when released over the part pressed.
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
-        if (e.Button != MouseButtons.Left || this.pressed.Part == Part.None)
+        if (e.Button != MouseButtons.Left || this.pressed == Part.None)
         {
             return;
         }
 
-        Hit pressed = this.pressed;
-        this.pressed = default;
+        Part pressed = this.pressed;
+        this.pressed = Part.None;
         this.Invalidate(this.BoundsOf(pressed));
         if (this.HitTest(e.Location) != pressed)
         {
             return;
         }
 
-        switch (pressed.Part)
+        switch (pressed)
         {
             case Part.Button:
                 this.CopyEmoji();
                 break;
-            case Part.FirstBar:
-                this.DefaultToneChosen?.Invoke(this, SkinTones.All[pressed.Slot]);
-                break;
-            case Part.SecondBar:
-                SkinTone? tone = pressed.Slot == 0 || SkinTones.All[pressed.Slot] == this.defaultTone ? null : SkinTones.All[pressed.Slot];
-                this.SecondToneChosen?.Invoke(this, tone);
+            case Part.Tone:
+                this.ToneSwatchClicked?.Invoke(this, this.ToneBounds);
                 break;
         }
     }
@@ -487,8 +429,8 @@ internal sealed class EmojiDetailsPanel : Control
         }
     }
 
-    // Between the emoji and the button's column.
-    private int TextWidthFor(int width) => Math.Max(1, width - this.TextLeft - this.PanelPadding - this.RightColumnWidth - this.PanelPadding);
+    // Between the emoji and the button.
+    private int TextWidthFor(int width) => Math.Max(1, width - this.TextLeft - this.PanelPadding - this.ButtonSize - this.PanelPadding);
 
     private int TextHeight(Emoji emoji, int textWidth)
     {
@@ -617,7 +559,7 @@ internal sealed class EmojiDetailsPanel : Control
     private void PaintButton(Graphics graphics)
     {
         Rectangle bounds = this.ButtonBounds;
-        if (this.hovered.Part == Part.Button || this.pressed.Part == Part.Button)
+        if (this.hovered == Part.Button || this.pressed == Part.Button)
         {
             using var hover = new SolidBrush(SystemColors.ControlLight);
             graphics.FillRectangle(hover, bounds);
@@ -628,114 +570,62 @@ internal sealed class EmojiDetailsPanel : Control
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFlags);
     }
 
-    // A tone bar's six swatches, on two rows of three: the default tone's — None first —, or the second person's —
-    // "same as the first person" first, an empty ring. The tone in use ringed in the accent colour, the swatch under
-    // the mouse on the hover colour; the second bar dimmed while inactive.
-    private void PaintBar(Graphics graphics, Part bar)
+    // The tone swatch: the default tone's colour in a circle, outlined; the copy button's hover behind it.
+    private void PaintTone(Graphics graphics)
     {
-        bool active = bar == Part.FirstBar || this.SecondBarActive;
-        // A tone's slot is its place in SkinTones.All, the enum's order; the second bar's slot 0 is "same".
-        int ringed = bar == Part.FirstBar ? (int)this.defaultTone : (int)(this.secondTone ?? SkinTone.None);
-        int ringWidth = this.LogicalToDeviceUnits(LogicalRingWidth);
-        if (bar == Part.SecondBar)
-        {
-            Rectangle first = this.SwatchBounds(bar, 0);
-            int lineY = first.Y - this.BarGap - 1;
-            using var separator = new Pen(SystemColors.ControlLight);
-            graphics.DrawLine(separator, first.X, lineY, first.X + this.BarWidth, lineY);
-        }
-
-        SmoothingMode smoothing = graphics.SmoothingMode;
-        graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        // The hover first: a ring reaches into the gap the neighbour's hover covers.
-        foreach (Hit hit in new[] { this.hovered, this.pressed }.Where(hit => active && hit.Part == bar))
+        Rectangle bounds = this.ToneBounds;
+        if (this.hovered == Part.Tone || this.pressed == Part.Tone)
         {
             using var hover = new SolidBrush(SystemColors.ControlLight);
-            graphics.FillRectangle(hover, Rectangle.Inflate(this.SwatchBounds(bar, hit.Slot), this.SwatchGap / 2, this.SwatchGap / 2));
+            graphics.FillRectangle(hover, bounds);
         }
 
-        for (int slot = 0; slot < SkinTones.All.Count; slot++)
+        int size = this.LogicalToDeviceUnits(LogicalToneCircleSize);
+        var circle = new Rectangle(bounds.X + (bounds.Width - size) / 2, bounds.Y + (bounds.Height - size) / 2, size - 1, size - 1);
+        SmoothingMode smoothing = graphics.SmoothingMode;
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using (var fill = new SolidBrush(SkinTones.ColorOf(this.defaultTone)))
+        using (var outline = new Pen(SystemColors.ControlDark))
         {
-            Rectangle swatch = this.SwatchBounds(bar, slot);
-            int alpha = active ? 255 : DimmedAlpha;
-            using var outline = new Pen(Color.FromArgb(alpha, SystemColors.ControlDark));
-            var circle = new Rectangle(swatch.X, swatch.Y, swatch.Width - 1, swatch.Height - 1);
-            if (bar == Part.FirstBar || slot > 0)
-            {
-                using var fill = new SolidBrush(Color.FromArgb(alpha, SkinTones.ColorOf(SkinTones.All[slot])));
-                graphics.FillEllipse(fill, circle);
-            }
-
+            graphics.FillEllipse(fill, circle);
             graphics.DrawEllipse(outline, circle);
-            if (slot == ringed && active)
-            {
-                using var ring = new Pen(SystemColors.Highlight, ringWidth);
-                graphics.DrawEllipse(ring, Rectangle.Inflate(circle, ringWidth, ringWidth));
-            }
         }
 
         graphics.SmoothingMode = smoothing;
     }
 
-    // The part of the panel at a point: the copy button, a swatch of a shown bar — of the second one only while active —,
-    // or nothing. A swatch answers on half the gap around it too.
-    private Hit HitTest(Point point)
+    // The part of the panel at a point: the copy button, the tone swatch while shown, or nothing.
+    private Part HitTest(Point point)
     {
         if (this.shownEmoji is null)
         {
-            return default;
+            return Part.None;
         }
 
         if (this.ButtonBounds.Contains(point))
         {
-            return new Hit(Part.Button, 0);
+            return Part.Button;
         }
 
-        foreach (Part bar in new[] { Part.FirstBar, Part.SecondBar })
-        {
-            if (bar == Part.FirstBar ? !this.ShowsBar : !this.ShowsSecondBar || !this.SecondBarActive)
-            {
-                continue;
-            }
-
-            for (int slot = 0; slot < SkinTones.All.Count; slot++)
-            {
-                if (Rectangle.Inflate(this.SwatchBounds(bar, slot), this.SwatchGap / 2, this.SwatchGap / 2).Contains(point))
-                {
-                    return new Hit(bar, slot);
-                }
-            }
-        }
-
-        return default;
+        return this.ShowsTone && this.ToneBounds.Contains(point) ? Part.Tone : Part.None;
     }
 
-    // A swatch: its bar right-aligned with the button, the first one a bar gap under it, the second one under the first
-    // and its line.
-    private Rectangle SwatchBounds(Part bar, int slot)
-    {
-        int left = this.Width - this.PanelPadding - this.BarWidth;
-        int top = this.PanelPadding + this.ButtonSize + this.BarGap + (bar == Part.SecondBar ? this.BarHeight + this.SecondBarSpacing : 0);
-        int step = this.SwatchSize + this.SwatchGap;
-        return new Rectangle(left + slot % SwatchesPerRow * step, top + slot / SwatchesPerRow * step, this.SwatchSize, this.SwatchSize);
-    }
-
-    // The area to paint again for a part, its ring and hover included.
-    private Rectangle BoundsOf(Hit hit) => hit.Part switch
+    // The area to paint again for a part.
+    private Rectangle BoundsOf(Part part) => part switch
     {
         Part.Button => this.ButtonBounds,
-        Part.FirstBar or Part.SecondBar => Rectangle.Inflate(this.SwatchBounds(hit.Part, hit.Slot), this.SwatchGap, this.SwatchGap),
+        Part.Tone => this.ToneBounds,
         _ => Rectangle.Empty,
     };
 
-    private void SetHovered(Hit hovered)
+    private void SetHovered(Part hovered)
     {
         if (hovered == this.hovered)
         {
             return;
         }
 
-        Hit previous = this.hovered;
+        Part previous = this.hovered;
         this.hovered = hovered;
         this.UpdateToolTip();
         this.Invalidate(this.BoundsOf(previous));
@@ -743,16 +633,13 @@ internal sealed class EmojiDetailsPanel : Control
     }
 
     // The tooltip of the part under the mouse: the button's, the emoji's first code point, U+1F602 — U+1F468 for a
-    // sequence; a swatch's, its tone.
+    // sequence; the tone swatch's, the default tone.
     private void UpdateToolTip()
     {
-        string? text = (this.hovered.Part, this.shownEmoji) switch
+        string? text = (this.hovered, this.shownEmoji) switch
         {
             (Part.Button, Emoji emoji) => "U+" + emoji.Hexcode.Split('-')[0],
-            (Part.FirstBar, not null) => string.Format(DefaultToneToolTip, SkinTones.NameOf(SkinTones.All[this.hovered.Slot])),
-            (Part.SecondBar, not null) => this.hovered.Slot == 0
-                ? SameToneToolTip
-                : string.Format(SecondToneToolTip, SkinTones.NameOf(SkinTones.All[this.hovered.Slot])),
+            (Part.Tone, not null) => string.Format(ToneToolTip, SkinTones.NameOf(this.defaultTone)),
             _ => null,
         };
         this.toolTip.SetToolTip(this, text);
@@ -841,12 +728,8 @@ internal sealed class EmojiDetailsPanel : Control
     {
         None,
         Button,
-        FirstBar,
-        SecondBar,
+        Tone,
     }
-
-    // A part, and the swatch's slot in a bar — 0 otherwise.
-    private readonly record struct Hit(Part Part, int Slot);
 
     // A flag embedded in the exe (UI/Flags), at 1× and 2×, and its width at 1×.
     private sealed class Flag : IDisposable
