@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Drawing.Drawing2D;
 using EmojiSelector.Data;
 using EmojiSelector.Drawing;
@@ -45,7 +46,8 @@ internal sealed class EmojiGrid : Control
     // distance from the top of its cell, and the caption's font size in points.
     private const int LogicalCaptionedCellHeight = 54;
     private const int LogicalCaptionedEmojiTop = 4;
-    private const float CaptionFontSize = 8.25F;
+    // The captions a little smaller than the text: 8.25 points beside Windows' 9.
+    private const float CaptionFontShrink = 0.75F;
 
     // One notch of the mouse wheel scrolls this many rows.
     private const int RowsPerWheelNotch = 2;
@@ -93,8 +95,9 @@ internal sealed class EmojiGrid : Control
 
     /// <param name="categories">The sections, in order.</param>
     /// <param name="emojis">
-    /// Every emoji the sections can show, each once, in grid order: the ones pre-rendered. A section built from others
-    /// (the frequent emojis) leaves this list — and so the disk cache's key — unchanged.
+    /// Every emoji the sections can show, each once, in grid order: the ones pre-rendered, then their skin-tone variants.
+    /// A section built from others (the frequent emojis) leaves this list — and so the disk cache's key — unchanged, and
+    /// so does a change of tone: every variant is pre-rendered.
     /// </param>
     public EmojiGrid(IReadOnlyList<EmojiCategory> categories, IEnumerable<Emoji> emojis)
     {
@@ -104,14 +107,19 @@ internal sealed class EmojiGrid : Control
         this.SetStyle(ControlStyles.Selectable, false);
         this.BackColor = SystemColors.Window;
         this.headerFont = new Font(this.Font, FontStyle.Bold);
-        this.captionFont = new Font(this.Font.FontFamily, CaptionFontSize);
+        this.captionFont = new Font(this.Font.FontFamily, this.Font.Size - CaptionFontShrink);
         this.scrollBar.ValueChanged += (_, _) => this.OnScrolled();
         this.Controls.Add(this.scrollBar);
         this.layout = this.CreateLayout();
         this.UpdateScrollBar();
 
-        // In grid order: the first screen is ready first.
-        this.bitmaps = new EmojiBitmapCache(emojis.Select(emoji => emoji.Text).ToList());
+        // In grid order: the first screen is ready first — in yellow; the variants come after every emoji.
+        List<Emoji> preRendered = [.. emojis];
+        this.bitmaps = new EmojiBitmapCache(preRendered
+            .Select(emoji => emoji.Text)
+            .Concat(preRendered.SelectMany(emoji => emoji.Variants).Select(variant => variant.Text))
+            .Distinct()
+            .ToList());
         this.bitmaps.BitmapsReady += (_, _) => this.Invalidate();
         this.EnsureBitmapSize();
     }
@@ -142,6 +150,13 @@ internal sealed class EmojiGrid : Control
 
     /// <summary>The selected emoji — the one Enter inserts; null when the grid shows no emoji.</summary>
     public Emoji? SelectedEmoji => this.selection is (int section, int index) ? this.sections[section].Emojis[index] : null;
+
+    /// <summary>
+    /// The text a cell draws for its emoji: the emoji in the skin tone in use (see <see cref="SkinTones.ShownText"/>),
+    /// the emoji itself until set. Its result must be pre-rendered: a base emoji or one of its variants.
+    /// </summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Func<Emoji, string> ShownText { get; set; } = emoji => emoji.Text;
 
     /// <summary>Whether a section is in reorder mode.</summary>
     public bool IsReordering => this.reorderSection is not null;
@@ -450,10 +465,44 @@ internal sealed class EmojiGrid : Control
         this.SetSelection(this.FirstVisible(), ensureVisible: false);
     }
 
+    // Drawn on the Acrylic backdrop (see Glass): a tinted transparent background, GDI+ text, the scroll bar opaque.
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool Glass
+    {
+        get => this.glass;
+        set
+        {
+            this.glass = value;
+            UI.Glass.SetOpaque(this.scrollBar, value);
+            this.Invalidate();
+        }
+    }
+
+    private bool glass;
+
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        if (!this.glass)
+        {
+            base.OnPaintBackground(e);
+        }
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
-        Graphics graphics = e.Graphics;
+        if (this.glass)
+        {
+            UI.Glass.Paint(e, graphics => this.PaintContent(graphics, e.ClipRectangle));
+        }
+        else
+        {
+            this.PaintContent(e.Graphics, e.ClipRectangle);
+        }
+    }
+
+    private void PaintContent(Graphics graphics, Rectangle clip)
+    {
         int offset = this.Offset;
         int width = this.ClientSize.Width - this.scrollBar.Width;
 
@@ -461,7 +510,7 @@ internal sealed class EmojiGrid : Control
         {
             var header = new Rectangle(this.layout.Padding, this.layout.HeaderTop(section) - offset,
                 width - 2 * this.layout.Padding, this.layout.HeaderHeight);
-            if (header.IntersectsWith(e.ClipRectangle))
+            if (header.IntersectsWith(clip))
             {
                 // The name ends before the header's button: its ellipsis never runs under it.
                 Rectangle name = header;
@@ -471,7 +520,7 @@ internal sealed class EmojiGrid : Control
                     this.PaintHeaderButton(graphics, section, button);
                 }
 
-                TextRenderer.DrawText(graphics, this.sections[section].Name, this.headerFont, name, SystemColors.ControlText,
+                UI.Glass.DrawText(graphics, this.glass, this.sections[section].Name, this.headerFont, name, SystemColors.ControlText,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
             }
 
@@ -479,17 +528,17 @@ internal sealed class EmojiGrid : Control
             if (this.sections[section] is { Emojis.Count: 0, EmptyText: string emptyText })
             {
                 var message = new Rectangle(this.layout.Padding, header.Bottom, width - 2 * this.layout.Padding, this.layout.RowHeight(section));
-                TextRenderer.DrawText(graphics, emptyText, this.Font, message, SystemColors.GrayText,
+                UI.Glass.DrawText(graphics, this.glass, emptyText, this.Font, message, SystemColors.GrayText,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
             }
         }
 
         int emojiSize = this.EmojiSize;
-        foreach ((int section, int index) in this.layout.CellsIn(offset + e.ClipRectangle.Top, offset + e.ClipRectangle.Bottom))
+        foreach ((int section, int index) in this.layout.CellsIn(offset + clip.Top, offset + clip.Bottom))
         {
             Rectangle cell = this.layout.CellBounds(section, index);
             cell.Offset(0, -offset);
-            Bitmap? bitmap = this.bitmaps.TryGet(this.sections[section].Emojis[index].Text);
+            Bitmap? bitmap = this.bitmaps.TryGet(this.ShownText(this.sections[section].Emojis[index]));
             if (bitmap is null)
             {
                 using var missingBrush = new SolidBrush(MissingColor);
@@ -501,7 +550,7 @@ internal sealed class EmojiGrid : Control
                 int emojiY = cell.Y + this.LogicalToDeviceUnits(LogicalCaptionedEmojiTop);
                 graphics.DrawImage(bitmap, cell.X + (cell.Width - emojiSize) / 2, emojiY, emojiSize, emojiSize);
                 var caption = new Rectangle(cell.X, emojiY + emojiSize, cell.Width, cell.Bottom - emojiY - emojiSize);
-                TextRenderer.DrawText(graphics, captions[index], this.captionFont, caption, SystemColors.GrayText,
+                UI.Glass.DrawText(graphics, this.glass, captions[index], this.captionFont, caption, SystemColors.GrayText,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
             }
             else
@@ -555,7 +604,7 @@ internal sealed class EmojiGrid : Control
         this.headerFont = new Font(this.Font, FontStyle.Bold);
         previous.Dispose();
         Font previousCaption = this.captionFont;
-        this.captionFont = new Font(this.Font.FontFamily, CaptionFontSize);
+        this.captionFont = new Font(this.Font.FontFamily, this.Font.Size - CaptionFontShrink);
         previousCaption.Dispose();
         this.Invalidate();
     }
@@ -892,7 +941,7 @@ internal sealed class EmojiGrid : Control
         }
 
         bool done = section == this.reorderSection;
-        TextRenderer.DrawText(graphics, done ? DoneText : MenuText, this.headerFont, bounds,
+        UI.Glass.DrawText(graphics, this.glass, done ? DoneText : MenuText, this.headerFont, bounds,
             done ? SystemColors.Highlight : SystemColors.GrayText,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
     }

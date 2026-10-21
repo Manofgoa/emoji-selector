@@ -3,9 +3,9 @@ using System.Runtime.InteropServices;
 namespace EmojiSelector.Input;
 
 /// <summary>
-/// Inserts an emoji into another app's window: brings it back to the foreground, then types the emoji's character
-/// sequence with <c>SendInput</c> and <c>KEYEVENTF_UNICODE</c> — one key down / key up pair per UTF-16 code unit,
-/// no clipboard involved.
+/// Inserts an emoji into another app's window: brings it back to the foreground, then — once it is ready, see
+/// <see cref="IsReady"/> — types the emoji's character sequence with <c>SendInput</c> and <c>KEYEVENTF_UNICODE</c>:
+/// one key down / key up pair per UTF-16 code unit, no clipboard involved.
 /// </summary>
 /// <remarks>
 /// Windows blocks input sent into an elevated (administrator) window from a non-elevated app (UIPI): the emoji is
@@ -25,6 +25,24 @@ internal static class EmojiInserter
         }
 
         SetForegroundWindow(window);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="window"/>, just activated, can receive typed characters: it is the foreground window and
+    /// its thread has given the keyboard focus to one of its windows. <see cref="Activate"/> only queues the activation —
+    /// the window's thread handles it later —, and characters typed before that are dropped (the Claude desktop app's
+    /// prompt box). A Chromium app hands the focus on to its page later still: the caller waits a settle delay after.
+    /// </summary>
+    public static bool IsReady(IntPtr window)
+    {
+        if (GetForegroundWindow() != window)
+        {
+            return false;
+        }
+
+        uint thread = GetWindowThreadProcessId(window, out _);
+        var info = new GuiThreadInfo { Size = Marshal.SizeOf<GuiThreadInfo>() };
+        return GetGUIThreadInfo(thread, ref info) && info.Focus != IntPtr.Zero;
     }
 
     /// <summary>
@@ -81,6 +99,23 @@ internal static class EmojiInserter
     private const int SwRestore = 9;
 
     [StructLayout(LayoutKind.Sequential)]
+    private struct GuiThreadInfo
+    {
+        public int Size;
+        public uint Flags;
+        public IntPtr Active;
+        public IntPtr Focus;
+        public IntPtr Capture;
+        public IntPtr MenuOwner;
+        public IntPtr MoveSize;
+        public IntPtr Caret;
+        public int CaretLeft;
+        public int CaretTop;
+        public int CaretRight;
+        public int CaretBottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     private struct Input
     {
         public uint Type;
@@ -124,6 +159,15 @@ internal static class EmojiInserter
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern bool SetForegroundWindow(IntPtr window);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern bool GetGUIThreadInfo(uint threadId, ref GuiThreadInfo info);
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern bool IsIconic(IntPtr window);

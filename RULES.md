@@ -34,8 +34,9 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Show groups ▸` | Every custom group, checked while shown: a click hides it or shows it again (see *Custom Tab* below) |
 | Settings button ⚙ → `Show French names` | Checked while the details panel shows its French row: a click hides it or shows it again (see *Details Panel* below) |
 | Settings button ⚙ → `Highlight color…` | Windows' colour dialog: the colour highlighting the search's matches in the details panel (see *Details Panel* below) |
+| Settings button ⚙ → `Always show skin tone` | Checked while the details panel's tone swatch shows whatever the selection: a click turns it off — the swatch only on an emoji with variants — or on again (see *Skin Tones* below); the window stays |
 | Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept — moved only as far as needed to stay inside the working area —, and the saved size removed (see *Size* and *Corner* below); the window stays |
-| Settings button ⚙ → `Window opacity ▸` | `100%`, `98%`, `96%`, `94%`, `92%`, the one in use checked: a click applies it to the whole window at once and saves it (see *Opacity* below); the window stays |
+| Settings button ⚙ → `Window opacity ▸` | `100%`, `98%`, `96%`, `94%`, `92%`, then `Acrylic` — Windows' blurred background —, the one in use checked: a click applies it to the whole window at once and saves it (see *Opacity* and *Acrylic* below); the window stays |
 | Settings button ⚙ → `Open app folder` | Opens the exe's folder in the File Explorer, the exe selected; the window stays |
 | Settings button ⚙ → `Start with Windows` | Checked while Windows starts this exe at sign-in: a click writes or deletes the **startup shortcut** (see *Start with Windows* below); the window stays |
 | Settings button ⚙ → `Check for emoji updates…` | The latest Emojibase and Twemoji versions online; the newer ones offered, downloaded, then a restart offered (see *Emoji Data* and *Flag Images* below) |
@@ -45,7 +46,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Win+; or Win+. — or an app's "Emoji — Windows+Period" menu entry that sends it | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
 | Emoji clicked in the grid — not one of the group in reorder mode | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below); its use counted (see *Frequent Tab* below) |
 | Emoji Ctrl+clicked in the grid — Ctrl alone, not one of the group in reorder mode | Inserted into the previous window, the window **kept open** (see *Keep-Open Insertion* below) |
-| Emoji right-clicked in the grid — or the Menu key / Shift+F10 on the grid's selection | Its menu: `Use as tray icon`, then `Add to ▸` the custom groups, `Remove` in a group (see *Custom Tab* below), `Remove from frequently used` in the frequent section (see *Frequent Tab* below) |
+| Emoji right-clicked in the grid — or the Menu key / Shift+F10 on the grid's selection | Its menu: `Use as tray icon`, `Skin tone ▸` on an emoji with variants (see *Skin Tones* below), then `Add to ▸` the custom groups, `Remove` in a group (see *Custom Tab* below), `Remove from frequently used` in the frequent section (see *Frequent Tab* below) |
 | Enter, in the search box or the grid | Inserts the **selection**, like a click on it (see *Keyboard* below) — never an emoji of the group in reorder mode |
 | Ctrl+Enter, in the search box or the grid | Inserts the selection like Enter, the window **kept open** (see *Keep-Open Insertion* below) |
 | Esc, in the search box or the grid | Ends the reorder mode; otherwise clears the box; already empty → hides the window to the tray |
@@ -57,6 +58,9 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   it as `trayEmoji` in `settings.json` (see *Size* below) — the default 🙂 included, there is no
   reset; the window stays. Reloaded at launch; an emoji the catalog does not have shows 🙂, its key
   left as it is until the next choice.
+- `Use as tray icon` takes the emoji **as shown**, in its skin tone (see *Skin Tones*): 👍🏽 stays
+  👍🏽 when the tone changes later. Checked while the icon is the emoji's shown text; at launch, a
+  variant of a catalog emoji is reloaded like the emoji itself.
 - The **app icon** — the exe's and the window's — is a 🙂 too, but **fixed**: Fluent Emoji's design
   (`AppIcon/app.ico`, [CONTRIBUTING.md § App icon](CONTRIBUTING.md#app-icon)), the exe's
   `ApplicationIcon` and `MainForm.Icon`, read from the embedded `.ico` with every size (Windows picks
@@ -95,7 +99,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 - The settings menu has **five sections**, one per feature, in the window's order, separated by
   lines and **untitled** (`MainForm.CreateSettingsMenu`): *frequently used* (`Show frequently used`,
   `Clear frequently used`), *custom groups* (`New group…`, `Show groups ▸`), *details panel* (`Show
-  French names`, `Highlight color…`), *window* (`Reset window size`, `Window opacity ▸`), *app* (`Open app folder`,
+  French names`, `Highlight color…`, `Always show skin tone`), *window* (`Reset window size`, `Window opacity ▸`), *app* (`Open app folder`,
   `Start with Windows`, `Check for emoji updates…`, `Reset all settings…`). A new item joins the section of its feature; the labels say their
   subject on their own.
 - A **colour item** shows the colour in use as its image (`MainForm.SetSwatch`): a rounded square of
@@ -117,7 +121,8 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   in place of the default. Not at exit: Windows shutting down or the Task Manager may end the app
   without running its code. A move, or a drag to a monitor of another scale, saves nothing.
 - `settings.json` is the app's **shared settings file** (`Data/SettingsFile.cs`): `{ "windowWidth":
-  …, "windowHeight": …, "trayEmoji": …, "showFrequent": …, "showFrench": …, "highlightColor": …, "opacity": … }`;
+  …, "windowHeight": …, "trayEmoji": …, "showFrequent": …, "showFrench": …, "highlightColor": …, "opacity": …,
+  "skinTone": …, "alwaysShowSkinTone": … }`;
   a write keeps the keys it does not
   know. Written through `settings.json.new` then a replace, the emojis as themselves
   (`EmojiUsage.ReadableEmojis`).
@@ -167,21 +172,70 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 ### Opacity
 
 - **`Window opacity ▸`**, in the settings menu's *window* section after `Reset window size`: `100%`,
-  `98%`, `96%`, `94%`, `92%` (`MainForm.OpacityPercents`), the one in use checked at each opening of the
-  menu. A click applies it at once (`MainForm.SetOpacity`) and saves it; no confirmation.
+  `98%`, `96%`, `94%`, `92%` (`MainForm.OpacityPercents`), then a separator and `Acrylic` (see *Acrylic*
+  below), the one in use checked at each opening of the menu. A click applies it at once
+  (`MainForm.SetOpacity`) and saves it; no confirmation.
 - **`Form.Opacity`**: below 100 %, a layered window (`WS_EX_LAYERED`, `LWA_ALPHA`) — the whole window
   fades, search bar, tabs, grid and details panel, **always**: in front or not. The frame stays
   Windows' own (see *Frame*). The menus and dialogs are windows of their own: they stay opaque.
 - Set in the constructor, before the handle exists: a `--background` launch shows the window at its
   opacity from the first show.
 - **Saved** as `opacity` in `settings.json`, the percentage (`SettingsFile.ReadOpacity` /
-  `WriteOpacity`). Missing, or not an integer → 100 %. An integer that is not one of the five
+  `WriteOpacity`) — or `"acrylic"` (see *Acrylic*). Missing, or neither an integer nor `"acrylic"` → 100 %. An integer that is not one of the five
   (written by hand) → the **nearest**, a tie to the more opaque (`MainForm.NearestOpacity`): `97` →
   98 %, `90` → 92 %, `120` → 100 % — the key left as it is until the next choice.
 - `Reset window size` leaves it alone; `Reset all settings…` brings it back to 100 %.
 - An agent checking the opacity from a script cannot click the settings button: it writes `opacity`
   in the build's `settings.json`, launches the exe and reads `GetLayeredWindowAttributes` (no
   `WS_EX_LAYERED` → 100 %).
+
+### Acrylic
+
+- **`Acrylic`**, last in `Window opacity ▸`, after a separator: Windows' Acrylic backdrop — the windows
+  behind seen blurred, like the Win+; panel — under the whole window, **in place of** an opacity, never
+  with one: a layered window has no backdrop, so `Form.Opacity` is 1 meanwhile. Checked while in use, no
+  percentage checked then; a percentage leaves it (`MainForm.SetAcrylic` / `SetOpacity`, then
+  `ApplyBackdrop`).
+- **Saved** in the same `opacity` key: `"acrylic"` in place of the percentage
+  (`SettingsFile.ReadAcrylic` / `WriteAcrylic`) — one setting, so never both. A build without Acrylic
+  reads no integer there → 100 %.
+- **Windows' own effect** (`UI/Glass.cs`, `Glass.Apply`): `DWMWA_SYSTEMBACKDROP_TYPE` =
+  `DWMSBT_TRANSIENTWINDOW`, the frame extended over the whole client area
+  (`DwmExtendFrameIntoClientArea`, margins −1). Windows 11 22H2 or later; elsewhere — or with the
+  transparency effects off, in energy saver — Windows draws a plain background in its place.
+- **No caption style** while it is on (`CreateParams` takes `WS_CAPTION` out, `UpdateStyles`): with the
+  frame extended, DWM would draw the caption's buttons in the window's top-right corner. The resize
+  borders, the shadow, the rounded corners and the system menu stay (see *Frame*).
+- **Drawing on it**: DWM blends each pixel with the blur by its alpha, and GDI writes an alpha of 0 —
+  its black turns transparent. While their `Glass` is set, the custom-drawn controls (the search bar,
+  the tab strip, the grid, the details panel) paint into a premultiplied 32-bit buffer with GDI+, over
+  a white veil at 40 % (`Glass.Tint`) keeping the text readable whatever is behind, then copy it, alpha
+  included (`Glass.Paint`); their `OnPaintBackground` paints nothing.
+  - Text goes through `Glass.DrawText` — `TextRenderer` off the backdrop, GDI+'s `DrawString` on it
+    (grey-scale anti-aliasing, no ClearType) —, and the details panel measures its words with
+    `Glass.MeasureWidth` there, so the spaces between them stay even.
+  - `SystemColors.GrayText` is drawn darker on it (`Glass.GrayText`, `#3C3C3C`): the system grey is
+    unreadable on the blur.
+- **Native controls** — the search box, its ✕, the grid's scroll bar — cannot draw with alpha: they
+  are made **layered children** at full alpha (`Glass.SetOpaque`), which DWM composes opaque. Windows
+  honours `WS_EX_LAYERED` on a child window only for an app declaring Windows 8 or later:
+  `app.manifest` declares Windows 10 (`supportedOS`). A control without a handle yet — the ✕, hidden at
+  launch — is set once it is created.
+- `Reset all settings…` brings it back to 100 %.
+- An agent checking it from a script writes `"opacity": "acrylic"` in the build's `settings.json` and
+  launches the exe. It captures the screen (`CopyFromScreen`) **only while the window is in front**
+  (`GetForegroundWindow`): the capture takes whatever is on screen there, the user's own windows
+  included. `PrintWindow` never shows the backdrop, and with `PW_RENDERFULLCONTENT` lays two renderings
+  on top of each other — never used to judge the text.
+
+### Text Size
+
+- **10 points**, a point above Windows' 9: `ApplicationDefaultFont` in the `.csproj`, applied by
+  `ApplicationConfiguration.Initialize` to every control's font, the search box's included — the texts
+  read too small on a 4K screen.
+- The use counts and the emoticons stay 0.75 point smaller than the text (`EmojiGrid.CaptionFontShrink`,
+  `EmojiDetailsPanel.EmoticonFontShrink`). The icon glyphs — tabs, ⚙, ✕, copy — keep their sizes in
+  pixels.
 
 ## Start with Windows
 
@@ -252,10 +306,11 @@ launch the app at sign-in, hidden in the notification area. Off by default.
   Start menu. The hook injects a **dummy key** right away (`0xE8`, unassigned), marked in
   `dwExtraInfo` so it lets it through; being the last app to send input also lets the app take the
   foreground.
-- **During a keep-open insertion** (see *Keep-Open Insertion*), from `SwallowKeys` to
-  `StopSwallowing` — one second at most —, the hook swallows every physical key-down **but the
-  modifiers**: the previous window has the keyboard, and a quick second Ctrl+Enter or Enter's
-  auto-repeat would land there. Those keys are lost. A key-up is swallowed only when its key-down was:
+- **During an insertion** (see *Insertion* and *Keep-Open Insertion*), from `SwallowKeys` to
+  `StopSwallowing` — 1.5 seconds at most (`MaxSwallowMilliseconds`) —, the hook swallows every
+  physical key-down **but the modifiers**: the previous window has the keyboard, and a key typed
+  quickly would land there before the emoji — after it too, a quick second Ctrl+Enter or Enter's
+  auto-repeat, when the window stays open. Those keys are lost. A key-up is swallowed only when its key-down was:
   one whose key-down went through must reach Windows, or the key would stay down.
 - **Placement**: `Input/CaretLocator.cs` looks for the text cursor of the previous window — the
   Win32 caret, the MSAA caret, the UI Automation caret range, the UI Automation focused element (of
@@ -275,15 +330,16 @@ launch the app at sign-in, hidden in the notification area. Off by default.
 
 - **Categories** come from `Data/EmojiCatalog.cs` only — the frequent and custom tabs aside (see *Frequent Tab*, *Custom Tab*): seven tabs in the Win+; order, then
   **Flags** last (a flag, `E7C1`), the Emojibase data of `emoji-data\` next to the exe (see *Emoji
-  Data* below). Left out: components, skin-tone variants. An emoji newer than the system font is kept
+  Data* below). Left out: components. The skin-tone variants are no emojis of their own: each one is
+  kept on its emoji (`Emoji.Variants`, see *Skin Tones*). An emoji newer than the system font is kept
   (a box).
 - The grid and the tab strip are **custom-drawn** (`UI/EmojiGrid.cs`, `UI/CategoryTabStrip.cs`);
   where things sit is computed by `UI/EmojiGridLayout.cs` alone. The tab glyphs are monochrome
   (Segoe Fluent Icons, Segoe MDL2 Assets on Windows 10) and drawn with GDI.
 - **The grid never renders an emoji on the UI thread.** `Drawing/EmojiBitmapCache.cs` pre-renders
-  every emoji at launch, on a background thread with its own `EmojiRenderer`, in grid order; a cell
-  whose emoji is not ready yet is filled with **fluorescent green**, on purpose. A DPI change starts
-  a new pre-render at the new size.
+  every emoji at launch, on a background thread with its own `EmojiRenderer`, in grid order, then
+  every skin-tone variant (see *Skin Tones*); a cell whose emoji is not ready yet is filled with
+  **fluorescent green**, on purpose. A DPI change starts a new pre-render at the new size.
 - The pre-rendered emojis are saved in **`cache\` next to the exe** — one `emojis-{size}.png` atlas
   and its `emojis-{size}.key` per emoji size — and reloaded at the next launch while the key still
   matches (size, Segoe UI Emoji's file, the emoji list, the renderer's parameters, the flag images in
@@ -295,7 +351,17 @@ launch the app at sign-in, hidden in the notification area. Off by default.
 - **Insertion** (`Input/`): the previous window is tracked by `ForegroundTracker` — the taskbar and
   the notification area are skipped, since a click on the tray icon goes through them. It is brought
   back to the foreground **before** the window hides (only the foreground app may hand it over),
-  then the emoji is typed with `SendInput` / `KEYEVENTF_UNICODE` — never through the clipboard.
+  then the emoji is typed with `SendInput` / `KEYEVENTF_UNICODE` — never through the clipboard —, in
+  its skin tone (see *Skin Tones*).
+- **Typed once the previous window is ready** (`MainForm.TypeWhenReady`), never right after its
+  activation: `SetForegroundWindow` only queues it, and a Chromium app hands the keyboard focus on to
+  its page later still — characters typed before that are dropped (the Claude desktop app's prompt
+  box). A timer checks every `TypingPollInterval` (10 ms) that the window is in front and its thread
+  has a focused window (`EmojiInserter.IsReady`), then waits `TypingSettleDelay` (100 ms) more; after
+  `TypingTimeout` (1 s) from the activation the emoji is typed anyway. The UI thread is never blocked.
+  The hook swallows the keys from the activation to the typing (see *Shortcut*). The window shown
+  again meanwhile — the tray icon — types nothing: the emoji would land in it. An insertion started
+  while another one is under way is **ignored**.
   A Ctrl key held is released before the characters and pressed again after them, in the same call
   (`EmojiInserter.Type`): the window sees plain characters, never a Ctrl shortcut. Every injected key
   carries `ShortcutHook.InjectedMarker`.
@@ -308,14 +374,15 @@ same one several times, without reopening it.
 
 - **Sequence**: the window made topmost (`HWND_TOPMOST`, no activation), so the previous window
   brought to the front never covers it; the hook swallowing (see *Shortcut*); the previous window
-  activated, the emoji typed; then, `KeepOpenHandBackDelay` (50 ms) later — `SendInput` is
+  activated, the emoji typed once it is ready (see *Insertion*); then, `KeepOpenHandBackDelay` (50 ms)
+  later — `SendInput` is
   asynchronous, the characters must reach the previous window first —, `HandForegroundBack`: the
   foreground taken back (`TakeForeground`), the topmost band left (`HWND_NOTOPMOST`), the hook stops
   swallowing.
 - **Kept**: the keyboard where it was (search box or grid: the activation restores the focused
   control), the selection on the emoji, the search text. No show, so no `OnVisibleChanged` reset.
 - The previous window stays the target: `ForegroundTracker` skips the app's own windows.
-- One started while a hand-back is pending is **ignored**. No previous window → nothing typed, the
+- One started while the typing or the hand-back is pending is **ignored**. No previous window → nothing typed, the
   window stays, the use counted.
 - The frequent section is rebuilt **at once**, the selection kept on its emoji (see *Frequent Tab*).
 - An agent cannot check it with posted messages: Ctrl is read from the keyboard's state. Real input
@@ -430,13 +497,14 @@ updates…` (`MainForm.ResetAllSettings`, `Data/AppReset.cs`), puts the app back
 Always enabled.
 
 - **Confirmation**: Yes / No, **No the default**, the warning icon, listing what is lost — the custom
-  groups, the counters, the window size and opacity, the tray emoji and the details panel's settings, Start with
-  Windows, the downloaded emoji data (back to the **embedded** version, named:
+  groups, the counters, the window size and opacity, the tray emoji and the details panel's settings, the
+  skin tones, Start with Windows, the downloaded emoji data (back to the **embedded** version, named:
   `EmojiDataFolder.EmbeddedVersion`), the downloaded flag images (back to the embedded Twemoji version,
   `FlagImages.EmbeddedVersion`), the image cache — and saying the app restarts.
 - **What is deleted** (`AppReset.DeleteAll`), next to the exe: `settings.json`, `usage.json`,
-  `custom-groups.json` and their temporary files (`TemporaryFileName`), the whole `cache\`,
-  `emoji-data\`, `flag-images\` and `flag-images.new\` folders; in the Startup folder, the **startup shortcut** and the Task Manager's value —
+  `custom-groups.json`, `skin-tones.json` and their temporary files (`TemporaryFileName`), the whole
+  `cache\`, `emoji-data\`, `flag-images\` and `flag-images.new\` folders; in the Startup folder, the
+  **startup shortcut** and the Task Manager's value —
   **only when the shortcut targets this exe**, disabled or not (`StartupShortcut.DisableForThisExe`): a
   shortcut to another copy of the app is left alone. Nothing else, never the exe's folder itself.
 - **Each name comes from its owner's constant** (`FileName`, `TemporaryFileName`, `FolderName`,
@@ -572,11 +640,23 @@ The **search box** sits above the tab strip (`UI/MainForm.cs`); the matching and
   `compact.en.json` is the list; `compact.fr.json`, joined by hexcode, only adds keywords. Both are
   embedded with `WithCulture="false"`: without it the `.en` / `.fr` in their names make MSBuild move
   them to satellite assemblies, out of the exe.
-- **Matching**: case and diacritics ignored (`é` → `e`, `œ` → `oe`); an emoji is a result when every
-  typed word is **contained** in a word of its keywords.
-- **Ranking**, in tiers: the whole word → its start → anywhere else; then the share of the word
-  covered; then a name before a tag. Several typed words: the worst tier, then the lowest coverage,
-  then the most name matches. Ties keep the catalog order. `caca` → 💩 before 🥜 *cacahuète*.
+- **Matching**: case and diacritics ignored (`é` → `e`, `œ` → `oe`); the typed text is split at
+  spaces, and an emoji is a result when every typed word is **contained** in a word of its keywords.
+  The keywords' words are their letters and digits: every other character splits them.
+- **Symbols**: a typed word holding a character neither a letter nor a digit (`?`, `:)`, `up!`) is
+  looked for, with its symbols, in the emoji's **symbol keywords** (`Emoji.SymbolKeywords`): the
+  words of its names and tags, split at spaces, that hold one (`?`, `+`, `up!`, `d’or`), and its
+  emoticons — folded by `EmojiSearch.Fold`, the symbols kept, `’` read as `'`. None holds it → its
+  letters-and-digits parts are looked for as if typed apart (`d'or` → `d`, `or`), as before symbols
+  were searched.
+- **Characters** (`Data/EmojiCharacters.cs`): the text an emoji shows, as typed — `1` for 1️⃣, `?`
+  for ❓, `=` for 🟰, `OK` for 🆗, `月` for 🈷️. **One list written by hand**, keyed by the emoji's
+  text without `FE0F`: Unicode's compatibility form gives only a few, and Emojibase lacks some
+  (`=`, `$`). The catalog adds them to the emoji's tags, in both languages (see *Details Panel*).
+- **Ranking**, in tiers: one of the emoji's **characters or emoticons**, typed whole (`Character`) →
+  the whole word → its start → anywhere else; then the share of the word covered; then a name before
+  a tag. Several typed words: the worst tier, then the lowest coverage, then the most name matches.
+  Ties keep the catalog order. `caca` → 💩 before 🥜 *cacahuète*; `1` → 1️⃣ first, `:)` → 🙂 first.
 - **Every show** clears the box and focuses it (`OnVisibleChanged`), and brings the grid back to the
   top on its first emoji (see *Keyboard*). The placeholder is the native
   cue banner shown while focused (`EM_SETCUEBANNER`): `PlaceholderText` hides on focus, and the box
@@ -657,27 +737,148 @@ selected emoji changes — the same cell may hold another emoji once the section
   then the name in bold (the French name capitalized like the English one), then **every tag**,
   joined with `, ` and **wrapped** at spaces — never truncated, never an ellipsis. The names of both
   rows line up after the widest flag.
+- **Characters among the tags**: the emoji's characters (see *Search Box*) end both rows' tags, each
+  row skipping one it already holds, case ignored (❓ already has `?`, 🆗 `ok`) — the French row only
+  when the French data has the emoji.
 - **Flags**: images embedded in the exe (`UI/Flags/`, `us` and `fr`, 1× and `@2x`, the 2× one above
   144 DPI), drawn at 12 logical pixels high with a thin edge — Segoe UI Emoji has no flag glyphs.
   Generated from the public-domain flag designs, never downloaded.
 - **Right**: the **copy button**, the copy glyph only (Segoe Fluent Icons `E8C8`). Its tooltip is the
   emoji's **first code point** (`U+1F602`; a sequence shows its first one). A click copies **the
-  emoji itself** to the clipboard as text (`Clipboard.SetText`); the glyph turns into a check mark
+  emoji itself** to the clipboard as text (`Clipboard.SetText`), in its skin tone; the glyph turns into a check mark
   (`E73E`) for about a second. A copy neither hides the window nor counts as a use. A clipboard held
-  by another app copies nothing and shows no check mark.
+  by another app copies nothing and shows no check mark. Under it, the **tone swatch** (see *Skin
+  Tones*).
+- The emoji drawn large and copied is its **shown text** (see *Skin Tones*); the names and tags are
+  the base emoji's — Emojibase gives the variants none.
 - **Height**: fixed, the one the emoji with the **most text** needs at the window's width, French row
-  included while shown (`EmojiDetailsPanel.HeightFor`, over the whole catalog, word widths cached):
+  included while shown (`EmojiDetailsPanel.HeightFor`, over the whole catalog, word widths cached),
+  and at least the right column's — the button, then the tone swatch when the catalog has variants or
+  `Always show skin tone` is on:
   moving the selection never moves the grid. `MainForm.OnLayout` fits it **before** the docking
   places the controls — set during it, the grid would keep the old space. The window's minimum
   height is 240 logical pixels plus the panel's height.
-- **Search highlight**: while the search box holds text, the characters it matches in the names and
-  tags are highlighted in `highlightColor` (settings menu, `Highlight color…`, which shows it as a
+- **Search highlight**: while the search box holds text, the characters it matches in the names,
+  the tags and the emoticons are highlighted in `highlightColor` (settings menu, `Highlight color…`, which shows it as a
   swatch; `#RRGGBB` in `settings.json`; default fluorescent yellow `#FFFF00`), the text keeping its
   colour. Exactly the
   matched characters, every occurrence, matched as the search matches (`EmojiSearch.MatchSpans`:
-  accents and case ignored, inside one word).
+  accents and case ignored, inside one word). A typed word holding a symbol is highlighted whole
+  where the text holds it (`?`, `d’or`), its letters-and-digits parts elsewhere.
 - **No selection** (a search with no result): the panel stays, empty, at the same height.
 - The panel is not selectable: a click on it leaves the keyboard where it was.
+
+## Skin Tones
+
+The emojis Emojibase gives skin-tone variants (`skins`) — people, hands, body parts: 330 of them — are
+shown, inserted and copied in a **skin tone**: their own when they have one, else the **default
+tone**. `Data/SkinTone.cs` holds the tones and the resolution, `SkinTones.ShownText` alone.
+
+- **Six tones** (`SkinTone`): `None` — the yellow emoji —, then Unicode's five modifiers
+  (`1F3FB`–`1F3FF`): `Light`, `MediumLight`, `Medium`, `MediumDark`, `Dark`. In the files: `none`,
+  `light`, `medium-light`, `medium`, `medium-dark`, `dark`. Swatch colours: Fluent Emoji's yellow
+  and skin colours (`SkinTones.ColorOf`).
+- **Variants** (`Emoji.Variants`, read by `EmojiCatalog`): one per entry of `skins`, its text as
+  Emojibase gives it — never composed: 🤝's mixed variants use other code points —, its tones read
+  from the modifiers it holds (`SkinTones.TonesOf`): one → the same for both persons, two → first
+  then second. A variant with none or more is left out. The variants have no tags: the emoji keeps
+  its names and keywords; the search finds the base emojis only, shown in their tone.
+- **Two-person emojis** (`Emoji.IsTwoPerson`: a variant with two different tones — 🤝, 🧑‍🤝‍🧑, the
+  couples, 19 of them): a tone per person. Unicode has no "one yellow, one toned".
+- **The shown text** — what the grid draws (`EmojiGrid.ShownText`), what is inserted, what the
+  details panel draws and copies, what `Use as tray icon` takes — is the variant of the emoji's own
+  tone, else of the default one (`skinTone`) — for both persons of a two-person emoji; the emoji
+  itself for `None`, or when no variant holds the tones.
+- **Base text everywhere else**: the counters (`usage.json`), the custom groups
+  (`custom-groups.json`) and the own tones are keyed by the emoji's own text — a use of 👍🏽 counts
+  for 👍; the menus act on it. Only the tray emoji keeps the toned text (see *Window and Tray Icon*).
+- **Pre-render**: every variant is pre-rendered once, after the base emojis (`EmojiGrid`'s list): the
+  list, and so the cache's key, never moves with the tones — a tone change is drawn at once
+  (`MainForm.OnTonesChanged`: the grid invalidated, the details panel's emoji rendered again).
+
+### Default tone
+
+- **The tone swatch**, in the details panel under the copy button, as large as it: the default tone's
+  colour in a circle (yellow for `None`), on the copy button's hover colour while hovered; its tooltip
+  `Skin tone: Medium`.
+- **When it shows** (origin: `workfiles/20261009-always-show-skin-tone.md`): **whatever the
+  selection** while `Always show skin tone` is on — an emoji without variants, no selection at all (a
+  search with no result: alone in the empty panel, at its place under the copy button's) —, else only
+  while the selection has variants (`EmojiDetailsPanel.AlwaysShowTone`, `ShowsTone`). Shown, it is
+  always clickable.
+  - **`Always show skin tone`**, a checked item in the settings menu's *details panel* section after
+    `Highlight color…`: **on by default**, applied at once, saved as `alwaysShowSkinTone` in
+    `settings.json` (`SettingsFile.ReadAlwaysShowSkinTone`; missing or unreadable → on).
+  - The panel keeps the swatch's room while the catalog has variants **or** the setting is on — so
+    with emoji data holding no variant, the swatch still shows while it is on, and toggling it then
+    changes the panel's height (`RequestHeight`); with variants, toggling never moves the grid.
+- A click opens a **drop-down menu** under it, its right edge on the swatch's (`MainForm.ShowToneMenu`,
+  built for one show, like the settings menu): the six tones — `No tone`, `Light` … `Dark` —, each
+  with its swatch (`MainForm.SetSwatch`), the default one checked, the highlighted one previewed (see
+  *Preview* below). A choice sets the default tone at
+  once and saves it as `skinTone` in `settings.json` (`SettingsFile.ReadSkinTone`; missing or unknown
+  → `None`). The panel only raises `ToneSwatchClicked`.
+- **One tone for every emoji with variants**: both persons of a two-person emoji take it; a mixed
+  pair is an own tone. An emoji with a tone of its own **keeps it** when the default changes.
+- The swatch shows the **default** tone, not the selection's own: the emoji drawn large shows the
+  tone in use.
+- Mouse only: the panel is not selectable; the keyboard reaches an emoji's own tone through its
+  right-click menu.
+
+### Own tone
+
+- **`Skin tone ▸`**, in an emoji's right-click menu after `Use as tray icon`, only on an emoji with
+  variants, in every section — search results included (`MainForm.CreateSkinToneMenu`). Each tone
+  item shows its swatch (`MainForm.SetSwatch`).
+
+  | One-person emoji | Two-person emoji |
+  |---|---|
+  | `Use default tone` — checked while it has no own tone | `Use default tone` — same |
+  | separator | `No tone` — checked while its own tone is `None` |
+  | `No tone`, `Light` … `Dark` — its own one checked | separator |
+  | | `First person ▸`, `Second person ▸` — the five tones each, its own pair checked |
+
+- A person's tone keeps the other person's **shown** tone, or takes the same one while the emoji is
+  shown yellow. No confirmation; the window stays. The highlighted item is previewed (see *Preview*
+  below).
+- **`skin-tones.json`**, next to the exe (`Data/SkinToneChoices.cs`): a JSON object keyed by the
+  emoji's own text, the value a tone (`"medium"`, `"none"`) or a pair (`["light", "dark"]`), the
+  emojis as themselves (`EmojiUsage.ReadableEmojis`). Read once at launch — missing or invalid → no
+  own tone. Written after each change, through `skin-tones.json.tmp` then a replace; a folder that
+  cannot be written keeps the tones in memory. A value that cannot be read, and an emoji the catalog
+  no longer has, stay in the file and are ignored.
+- An agent checking the tones cannot click the details panel nor the menus from a script
+  (custom-drawn): it checks `SkinTones`, `SkinToneChoices`, `SettingsFile` and `EmojiCatalog` by
+  reflection on the dll of a **copy** of the build folder (`APP_CONTEXT_BASE_DIRECTORY`, see *Reset
+  All Settings*), and sees the swatch by writing `skinTone` in the build's `settings.json`, launching
+  the exe, typing a search into the box (`WM_SETTEXT`) and capturing the window (`PrintWindow`).
+
+### Preview
+
+Both skin-tone menus — the tone swatch's and `Skin tone ▸` with its person submenus — **preview** the
+tone of the highlighted item, live, before anything is chosen (origin:
+`workfiles/20261010-skin-tone-hover-preview.md`).
+
+- **The highlight**: an item becoming its menu's highlighted one — the mouse over it, or the arrow
+  keys reaching it (`ToolStripItem.SelectedChanged`, `MainForm.PreviewWhileHighlighted`) — sets the
+  preview to the tone a click on it would save: the swatch menu's tone as the default tone; in
+  `Skin tone ▸`, that tone or pair as the emoji's own — the pair a person's tone would make, `Use
+  default tone` showing the emoji in the default tone. Any other item, or none → the real tones.
+- **One preview at a time** (`MainForm.tonePreview`: `DefaultTonePreview` / `OwnTonePreview`, owned
+  by its item), read by `MainForm.ShownText` alone: a default-tone preview applies to every emoji
+  with variants **without an own tone**, an own-tone preview to its emoji only. An item losing the
+  highlight clears it only while it still owns it — the next item may already have set its own.
+- **What follows** (`MainForm.SetTonePreview` → `OnTonesChanged`): the grid, the details panel's
+  emoji — the selection, the right-clicked emoji for `Skin tone ▸` — and, for the default tone, the
+  tone swatch (`EmojiDetailsPanel.DefaultTone`, its tooltip with it). A preview ends the copy
+  button's check mark, like any tone change.
+- **Never saved**: `skinTone` and `skinToneChoices` keep the real tones; `settings.json` and
+  `skin-tones.json` are written by a click only, as before. The menus' check marks, `Use as tray
+  icon`, the insertion and the copy read the real tones — none of them runs while a menu is open.
+- **The menu closing** clears the preview (`Closed`): without a click — Esc, a click elsewhere, the
+  window hiding — the real tones are drawn again; after a click, they already are the clicked one.
+- An agent cannot check the preview from a script: the menus open from the custom-drawn grid and
+  details panel (see *Own tone* above). It is checked by hand.
 
 ## Repository Docs
 

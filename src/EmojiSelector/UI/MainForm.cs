@@ -46,6 +46,7 @@ internal sealed class MainForm : Form
     public const string ResetWindowSizeText = "Reset window size";
 
     public const string WindowOpacityText = "Window opacity";
+    public const string AcrylicText = "Acrylic";
 
     // The opacities the settings menu offers, percent, the most opaque first: a saved value that is not one of them
     // takes the nearest, a tie going to the more opaque (see NearestOpacity).
@@ -60,6 +61,8 @@ internal sealed class MainForm : Form
     public const string ShowFrenchText = "Show French names";
 
     public const string HighlightColorText = "Highlight color…";
+
+    public const string AlwaysShowSkinToneText = "Always show skin tone";
 
     public const string StartWithWindowsText = "Start with Windows";
 
@@ -99,6 +102,7 @@ internal sealed class MainForm : Form
         + "• the custom groups and their emojis\n"
         + "• the use counters of Frequently used\n"
         + "• the window size and opacity, the tray emoji, the details panel's settings\n"
+        + "• the skin tones, the default ones and the emojis' own\n"
         + "• Start with Windows\n"
         + "• the downloaded emoji data — back to version {0}\n"
         + "• the downloaded flag images — back to Twemoji {1}\n"
@@ -128,6 +132,18 @@ internal sealed class MainForm : Form
     // A keep-open insertion takes the foreground back this long after typing, milliseconds: SendInput is asynchronous,
     // and taking it back at once could route the emoji's characters to this window.
     private const int KeepOpenHandBackDelay = 50;
+
+    // An insertion checks this often whether the previous window is ready to receive the emoji (see TypeWhenReady),
+    // milliseconds.
+    private const int TypingPollInterval = 10;
+
+    // Once the previous window is ready, the emoji is typed this long after, milliseconds: a Chromium app hands the
+    // keyboard focus on to its page — the Claude desktop app's prompt box — after its window got it.
+    private const int TypingSettleDelay = 100;
+
+    // The emoji is typed this long after the previous window was activated whether it is ready or not, milliseconds:
+    // never worse than typing at once.
+    private const int TypingTimeout = 1000;
 
     public const string CustomHeader = "Custom";
 
@@ -163,6 +179,14 @@ internal sealed class MainForm : Form
 
     public const string RemoveText = "Remove";
 
+    public const string SkinToneText = "Skin tone";
+
+    public const string UseDefaultToneText = "Use default tone";
+
+    public const string FirstPersonText = "First person";
+
+    public const string SecondPersonText = "Second person";
+
     // The custom tab's glyph: Heart, in Segoe Fluent Icons and Segoe MDL2 Assets.
     private const char CustomIcon = '';
 
@@ -189,12 +213,26 @@ internal sealed class MainForm : Form
     private readonly EmojiDetailsPanel detailsPanel;
     private readonly EmojiUsage usage = EmojiUsage.Load();
     private readonly CustomGroups customGroups = CustomGroups.Load();
+    private readonly SkinToneChoices skinToneChoices = SkinToneChoices.Load();
+
+    // Every variant's text: a tray emoji may be one.
+    private readonly HashSet<string> variantTexts;
+
+    // The default skin tone: every emoji with variants without a tone of its own, both persons of a two-person one.
+    private SkinTone skinTone = SettingsFile.ReadSkinTone();
+
+    // The tone a skin-tone menu's highlighted item previews (see PreviewWhileHighlighted), null while none is. Never
+    // saved: skinTone and skinToneChoices keep the real tones.
+    private TonePreview? tonePreview;
 
     // Whether the frequent tab is shown: its tab and its section first, or neither. The counters count either way.
     private bool showFrequent = SettingsFile.ReadShowFrequent();
 
     // The window's opacity, percent: one of OpacityPercents, 100 when nothing is saved.
     private int opacityPercent = NearestOpacity(SettingsFile.ReadOpacity() ?? 100);
+
+    // Windows' Acrylic backdrop under the whole window, in place of the opacity: the two are one setting.
+    private bool acrylic = SettingsFile.ReadAcrylic();
 
     // How many sections the custom tab has in the grid: one per shown group, the placeholder alone while there is no
     // group, none — and no custom tab — while every group is hidden.
@@ -207,6 +245,12 @@ internal sealed class MainForm : Form
 
     // Running while a keep-open insertion waits to take the foreground back (see InsertKeepingOpen).
     private readonly System.Windows.Forms.Timer handBackTimer = new() { Interval = KeepOpenHandBackDelay };
+
+    // Running while an insertion waits for the previous window before typing (see TypeWhenReady).
+    private readonly System.Windows.Forms.Timer typingTimer = new() { Interval = TypingPollInterval };
+
+    // The insertion typingTimer waits for; null when none.
+    private PendingTyping? pendingTyping;
 
     // The invisible resize borders around the visible frame, read the last time the window was shown: a hidden
     // window has no frame to read them from.
@@ -259,7 +303,8 @@ internal sealed class MainForm : Form
 
         // Below 100 %, a layered window: the whole of it fades, in front or not. Set before the handle exists, so a
         // --background launch shows it at its opacity from the first show.
-        this.Opacity = this.opacityPercent / 100.0;
+        // With the Acrylic backdrop, fully opaque: a layered window has no backdrop.
+        this.Opacity = this.acrylic ? 1.0 : this.opacityPercent / 100.0;
 
         // The search box on top, the tabs below it, the details panel at the bottom, the grid filling the rest. Docking
         // runs from the last control added: the search bar first, then the strip, then the panel.
@@ -269,12 +314,14 @@ internal sealed class MainForm : Form
         this.emojiDataVersion = emojiData.Version;
         this.categories = emojiData.Categories;
         this.emojisByText = this.categories.SelectMany(category => category.Emojis).ToDictionary(emoji => emoji.Text);
+        this.variantTexts = [.. this.emojisByText.Values.SelectMany(emoji => emoji.Variants).Select(variant => variant.Text)];
         List<EmojiCategory> customSections = this.CreateCustomSections();
         this.customSectionCount = customSections.Count;
         this.grid = new EmojiGrid([.. this.CreateFrequentSections(), .. customSections, .. this.categories],
             this.categories.SelectMany(category => category.Emojis))
         {
             Dock = DockStyle.Fill,
+            ShownText = this.ShownText,
         };
         this.tabStrip = new CategoryTabStrip(this.CreateTabs())
         {
@@ -284,7 +331,10 @@ internal sealed class MainForm : Form
         {
             Dock = DockStyle.Bottom,
             ShowFrench = SettingsFile.ReadShowFrench(),
+            AlwaysShowTone = SettingsFile.ReadAlwaysShowSkinTone(),
             HighlightColor = SettingsFile.ReadHighlightColor() ?? EmojiDetailsPanel.DefaultHighlightColor,
+            ShownText = this.ShownText,
+            DefaultTone = this.skinTone,
         };
 
         // Never narrower than the tab strip needs, its side resize borders added. Never lower than the details panel
@@ -315,15 +365,18 @@ internal sealed class MainForm : Form
         this.grid.ActiveCategoryChanged += (_, _) => this.tabStrip.ActiveTab = this.TabOf(this.grid.ActiveCategory);
         this.grid.SelectedEmojiChanged += (_, _) => this.detailsPanel.ShownEmoji = this.grid.SelectedEmoji;
         this.detailsPanel.SizeChanged += (_, _) => this.UpdateMinimumHeight();
+        this.detailsPanel.ToneSwatchClicked += (_, bounds) => this.ShowToneMenu(bounds);
         this.grid.EmojiClicked += (_, click) => this.InsertEmoji(click.Emoji, click.KeepOpen);
         this.grid.EmojiRightClicked += (_, click) => this.ShowEmojiMenu(click);
         this.grid.SectionMenuClicked += (_, request) => this.ShowSectionMenu(request);
         this.grid.EmojiMoved += (_, move) => this.MoveEmoji(move);
         ResumeLayout(performLayout: false);
 
-        // The emoji the user chose, while the catalog still has it; the setting is left as it is otherwise.
+        // The emoji the user chose — in its skin tone —, while the catalog still has it; the setting is left as it is
+        // otherwise.
         string? trayEmoji = SettingsFile.ReadTrayEmoji();
-        this.trayIcon = new TrayIcon(this.Text, trayEmoji is not null && this.emojisByText.ContainsKey(trayEmoji) ? trayEmoji : TrayIcon.DefaultEmoji);
+        this.trayIcon = new TrayIcon(this.Text,
+            trayEmoji is not null && (this.emojisByText.ContainsKey(trayEmoji) || this.variantTexts.Contains(trayEmoji)) ? trayEmoji : TrayIcon.DefaultEmoji);
         this.trayIcon.Clicked += this.OnTrayIconClicked;
         this.trayIcon.ExitRequested += (_, _) => Application.Exit();
 
@@ -331,6 +384,7 @@ internal sealed class MainForm : Form
         this.shortcutHook = new ShortcutHook();
         this.shortcutHook.Pressed += this.OnShortcutPressed;
         this.handBackTimer.Tick += (_, _) => this.HandForegroundBack();
+        this.typingTimer.Tick += (_, _) => this.OnTypingTick();
         this.singleInstance.ShowRequested += this.OnShowRequested;
         this.singleInstance.Listen();
     }
@@ -485,6 +539,7 @@ internal sealed class MainForm : Form
     {
         this.SetClientArea(SettingsFile.ReadWindowSize() is Size saved ? this.LogicalToDeviceUnits(saved) : this.DefaultClientSize());
         base.OnLoad(e);
+        this.ApplyBackdrop();
         if (this.showAnchor is Rectangle anchor)
         {
             this.PlaceAt(anchor);
@@ -515,6 +570,38 @@ internal sealed class MainForm : Form
         // Null while the base constructor runs.
         this.detailsPanel?.FitHeight(this.ClientSize.Width);
         base.OnLayout(levent);
+    }
+
+    // The Acrylic backdrop asked of Windows or not, every part of the window drawn on it or not.
+    private void ApplyBackdrop()
+    {
+        if (!this.IsHandleCreated)
+        {
+            return;
+        }
+
+        ((SearchBar)this.searchBar).Glass = this.acrylic;
+        UI.Glass.SetOpaque(this.searchBox, this.acrylic);
+        UI.Glass.SetOpaque(this.clearButton, this.acrylic);
+        this.tabStrip.Glass = this.acrylic;
+        this.grid.Glass = this.acrylic;
+        this.detailsPanel.Glass = this.acrylic;
+        this.UpdateStyles();
+        UI.Glass.Apply(this.Handle, this.acrylic);
+        this.Invalidate(invalidateChildren: true);
+    }
+
+    // The Acrylic backdrop, from the opacity menu: in place of the opacity — the window fully opaque, a layered window
+    // having no backdrop —, applied at once, saved.
+    private void SetAcrylic()
+    {
+        if (!this.acrylic)
+        {
+            this.acrylic = true;
+            this.Opacity = 1.0;
+            SettingsFile.WriteAcrylic();
+            this.ApplyBackdrop();
+        }
     }
 
     protected override void OnResizeBegin(EventArgs e)
@@ -557,6 +644,13 @@ internal sealed class MainForm : Form
         {
             CreateParams parameters = base.CreateParams;
             parameters.ExStyle = (parameters.ExStyle | WsExToolWindow) & ~WsExAppWindow;
+            // With the Acrylic backdrop the frame is extended into the client area, and DWM would draw the caption's buttons
+            // in it: no caption, no buttons. The resize borders, the shadow and the system menu stay.
+            if (this.acrylic)
+            {
+                parameters.Style &= ~WsCaption;
+            }
+
             return parameters;
         }
     }
@@ -602,6 +696,7 @@ internal sealed class MainForm : Form
         {
             this.shortcutHook.Dispose();
             this.handBackTimer.Dispose();
+            this.typingTimer.Dispose();
             this.settingsMenu.Dispose();
             this.trayIcon.Dispose();
             this.foregroundTracker.Dispose();
@@ -688,6 +783,9 @@ internal sealed class MainForm : Form
         var highlightColorItem = new ToolStripMenuItem(HighlightColorText);
         highlightColorItem.Click += (_, _) => this.ChooseHighlightColor();
         menu.Items.Add(highlightColorItem);
+        var alwaysShowSkinToneItem = new ToolStripMenuItem(AlwaysShowSkinToneText);
+        alwaysShowSkinToneItem.Click += (_, _) => this.SetAlwaysShowSkinTone(!this.detailsPanel.AlwaysShowTone);
+        menu.Items.Add(alwaysShowSkinToneItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
         var windowOpacity = new ToolStripMenuItem(WindowOpacityText);
@@ -698,6 +796,11 @@ internal sealed class MainForm : Form
             windowOpacity.DropDownItems.Add(item);
         }
 
+        // The Acrylic backdrop, last: in place of an opacity, never with one.
+        windowOpacity.DropDownItems.Add(new ToolStripSeparator());
+        var acrylicItem = new ToolStripMenuItem(AcrylicText);
+        acrylicItem.Click += (_, _) => this.SetAcrylic();
+        windowOpacity.DropDownItems.Add(acrylicItem);
         menu.Items.Add(windowOpacity);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
@@ -714,9 +817,10 @@ internal sealed class MainForm : Form
             showFrequentItem.Checked = this.showFrequent;
             clearFrequent.Enabled = !this.usage.IsEmpty;
             showFrenchItem.Checked = this.detailsPanel.ShowFrench;
-            foreach (ToolStripMenuItem item in windowOpacity.DropDownItems)
+            alwaysShowSkinToneItem.Checked = this.detailsPanel.AlwaysShowTone;
+            foreach (ToolStripMenuItem item in windowOpacity.DropDownItems.OfType<ToolStripMenuItem>())
             {
-                item.Checked = (int)item.Tag! == this.opacityPercent;
+                item.Checked = item == acrylicItem ? this.acrylic : !this.acrylic && (int)item.Tag! == this.opacityPercent;
             }
 
             this.SetSwatch(highlightColorItem, this.detailsPanel.HighlightColor);
@@ -763,11 +867,28 @@ internal sealed class MainForm : Form
         }
     }
 
-    // The window's opacity, from the settings menu: applied at once, saved.
+    // The details panel's tone swatch shown whatever the selection, or only while it has variants, from the settings
+    // menu; saved.
+    private void SetAlwaysShowSkinTone(bool show)
+    {
+        if (show != this.detailsPanel.AlwaysShowTone)
+        {
+            this.detailsPanel.AlwaysShowTone = show;
+            SettingsFile.WriteAlwaysShowSkinTone(show);
+        }
+    }
+
+    // The window's opacity, from the settings menu: applied at once — the Acrylic backdrop left —, saved.
     private void SetOpacity(int percent)
     {
-        if (percent != this.opacityPercent)
+        if (percent != this.opacityPercent || this.acrylic)
         {
+            if (this.acrylic)
+            {
+                this.acrylic = false;
+                this.ApplyBackdrop();
+            }
+
             this.opacityPercent = percent;
             this.Opacity = percent / 100.0;
             SettingsFile.WriteOpacity(percent);
@@ -1324,9 +1445,16 @@ internal sealed class MainForm : Form
     private void ShowEmojiMenu(EmojiGrid.EmojiRightClick click)
     {
         var menu = new ContextMenuStrip();
-        var useAsTrayIcon = new ToolStripMenuItem(UseAsTrayIconText) { Checked = this.trayIcon.Emoji == click.Emoji.Text };
-        useAsTrayIcon.Click += (_, _) => this.UseAsTrayIcon(click.Emoji.Text);
+        string shownText = this.ShownText(click.Emoji);
+        var useAsTrayIcon = new ToolStripMenuItem(UseAsTrayIconText) { Checked = this.trayIcon.Emoji == shownText };
+        useAsTrayIcon.Click += (_, _) => this.UseAsTrayIcon(shownText);
         menu.Items.Add(useAsTrayIcon);
+        if (click.Emoji.Variants.Count > 0)
+        {
+            menu.Items.Add(this.CreateSkinToneMenu(click.Emoji));
+            menu.Closed += (_, _) => this.SetTonePreview(null);
+        }
+
         menu.Items.Add(new ToolStripSeparator());
         var addTo = new ToolStripMenuItem(AddToText) { Enabled = this.customGroups.Groups.Count > 0 };
         for (int group = 0; group < this.customGroups.Groups.Count; group++)
@@ -1355,6 +1483,170 @@ internal sealed class MainForm : Form
         {
             menu.Items.OfType<ToolStripMenuItem>().FirstOrDefault(item => item.Enabled)?.Select();
         }
+    }
+
+    // Skin tone ▸, for an emoji with variants: Use default tone, checked while it has no tone of its own, then its own
+    // tone — one of the six for a one-person emoji; No tone then a tone per person for a two-person one —, each tone
+    // with its swatch, the emoji's own checked. The swatches go with the menu. Each item previews the tone it would
+    // save while highlighted.
+    private ToolStripMenuItem CreateSkinToneMenu(Emoji emoji)
+    {
+        SkinTonePair? own = this.skinToneChoices.Get(emoji.Text);
+        var skinTone = new ToolStripMenuItem(SkinToneText);
+        var useDefault = new ToolStripMenuItem(UseDefaultToneText) { Checked = own is null };
+        useDefault.Click += (_, _) => this.SetOwnTone(emoji, null);
+        this.PreviewWhileHighlighted(useDefault, item => new OwnTonePreview(item, emoji.Text, null));
+        skinTone.DropDownItems.Add(useDefault);
+        if (emoji.IsTwoPerson)
+        {
+            SkinTonePair yellow = SkinTonePair.Of(SkinTone.None);
+            skinTone.DropDownItems.Add(this.CreateToneItem(SkinTone.None, own is { First: SkinTone.None },
+                () => this.SetOwnTone(emoji, yellow), item => new OwnTonePreview(item, emoji.Text, yellow)));
+            skinTone.DropDownItems.Add(new ToolStripSeparator());
+            SkinTonePair shown = this.ShownTones(emoji);
+            foreach ((string text, bool first) in new[] { (FirstPersonText, true), (SecondPersonText, false) })
+            {
+                var person = new ToolStripMenuItem(text);
+                foreach (SkinTone tone in SkinTones.Modifiers)
+                {
+                    // The other person keeps the tone shown now, or takes this one while the emoji is yellow.
+                    SkinTonePair pair = first
+                        ? new SkinTonePair(tone, shown.Second == SkinTone.None ? tone : shown.Second)
+                        : new SkinTonePair(shown.First == SkinTone.None ? tone : shown.First, tone);
+                    bool isOwn = own is SkinTonePair ownPair && (first ? ownPair.First : ownPair.Second) == tone;
+                    person.DropDownItems.Add(this.CreateToneItem(tone, isOwn, () => this.SetOwnTone(emoji, pair),
+                        item => new OwnTonePreview(item, emoji.Text, pair)));
+                }
+
+                skinTone.DropDownItems.Add(person);
+            }
+        }
+        else
+        {
+            skinTone.DropDownItems.Add(new ToolStripSeparator());
+            foreach (SkinTone tone in SkinTones.All)
+            {
+                SkinTonePair tones = SkinTonePair.Of(tone);
+                skinTone.DropDownItems.Add(this.CreateToneItem(tone, own?.First == tone, () => this.SetOwnTone(emoji, tones),
+                    item => new OwnTonePreview(item, emoji.Text, tones)));
+            }
+        }
+
+        return skinTone;
+    }
+
+    // A tone's item: its name, its swatch, checked when it is the emoji's own, previewing its tone while highlighted;
+    // its swatch disposed with it.
+    private ToolStripMenuItem CreateToneItem(SkinTone tone, bool isChecked, Action choose, Func<ToolStripItem, TonePreview> preview)
+    {
+        var item = new ToolStripMenuItem(SkinTones.NameOf(tone)) { Checked = isChecked };
+        this.SetSwatch(item, SkinTones.ColorOf(tone));
+        item.Click += (_, _) => choose();
+        item.Disposed += (_, _) => item.Image?.Dispose();
+        this.PreviewWhileHighlighted(item, preview);
+        return item;
+    }
+
+    // While the item is highlighted — the mouse over it, or the arrow keys on it — the grid, the details panel's emoji
+    // and, for the default tone, its swatch show the tone it would save; nothing is saved. Leaving it puts the real
+    // tones back, unless the next highlighted item already previews its own.
+    private void PreviewWhileHighlighted(ToolStripItem item, Func<ToolStripItem, TonePreview> preview) =>
+        item.SelectedChanged += (_, _) =>
+        {
+            if (item.Selected)
+            {
+                this.SetTonePreview(preview(item));
+            }
+            else if (this.tonePreview?.Item == item)
+            {
+                this.SetTonePreview(null);
+            }
+        };
+
+    // The tones previewed from now on — null, the real ones —, drawn at once; the swatch shows the previewed default
+    // tone, else the real one.
+    private void SetTonePreview(TonePreview? preview)
+    {
+        if (this.tonePreview == preview)
+        {
+            return;
+        }
+
+        this.tonePreview = preview;
+        this.detailsPanel.DefaultTone = preview is DefaultTonePreview defaultPreview ? defaultPreview.Tone : this.skinTone;
+        this.OnTonesChanged();
+    }
+
+    // The text an emoji is shown, inserted and copied as: in its own skin tone, else the default one — while a menu
+    // previews a tone, the previewed default tone, or the previewed emoji's previewed own tone.
+    private string ShownText(Emoji emoji) => this.tonePreview switch
+    {
+        DefaultTonePreview preview => SkinTones.ShownText(emoji, this.skinToneChoices.Get(emoji.Text), preview.Tone),
+        OwnTonePreview preview when preview.Emoji == emoji.Text => SkinTones.ShownText(emoji, preview.Tones, this.skinTone),
+        _ => SkinTones.ShownText(emoji, this.skinToneChoices.Get(emoji.Text), this.skinTone),
+    };
+
+    // A tone a skin-tone menu previews, owned by its highlighted item.
+    private abstract record TonePreview(ToolStripItem Item);
+
+    // The default tone previewed: every emoji with variants without a tone of its own.
+    private sealed record DefaultTonePreview(ToolStripItem Item, SkinTone Tone) : TonePreview(Item);
+
+    // An emoji's own tone previewed — null, Use default tone: that emoji only.
+    private sealed record OwnTonePreview(ToolStripItem Item, string Emoji, SkinTonePair? Tones) : TonePreview(Item);
+
+    // The tones of the variant an emoji is shown as; None twice when shown yellow.
+    private SkinTonePair ShownTones(Emoji emoji)
+    {
+        string shown = this.ShownText(emoji);
+        return emoji.Variants.FirstOrDefault(variant => variant.Text == shown) is SkinVariant variant
+            ? new SkinTonePair(variant.First, variant.Second)
+            : SkinTonePair.Of(SkinTone.None);
+    }
+
+    // The emoji's own tone, saved — null, it follows the default tone again —; the grid and the details panel follow.
+    // The window stays.
+    private void SetOwnTone(Emoji emoji, SkinTonePair? tones)
+    {
+        this.skinToneChoices.Set(emoji.Text, tones);
+        this.OnTonesChanged();
+    }
+
+    // The details panel's tone swatch clicked: the six tones under it, its right edge on the swatch's, each with its
+    // swatch, the default one checked, each one previewed while highlighted. Built for one show.
+    private void ShowToneMenu(Rectangle bounds)
+    {
+        var menu = new ContextMenuStrip();
+        foreach (SkinTone tone in SkinTones.All)
+        {
+            menu.Items.Add(this.CreateToneItem(tone, tone == this.skinTone, () => this.SetDefaultTone(tone),
+                item => new DefaultTonePreview(item, tone)));
+        }
+
+        menu.Closed += (_, _) => this.SetTonePreview(null);
+        ShowOnce(menu, this.detailsPanel, new Point(bounds.Right, bounds.Bottom), ToolStripDropDownDirection.BelowLeft);
+    }
+
+    // The default tone, from the details panel's tone menu; saved. The emojis with a tone of their own keep it.
+    private void SetDefaultTone(SkinTone tone)
+    {
+        if (tone == this.skinTone)
+        {
+            return;
+        }
+
+        this.skinTone = tone;
+        SettingsFile.WriteSkinTone(tone);
+        this.detailsPanel.DefaultTone = tone;
+        this.OnTonesChanged();
+    }
+
+    // Every section is drawn again in the new tones — they are pre-rendered, nothing to rebuild —, and the details
+    // panel's emoji with them.
+    private void OnTonesChanged()
+    {
+        this.grid.Invalidate();
+        this.detailsPanel.RefreshShownEmoji();
     }
 
     // The emoji's counter forgotten: the next one moves up into the section, which reads No emoji used yet once empty.
@@ -1504,10 +1796,17 @@ internal sealed class MainForm : Form
 
     // A clicked emoji goes into the window that was in front before this one, then the window hides to the tray,
     // like Win+;. The previous window is brought back while this app is still in front: only the foreground app may
-    // hand the foreground over. No previous window: the window hides, nothing is typed. Kept open — Ctrl+Enter,
-    // Ctrl+click —: see InsertKeepingOpen.
+    // hand the foreground over. The emoji is typed once that window is ready (TypeWhenReady), the keys pressed
+    // meanwhile swallowed by the hook, so none lands before it. No previous window: the window hides, nothing is
+    // typed. Kept open — Ctrl+Enter, Ctrl+click —: see InsertKeepingOpen. One started while another is under way is
+    // ignored: its keys were swallowed anyway, a click would type into this window.
     private void InsertEmoji(Emoji emoji, bool keepOpen = false)
     {
+        if (this.typingTimer.Enabled || this.handBackTimer.Enabled)
+        {
+            return;
+        }
+
         if (keepOpen)
         {
             this.InsertKeepingOpen(emoji);
@@ -1517,41 +1816,92 @@ internal sealed class MainForm : Form
         IntPtr target = this.foregroundTracker.PreviousWindow;
         if (target != IntPtr.Zero)
         {
+            this.shortcutHook.SwallowKeys();
             EmojiInserter.Activate(target);
         }
 
         this.Hide();
         if (target != IntPtr.Zero)
         {
-            EmojiInserter.Type(emoji.Text);
+            this.TypeWhenReady(new PendingTyping(target, this.ShownText(emoji), KeepOpen: false, Environment.TickCount64));
         }
 
+        // Counted for the emoji itself, whatever its tone.
         this.OnEmojiUsed(emoji.Text);
     }
 
     // Inserts the emoji as InsertEmoji does, but the window stays open: topmost, so the previous window brought to the
     // front never covers it, the keys pressed meanwhile swallowed by the hook, so none lands in the previous window —
     // until HandForegroundBack, once the characters reached it. The keyboard, the selection and the search text stay
-    // where they were. One started while a hand-back is pending is ignored: its Ctrl+Enter was swallowed anyway, a
-    // Ctrl+click would type into this window. No previous window: nothing typed, the use counted.
+    // where they were. No previous window: nothing typed, the use counted.
     private void InsertKeepingOpen(Emoji emoji)
     {
-        if (this.handBackTimer.Enabled)
-        {
-            return;
-        }
-
         IntPtr target = this.foregroundTracker.PreviousWindow;
         if (target != IntPtr.Zero)
         {
             this.shortcutHook.SwallowKeys();
             SetWindowPos(this.Handle, HwndTopmost, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate);
             EmojiInserter.Activate(target);
-            EmojiInserter.Type(emoji.Text);
-            this.handBackTimer.Start();
+            this.TypeWhenReady(new PendingTyping(target, this.ShownText(emoji), KeepOpen: true, Environment.TickCount64));
         }
 
         this.OnEmojiUsed(emoji.Text);
+    }
+
+    // The previous window, just activated, gets the emoji once it is ready (EmojiInserter.IsReady) and TypingSettleDelay
+    // has passed since — or TypingTimeout after its activation, ready or not. Activating it only queues the activation,
+    // and an app gives the keyboard back to its text field later still: typed at once, the characters may be dropped.
+    private void TypeWhenReady(PendingTyping typing)
+    {
+        this.pendingTyping = typing;
+        this.typingTimer.Start();
+    }
+
+    // Then a keep-open insertion hands the foreground back after KeepOpenHandBackDelay; a hiding one lets the keys
+    // through again at once. A hiding insertion whose window was shown again meanwhile — the tray icon — types nothing:
+    // the emoji would land in this window.
+    private void OnTypingTick()
+    {
+        if (this.pendingTyping is not PendingTyping typing)
+        {
+            this.typingTimer.Stop();
+            return;
+        }
+
+        long now = Environment.TickCount64;
+        if (typing.ReadyAt == 0 && EmojiInserter.IsReady(typing.Target))
+        {
+            typing.ReadyAt = now;
+        }
+
+        bool settled = typing.ReadyAt != 0 && now - typing.ReadyAt >= TypingSettleDelay;
+        if (!settled && now - typing.ActivatedAt < TypingTimeout)
+        {
+            return;
+        }
+
+        this.typingTimer.Stop();
+        this.pendingTyping = null;
+        if (typing.KeepOpen)
+        {
+            EmojiInserter.Type(typing.Text);
+            this.handBackTimer.Start();
+            return;
+        }
+
+        if (!this.Visible)
+        {
+            EmojiInserter.Type(typing.Text);
+        }
+
+        this.shortcutHook.StopSwallowing();
+    }
+
+    // An insertion waiting for its previous window (see TypeWhenReady). ActivatedAt and ReadyAt are
+    // Environment.TickCount64 values; ReadyAt is 0 until the window is first seen ready.
+    private sealed record PendingTyping(IntPtr Target, string Text, bool KeepOpen, long ActivatedAt)
+    {
+        public long ReadyAt { get; set; }
     }
 
     // The end of a keep-open insertion: the window takes the foreground back — the focused control with it —, then
@@ -1746,6 +2096,7 @@ internal sealed class MainForm : Form
     private const int WsExTopmost = 0x8;
     private const int WsExToolWindow = 0x80;
     private const int WsExAppWindow = 0x40000;
+    private const int WsCaption = 0xC00000;
     private const int DwmwaExtendedFrameBounds = 9;
     private const int DwmwaCloaked = 14;
     private const int DwmwaWindowCornerPreference = 33;
@@ -1764,6 +2115,32 @@ internal sealed class MainForm : Form
     // as the top resize border.
     private sealed class SearchBar : TableLayoutPanel
     {
+        // Drawn on the Acrylic backdrop (see Glass): a tinted transparent background.
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool Glass
+        {
+            get => this.glass;
+            set
+            {
+                this.glass = value;
+                this.Invalidate();
+            }
+        }
+
+        private bool glass;
+
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            if (this.glass)
+            {
+                UI.Glass.Paint(e, _ => { });
+            }
+            else
+            {
+                base.OnPaintBackground(e);
+            }
+        }
+
         protected override void WndProc(ref Message m)
         {
             if (m.Msg == WindowFrame.WmNcHitTest && WindowFrame.IsInTopResizeBand(this, m.LParam))

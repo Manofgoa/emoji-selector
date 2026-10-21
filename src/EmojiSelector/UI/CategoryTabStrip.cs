@@ -178,11 +178,45 @@ internal sealed class CategoryTabStrip : Control
         this.Invalidate();
     }
 
+    // Drawn on the Acrylic backdrop (see Glass): a tinted transparent background, GDI+ text.
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool Glass
+    {
+        get => this.glass;
+        set
+        {
+            this.glass = value;
+            this.Invalidate();
+        }
+    }
+
+    private bool glass;
+
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        if (!this.glass)
+        {
+            base.OnPaintBackground(e);
+        }
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
+        if (this.glass)
+        {
+            UI.Glass.Paint(e, this.PaintContent);
+        }
+        else
+        {
+            this.PaintContent(e.Graphics);
+        }
+    }
+
+    private void PaintContent(Graphics graphics)
+    {
         Color accent = SystemColors.Highlight;
-        Color greyedColor = Blend(SystemColors.GrayText, this.BackColor);
+        Color greyedColor = Blend(this.glass ? UI.Glass.GrayText : SystemColors.GrayText, this.BackColor);
         int active = this.greyed ? -1 : this.activeTab;
         for (int tab = 0; tab < this.categories.Count; tab++)
         {
@@ -190,11 +224,11 @@ internal sealed class CategoryTabStrip : Control
             if (tab == this.hoveredTab)
             {
                 using var hover = new SolidBrush(SystemColors.ControlLight);
-                e.Graphics.FillRectangle(hover, Rectangle.Inflate(bounds, -2, -4));
+                graphics.FillRectangle(hover, Rectangle.Inflate(bounds, -2, -4));
             }
 
             Color color = this.greyed ? greyedColor : tab == active ? accent : SystemColors.GrayText;
-            TextRenderer.DrawText(e.Graphics, this.categories[tab].Icon.ToString(), this.iconFont, bounds, color,
+            UI.Glass.DrawText(graphics, this.glass, this.categories[tab].Icon.ToString(), this.iconFont, bounds, color,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
 
             if (tab == active)
@@ -202,16 +236,16 @@ internal sealed class CategoryTabStrip : Control
                 int underlineWidth = this.LogicalToDeviceUnits(LogicalUnderlineWidth);
                 int underlineHeight = this.LogicalToDeviceUnits(LogicalUnderlineHeight);
                 using var underline = new SolidBrush(accent);
-                e.Graphics.FillRectangle(underline, bounds.X + (bounds.Width - underlineWidth) / 2,
+                graphics.FillRectangle(underline, bounds.X + (bounds.Width - underlineWidth) / 2,
                     bounds.Bottom - underlineHeight - 2, underlineWidth, underlineHeight);
             }
         }
 
-        this.PaintSettings(e.Graphics);
-        this.PaintClose(e.Graphics);
+        this.PaintSettings(graphics);
+        this.PaintClose(graphics);
 
         using var separator = new Pen(SystemColors.ControlLight);
-        e.Graphics.DrawLine(separator, 0, this.Height - 1, this.Width, this.Height - 1);
+        graphics.DrawLine(separator, 0, this.Height - 1, this.Width, this.Height - 1);
     }
 
     protected override void OnDpiChangedAfterParent(EventArgs e)
@@ -362,7 +396,7 @@ internal sealed class CategoryTabStrip : Control
             graphics.FillRectangle(hover, Rectangle.Inflate(bounds, -2, -4));
         }
 
-        TextRenderer.DrawText(graphics, SettingsGlyph.ToString(), this.iconFont, bounds, SystemColors.GrayText,
+        UI.Glass.DrawText(graphics, this.glass, SettingsGlyph.ToString(), this.iconFont, bounds, SystemColors.GrayText,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
     }
 
@@ -379,7 +413,7 @@ internal sealed class CategoryTabStrip : Control
             glyph = Color.White;
         }
 
-        TextRenderer.DrawText(graphics, CloseGlyph.ToString(), this.closeFont, bounds, glyph,
+        UI.Glass.DrawText(graphics, this.glass, CloseGlyph.ToString(), this.closeFont, bounds, glyph,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
     }
 
