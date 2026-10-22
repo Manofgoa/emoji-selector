@@ -28,11 +28,15 @@ internal static class SettingsFile
     private const string WindowHeightKey = "windowHeight";
     private const string TrayEmojiKey = "trayEmoji";
     private const string ShowFrequentKey = "showFrequent";
+    private const string ShowSpecialKey = "showSpecial";
+    private const string ShowEmojiSubcategoriesKey = "showEmojiSubcategories";
+    private const string ShowSpecialSubcategoriesKey = "showSpecialSubcategories";
     private const string ShowFrenchKey = "showFrench";
     private const string AlwaysShowSkinToneKey = "alwaysShowSkinTone";
     private const string HighlightColorKey = "highlightColor";
     private const string OpacityKey = "opacity";
     private const string AcrylicValue = "acrylic";
+    private const string AcrylicVeilKey = "acrylicVeil";
     private const string SkinToneKey = "skinTone";
 
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, FileName);
@@ -92,6 +96,42 @@ internal static class SettingsFile
     {
         JsonObject settings = Read() ?? [];
         settings[ShowFrequentKey] = show;
+        Write(settings);
+    }
+
+    /// <summary>Whether the special characters' tab is shown; true when the file, the key or a readable value is missing.</summary>
+    public static bool ReadShowSpecial() =>
+        Read()?[ShowSpecialKey] is not JsonValue value || !value.TryGetValue(out bool show) || show;
+
+    /// <summary>Saves whether the special characters' tab is shown.</summary>
+    public static void WriteShowSpecial(bool show)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[ShowSpecialKey] = show;
+        Write(settings);
+    }
+
+    /// <summary>Whether the emoji categories show their sub-categories; false when the file, the key or a readable value is missing.</summary>
+    public static bool ReadShowEmojiSubcategories() =>
+        Read()?[ShowEmojiSubcategoriesKey] is JsonValue value && value.TryGetValue(out bool show) && show;
+
+    /// <summary>Saves whether the emoji categories show their sub-categories.</summary>
+    public static void WriteShowEmojiSubcategories(bool show)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[ShowEmojiSubcategoriesKey] = show;
+        Write(settings);
+    }
+
+    /// <summary>Whether the special characters show their sub-categories; true when the file, the key or a readable value is missing.</summary>
+    public static bool ReadShowSpecialSubcategories() =>
+        Read()?[ShowSpecialSubcategoriesKey] is not JsonValue value || !value.TryGetValue(out bool show) || show;
+
+    /// <summary>Saves whether the special characters show their sub-categories.</summary>
+    public static void WriteShowSpecialSubcategories(bool show)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[ShowSpecialSubcategoriesKey] = show;
         Write(settings);
     }
 
@@ -162,6 +202,18 @@ internal static class SettingsFile
     {
         JsonObject settings = Read() ?? [];
         settings[OpacityKey] = AcrylicValue;
+        Write(settings);
+    }
+
+    /// <summary>The strength of the Acrylic backdrop's veil, percent, as saved — any integer; null when there is none, or none that can be read.</summary>
+    public static int? ReadAcrylicVeil() =>
+        Read()?[AcrylicVeilKey] is JsonValue value && value.TryGetValue(out int percent) ? percent : null;
+
+    /// <summary>Saves the strength of the Acrylic backdrop's veil, percent.</summary>
+    public static void WriteAcrylicVeil(int percent)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[AcrylicVeilKey] = percent;
         Write(settings);
     }
 

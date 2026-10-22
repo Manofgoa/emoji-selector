@@ -47,6 +47,14 @@ internal sealed class MainForm : Form
 
     public const string WindowOpacityText = "Window opacity";
     public const string AcrylicText = "Acrylic";
+    public const string AcrylicVeilText = "Acrylic veil";
+
+    // The strengths Acrylic veil offers, percent.
+    private static readonly int[] VeilPercents = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+
+    // The search box and its ✕ on the backdrop: native controls, faded whole — field and text — so the white field
+    // does not stand out as a bar.
+    private const byte SearchBoxAlpha = 0xB0;
 
     // The opacities the settings menu offers, percent, the most opaque first: a saved value that is not one of them
     // takes the nearest, a tie going to the more opaque (see NearestOpacity).
@@ -103,6 +111,7 @@ internal sealed class MainForm : Form
         + "• the use counters of Frequently used\n"
         + "• the window size and opacity, the tray emoji, the details panel's settings\n"
         + "• the skin tones, the default ones and the emojis' own\n"
+        + "• the special characters' list — back to the default one\n"
         + "• Start with Windows\n"
         + "• the downloaded emoji data — back to version {0}\n"
         + "• the downloaded flag images — back to Twemoji {1}\n"
@@ -187,6 +196,19 @@ internal sealed class MainForm : Form
 
     public const string SecondPersonText = "Second person";
 
+    public const string SpecialHeader = "Special characters";
+
+    public const string ShowSpecialText = "Show special characters";
+
+    public const string ShowEmojiSubcategoriesText = "Show emoji sub-categories";
+
+    public const string ShowSpecialSubcategoriesText = "Show special character sub-categories";
+
+    public const string InvalidSpecialText = "{0} is not valid: {1}\n\nThe default list is used until it is fixed.";
+
+    // The special characters' tab glyph: Characters, in Segoe Fluent Icons and Segoe MDL2 Assets.
+    private const char SpecialIcon = '';
+
     // The custom tab's glyph: Heart, in Segoe Fluent Icons and Segoe MDL2 Assets.
     private const char CustomIcon = '';
 
@@ -227,6 +249,21 @@ internal sealed class MainForm : Form
 
     // Whether the frequent tab is shown: its tab and its section first, or neither. The counters count either way.
     private bool showFrequent = SettingsFile.ReadShowFrequent();
+
+    // The special characters, one category after the catalog's, its families as its sub-categories — from
+    // special-characters.json, or the embedded default while that file is not valid.
+    private readonly EmojiCategory specialCategory;
+
+    // Whether the special characters' tab is shown: its tab and its section last, or neither.
+    private bool showSpecial = SettingsFile.ReadShowSpecial();
+
+    // Whether the catalog's categories, and the special characters', show their sub-categories: a label at the start of
+    // a row, their emojis to its right.
+    private bool showEmojiSubcategories = SettingsFile.ReadShowEmojiSubcategories();
+    private bool showSpecialSubcategories = SettingsFile.ReadShowSpecialSubcategories();
+
+    // Why special-characters.json is not valid, told once on the window's first show; null when there is nothing to tell.
+    private string? specialCharactersError;
 
     // The window's opacity, percent: one of OpacityPercents, 100 when nothing is saved.
     private int opacityPercent = NearestOpacity(SettingsFile.ReadOpacity() ?? 100);
@@ -305,20 +342,36 @@ internal sealed class MainForm : Form
         // --background launch shows it at its opacity from the first show.
         // With the Acrylic backdrop, fully opaque: a layered window has no backdrop.
         this.Opacity = this.acrylic ? 1.0 : this.opacityPercent / 100.0;
+        // The veil's saved strength — one written by hand taken to the nearest offered —, before the first paint.
+        int veil = SettingsFile.ReadAcrylicVeil() ?? UI.Glass.DefaultVeilPercent;
+        UI.Glass.VeilPercent = VeilPercents.MinBy(offered => Math.Abs(offered - veil));
 
         // The search box on top, the tabs below it, the details panel at the bottom, the grid filling the rest. Docking
         // runs from the last control added: the search bar first, then the strip, then the panel.
-        // The frequent tab first, the custom tab next, then the catalog's — the first two while shown. The search box
-        // searches the catalog's only: the frequent section and the custom groups would give their emojis twice.
+        // The frequent tab first, the custom tab next, then the catalog's, then the special characters' — the first two
+        // and the last while shown. The search box searches the catalog's and the special characters' only: the frequent
+        // section and the custom groups would give their emojis twice.
         EmojiDataFolder.EmojiData emojiData = EmojiDataFolder.Load();
         this.emojiDataVersion = emojiData.Version;
         this.categories = emojiData.Categories;
+        SpecialCharacters.LoadResult special = SpecialCharacters.Load(SpecialHeader, SpecialIcon);
+        this.specialCategory = special.Category;
+        this.specialCharactersError = special.Error;
+        // A special character whose text the catalog has is the catalog's emoji there: the custom groups find either.
         this.emojisByText = this.categories.SelectMany(category => category.Emojis).ToDictionary(emoji => emoji.Text);
+        foreach (Emoji character in this.specialCategory.Emojis)
+        {
+            this.emojisByText.TryAdd(character.Text, character);
+        }
+
         this.variantTexts = [.. this.emojisByText.Values.SelectMany(emoji => emoji.Variants).Select(variant => variant.Text)];
         List<EmojiCategory> customSections = this.CreateCustomSections();
         this.customSectionCount = customSections.Count;
-        this.grid = new EmojiGrid([.. this.CreateFrequentSections(), .. customSections, .. this.categories],
-            this.categories.SelectMany(category => category.Emojis))
+        List<Emoji> offered = [.. this.categories.SelectMany(category => category.Emojis),
+            .. this.specialCategory.Emojis];
+        this.grid = new EmojiGrid(
+            [.. this.CreateFrequentSections(), .. customSections, .. this.ShownCatalogSections(), .. this.ShownSpecialSections()],
+            offered)
         {
             Dock = DockStyle.Fill,
             ShownText = this.ShownText,
@@ -327,7 +380,7 @@ internal sealed class MainForm : Form
         {
             Dock = DockStyle.Top,
         };
-        this.detailsPanel = new EmojiDetailsPanel(this.categories.SelectMany(category => category.Emojis).ToList())
+        this.detailsPanel = new EmojiDetailsPanel(offered)
         {
             Dock = DockStyle.Bottom,
             ShowFrench = SettingsFile.ReadShowFrench(),
@@ -376,7 +429,8 @@ internal sealed class MainForm : Form
         // otherwise.
         string? trayEmoji = SettingsFile.ReadTrayEmoji();
         this.trayIcon = new TrayIcon(this.Text,
-            trayEmoji is not null && (this.emojisByText.ContainsKey(trayEmoji) || this.variantTexts.Contains(trayEmoji)) ? trayEmoji : TrayIcon.DefaultEmoji);
+            trayEmoji is not null && (this.emojisByText.GetValueOrDefault(trayEmoji) is { IsText: false } || this.variantTexts.Contains(trayEmoji))
+                ? trayEmoji : TrayIcon.DefaultEmoji);
         this.trayIcon.Clicked += this.OnTrayIconClicked;
         this.trayIcon.ExitRequested += (_, _) => Application.Exit();
 
@@ -561,6 +615,22 @@ internal sealed class MainForm : Form
             this.placeInCornerWhenShown = false;
             this.PlaceInCorner();
         }
+
+        // The Acrylic frame computed again once the window is on screen, as a change of DPI does it: applied before the
+        // first show only, a band at the top kept a plain colour.
+        if (this.acrylic)
+        {
+            UI.Glass.Apply(this.Handle, acrylic: true);
+            SetWindowPos(this.Handle, IntPtr.Zero, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
+        }
+
+        // An invalid special-characters.json, told once, over the window — posted, so the window is drawn first.
+        if (this.specialCharactersError is string error)
+        {
+            this.specialCharactersError = null;
+            this.BeginInvoke(() => MessageBox.Show(this, string.Format(CultureInfo.CurrentCulture, InvalidSpecialText,
+                SpecialCharacters.FileName, error), AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning));
+        }
     }
 
     // The details panel's height follows the width, set before the docking places the controls: set during it, the
@@ -581,8 +651,8 @@ internal sealed class MainForm : Form
         }
 
         ((SearchBar)this.searchBar).Glass = this.acrylic;
-        UI.Glass.SetOpaque(this.searchBox, this.acrylic);
-        UI.Glass.SetOpaque(this.clearButton, this.acrylic);
+        UI.Glass.SetOpaque(this.searchBox, this.acrylic, SearchBoxAlpha);
+        UI.Glass.SetOpaque(this.clearButton, this.acrylic, SearchBoxAlpha);
         this.tabStrip.Glass = this.acrylic;
         this.grid.Glass = this.acrylic;
         this.detailsPanel.Glass = this.acrylic;
@@ -601,6 +671,17 @@ internal sealed class MainForm : Form
             this.Opacity = 1.0;
             SettingsFile.WriteAcrylic();
             this.ApplyBackdrop();
+        }
+    }
+
+    // The strength of the Acrylic backdrop's veil, from the settings menu: drawn again at once, saved.
+    private void SetAcrylicVeil(int percent)
+    {
+        if (percent != UI.Glass.VeilPercent)
+        {
+            UI.Glass.VeilPercent = percent;
+            SettingsFile.WriteAcrylicVeil(percent);
+            this.Invalidate(invalidateChildren: true);
         }
     }
 
@@ -685,6 +766,14 @@ internal sealed class MainForm : Form
                 }
 
                 return;
+
+            // The Acrylic backdrop's frame extended again on every activation, as Microsoft's custom frame sample does:
+            // extended only before the first show, a band at the top kept a plain colour until a change of DPI made
+            // Windows compute the frame again.
+            case WmActivate when this.acrylic:
+                base.WndProc(ref m);
+                UI.Glass.Apply(this.Handle, acrylic: true);
+                return;
         }
 
         base.WndProc(ref m);
@@ -764,7 +853,8 @@ internal sealed class MainForm : Form
     }
 
     // The menu of the tab strip's settings button, shown under it, its right edge on the button's. One section per
-    // feature, in the window's order, separated by lines: frequently used, custom groups, details panel, window, app.
+    // feature, in the window's order, separated by lines: frequently used, custom groups, emoji categories, special
+    // characters, details panel, window, app.
     private ContextMenuStrip CreateSettingsMenu()
     {
         var menu = new ContextMenuStrip();
@@ -776,6 +866,17 @@ internal sealed class MainForm : Form
         menu.Items.Add(NewGroupText, image: null, (_, _) => this.NewGroup());
         var showGroups = new ToolStripMenuItem(ShowGroupsText);
         menu.Items.Add(showGroups);
+        menu.Items.Add(new ToolStripSeparator());
+        var showEmojiSubcategoriesItem = new ToolStripMenuItem(ShowEmojiSubcategoriesText);
+        showEmojiSubcategoriesItem.Click += (_, _) => this.SetShowEmojiSubcategories(!this.showEmojiSubcategories);
+        menu.Items.Add(showEmojiSubcategoriesItem);
+        menu.Items.Add(new ToolStripSeparator());
+        var showSpecialItem = new ToolStripMenuItem(ShowSpecialText);
+        showSpecialItem.Click += (_, _) => this.SetShowSpecial(!this.showSpecial);
+        menu.Items.Add(showSpecialItem);
+        var showSpecialSubcategoriesItem = new ToolStripMenuItem(ShowSpecialSubcategoriesText);
+        showSpecialSubcategoriesItem.Click += (_, _) => this.SetShowSpecialSubcategories(!this.showSpecialSubcategories);
+        menu.Items.Add(showSpecialSubcategoriesItem);
         menu.Items.Add(new ToolStripSeparator());
         var showFrenchItem = new ToolStripMenuItem(ShowFrenchText);
         showFrenchItem.Click += (_, _) => this.SetShowFrench(!this.detailsPanel.ShowFrench);
@@ -802,6 +903,16 @@ internal sealed class MainForm : Form
         acrylicItem.Click += (_, _) => this.SetAcrylic();
         windowOpacity.DropDownItems.Add(acrylicItem);
         menu.Items.Add(windowOpacity);
+        // The veil's strength, greyed while the backdrop is off.
+        var acrylicVeil = new ToolStripMenuItem(AcrylicVeilText);
+        foreach (int percent in VeilPercents)
+        {
+            var item = new ToolStripMenuItem($"{percent}%") { Tag = percent };
+            item.Click += (_, _) => this.SetAcrylicVeil(percent);
+            acrylicVeil.DropDownItems.Add(item);
+        }
+
+        menu.Items.Add(acrylicVeil);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
         var startWithWindowsItem = new ToolStripMenuItem(StartWithWindowsText);
@@ -815,12 +926,21 @@ internal sealed class MainForm : Form
         {
             this.FillShowGroups(showGroups);
             showFrequentItem.Checked = this.showFrequent;
+            showSpecialItem.Checked = this.showSpecial;
+            showEmojiSubcategoriesItem.Checked = this.showEmojiSubcategories;
+            showSpecialSubcategoriesItem.Checked = this.showSpecialSubcategories;
             clearFrequent.Enabled = !this.usage.IsEmpty;
             showFrenchItem.Checked = this.detailsPanel.ShowFrench;
             alwaysShowSkinToneItem.Checked = this.detailsPanel.AlwaysShowTone;
             foreach (ToolStripMenuItem item in windowOpacity.DropDownItems.OfType<ToolStripMenuItem>())
             {
                 item.Checked = item == acrylicItem ? this.acrylic : !this.acrylic && (int)item.Tag! == this.opacityPercent;
+            }
+
+            acrylicVeil.Enabled = this.acrylic;
+            foreach (ToolStripMenuItem item in acrylicVeil.DropDownItems)
+            {
+                item.Checked = (int)item.Tag! == UI.Glass.VeilPercent;
             }
 
             this.SetSwatch(highlightColorItem, this.detailsPanel.HighlightColor);
@@ -1192,6 +1312,59 @@ internal sealed class MainForm : Form
         this.RebuildSections(replaced);
     }
 
+    // The special characters' tab hidden or shown again, from the settings menu; saved. Its sections leave the grid —
+    // the search results too —, or come back last; the grid back at the top on its first emoji, unless a search is
+    // shown.
+    private void SetShowSpecial(bool show)
+    {
+        if (show == this.showSpecial)
+        {
+            return;
+        }
+
+        int replaced = this.SpecialSectionCount;
+        this.showSpecial = show;
+        SettingsFile.WriteShowSpecial(show);
+        this.grid.ReplaceCategories(this.FirstSpecialSection, replaced, this.ShownSpecialSections());
+        this.UpdateTabs();
+        this.AfterSectionsReplaced();
+    }
+
+    // The catalog's sub-categories shown or hidden, from the settings menu; saved. The tabs stay as they are.
+    private void SetShowEmojiSubcategories(bool show)
+    {
+        this.showEmojiSubcategories = show;
+        SettingsFile.WriteShowEmojiSubcategories(show);
+        this.grid.ReplaceCategories(this.FirstCustomSection + this.customSectionCount, this.categories.Count, this.ShownCatalogSections());
+        this.AfterSectionsReplaced();
+    }
+
+    // The special characters' sub-categories shown or hidden, from the settings menu; saved — the section rebuilt while
+    // shown.
+    private void SetShowSpecialSubcategories(bool show)
+    {
+        this.showSpecialSubcategories = show;
+        SettingsFile.WriteShowSpecialSubcategories(show);
+        this.grid.ReplaceCategories(this.FirstSpecialSection, this.SpecialSectionCount, this.ShownSpecialSections());
+        this.AfterSectionsReplaced();
+    }
+
+    // After sections came, went or changed shape: the grid back at the top on its first emoji — the search results
+    // found again while a search is shown —, the active tab following.
+    private void AfterSectionsReplaced()
+    {
+        if (string.IsNullOrWhiteSpace(this.searchBox.Text))
+        {
+            this.grid.ResetToTop();
+        }
+        else
+        {
+            this.OnSearchTextChanged();
+        }
+
+        this.tabStrip.ActiveTab = this.TabOf(this.grid.ActiveCategory);
+    }
+
     // The frequent and custom sections and the tabs built again after one of them was hidden or shown: the grid back
     // at the top on its first emoji — unless a search is shown — and the window's minimum width following the tabs.
     // replaced: how many sections the frequent and custom ones were.
@@ -1219,7 +1392,8 @@ internal sealed class MainForm : Form
             this.MinimumSize.Height);
     }
 
-    // The tabs: the frequent one and the custom one while shown, then the catalog's.
+    // The tabs: the frequent one and the custom one while shown, then the catalog's, then the special characters' while
+    // shown and not empty.
     private List<EmojiCategory> CreateTabs()
     {
         var tabs = new List<EmojiCategory>();
@@ -1234,6 +1408,11 @@ internal sealed class MainForm : Form
         }
 
         tabs.AddRange(this.categories);
+        if (this.SpecialSectionCount > 0)
+        {
+            tabs.Add(new EmojiCategory(SpecialHeader, SpecialIcon, []));
+        }
+
         return tabs;
     }
 
@@ -1281,7 +1460,8 @@ internal sealed class MainForm : Form
         }
         else
         {
-            this.grid.ShowSearchResults(EmojiSearch.Find(this.categories, text));
+            // The special characters before the catalog: on a tie, tm gives ™ before the emoji ™️.
+            this.grid.ShowSearchResults(EmojiSearch.Find([.. this.ShownSpecialSections(), .. this.categories], text));
             this.tabStrip.Greyed = true;
         }
     }
@@ -1316,10 +1496,16 @@ internal sealed class MainForm : Form
         this.FocusSearchBox();
     }
 
-    // The one place told an emoji was used: its counter goes up — the frequent tab hidden too.
-    private void OnEmojiUsed(string emoji)
+    // The one place told an emoji was used: its counter goes up — the frequent tab hidden too. A special character is
+    // not counted.
+    private void OnEmojiUsed(Emoji emoji)
     {
-        this.usage.Record(emoji);
+        if (emoji.IsText)
+        {
+            return;
+        }
+
+        this.usage.Record(emoji.Text);
         if (this.showFrequent)
         {
             this.grid.ReplaceCategory(0, this.CreateFrequentCategory());
@@ -1330,10 +1516,11 @@ internal sealed class MainForm : Form
     private List<EmojiCategory> CreateFrequentSections() => this.showFrequent ? [this.CreateFrequentCategory()] : [];
 
     // The frequent tab: the emojis used most, from the counters, each with its use count under it. One the catalog no
-    // longer has is left out. Its "…" button hides it.
+    // longer has is left out, and so is a special character. Its "…" button hides it.
     private EmojiCategory CreateFrequentCategory()
     {
-        List<Emoji> emojis = this.usage.MostUsed().Select(text => this.emojisByText.GetValueOrDefault(text)).OfType<Emoji>().ToList();
+        List<Emoji> emojis = this.usage.MostUsed().Select(text => this.emojisByText.GetValueOrDefault(text))
+            .OfType<Emoji>().Where(emoji => !emoji.IsText).ToList();
         List<string> counts = emojis.Select(emoji => this.usage.CountOf(emoji.Text))
             .Select(count => count > MaxShownCount ? $"{MaxShownCount}+" : count.ToString(CultureInfo.InvariantCulture))
             .ToList();
@@ -1378,21 +1565,38 @@ internal sealed class MainForm : Form
         this.tabStrip.ActiveTab = this.TabOf(this.grid.ActiveCategory);
     }
 
-    // The sections: the frequent one while shown, the custom ones next, then the catalog's. The tabs alike, every custom
-    // section under the custom tab — there while it has a section.
+    // The sections: the frequent one while shown, the custom ones next, then the catalog's, then the special
+    // characters' while shown. The tabs alike, every custom section under the custom tab — there while it has a section
+    // —, every special section under the special characters' tab.
     private int FirstCustomSection => this.showFrequent ? 1 : 0;
 
     private int CustomTab => this.FirstCustomSection;
 
     private int CustomTabCount => this.customSectionCount > 0 ? 1 : 0;
 
+    private int FirstSpecialSection => this.FirstCustomSection + this.customSectionCount + this.categories.Count;
+
+    private int SpecialSectionCount => this.showSpecial && this.specialCategory.Emojis.Count > 0 ? 1 : 0;
+
+    private int SpecialTab => this.CustomTab + this.CustomTabCount + this.categories.Count;
+
+    // The special characters' section while shown and not empty — its sub-categories while shown —, none otherwise.
+    private IReadOnlyList<EmojiCategory> ShownSpecialSections() =>
+        this.SpecialSectionCount == 0 ? []
+        : [this.showSpecialSubcategories ? this.specialCategory : this.specialCategory with { SubCategories = null }];
+
+    // The catalog's categories, their sub-categories while shown.
+    private IReadOnlyList<EmojiCategory> ShownCatalogSections() =>
+        this.showEmojiSubcategories ? this.categories : [.. this.categories.Select(category => category with { SubCategories = null })];
+
     // The tab of a section.
     private int TabOf(int section) =>
         section < this.FirstCustomSection ? section
         : section < this.FirstCustomSection + this.customSectionCount ? this.CustomTab
+        : section >= this.FirstSpecialSection ? this.SpecialTab
         : section - this.customSectionCount + this.CustomTabCount;
 
-    // The first section of a tab: up to the custom tab, the tab's own index.
+    // The first section of a tab: up to the custom tab, the tab's own index — the special characters' tab's included.
     private int SectionOf(int tab) =>
         tab < this.CustomTab + this.CustomTabCount ? tab : tab - this.CustomTabCount + this.customSectionCount;
 
@@ -1445,17 +1649,22 @@ internal sealed class MainForm : Form
     private void ShowEmojiMenu(EmojiGrid.EmojiRightClick click)
     {
         var menu = new ContextMenuStrip();
-        string shownText = this.ShownText(click.Emoji);
-        var useAsTrayIcon = new ToolStripMenuItem(UseAsTrayIconText) { Checked = this.trayIcon.Emoji == shownText };
-        useAsTrayIcon.Click += (_, _) => this.UseAsTrayIcon(shownText);
-        menu.Items.Add(useAsTrayIcon);
-        if (click.Emoji.Variants.Count > 0)
+        // A special character is no tray icon: its menu starts with Add to.
+        if (!click.Emoji.IsText)
         {
-            menu.Items.Add(this.CreateSkinToneMenu(click.Emoji));
-            menu.Closed += (_, _) => this.SetTonePreview(null);
+            string shownText = this.ShownText(click.Emoji);
+            var useAsTrayIcon = new ToolStripMenuItem(UseAsTrayIconText) { Checked = this.trayIcon.Emoji == shownText };
+            useAsTrayIcon.Click += (_, _) => this.UseAsTrayIcon(shownText);
+            menu.Items.Add(useAsTrayIcon);
+            if (click.Emoji.Variants.Count > 0)
+            {
+                menu.Items.Add(this.CreateSkinToneMenu(click.Emoji));
+                menu.Closed += (_, _) => this.SetTonePreview(null);
+            }
+
+            menu.Items.Add(new ToolStripSeparator());
         }
 
-        menu.Items.Add(new ToolStripSeparator());
         var addTo = new ToolStripMenuItem(AddToText) { Enabled = this.customGroups.Groups.Count > 0 };
         for (int group = 0; group < this.customGroups.Groups.Count; group++)
         {
@@ -1827,7 +2036,7 @@ internal sealed class MainForm : Form
         }
 
         // Counted for the emoji itself, whatever its tone.
-        this.OnEmojiUsed(emoji.Text);
+        this.OnEmojiUsed(emoji);
     }
 
     // Inserts the emoji as InsertEmoji does, but the window stays open: topmost, so the previous window brought to the
@@ -1845,7 +2054,7 @@ internal sealed class MainForm : Form
             this.TypeWhenReady(new PendingTyping(target, this.ShownText(emoji), KeepOpen: true, Environment.TickCount64));
         }
 
-        this.OnEmojiUsed(emoji.Text);
+        this.OnEmojiUsed(emoji);
     }
 
     // The previous window, just activated, gets the emoji once it is ready (EmojiInserter.IsReady) and TypingSettleDelay
@@ -2103,6 +2312,7 @@ internal sealed class MainForm : Form
     private const int DwmwcpRound = 2;
     private const int EmSetCueBanner = 0x1501;
     private const int WmChar = 0x0102;
+    private const int WmActivate = 0x0006;
     private const uint SwpNoSize = 0x1;
     private const uint SwpNoMove = 0x2;
     private const uint SwpNoZOrder = 0x4;

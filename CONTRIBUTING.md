@@ -23,6 +23,7 @@ published in `src/EmojiSelector/Data/Emojibase/` and embedded in the exe:
 |---|---|---|
 | `compact.en.json` | `en/compact.json` | The list: categories, order, names, English keywords |
 | `compact.fr.json` | `fr/compact.json` | French keywords, joined by hexcode |
+| `subgroups.json` | Derived from `en/data.json`, `en/messages.json` and `fr/messages.json` | The sub-categories: the subgroups' names, each emoji's subgroup |
 
 `version.txt` next to them holds the version, `LICENSE` and it embedded too. At launch,
 `Data/EmojiDataFolder` writes this embedded copy to `emoji-data\` next to the exe when that folder is
@@ -32,7 +33,28 @@ app's *Check for emoji updates…* replaces the folder with a newer published ve
 
 To update the embedded copy, replace both files and `LICENSE` with those of the new
 `emojibase-data` version (`https://cdn.jsdelivr.net/npm/emojibase-data@<version>/<en|fr>/compact.json`),
-then update `version.txt` and the version above.
+then update `version.txt` and the version above, and generate `subgroups.json` again — the script
+reads `version.txt` and downloads nothing else:
+
+```powershell
+pwsh src/EmojiSelector/Data/Emojibase/New-Subgroups.ps1
+```
+
+The app's *Check for emoji updates…* derives the same file for a newer version
+(`Data/EmojiSubgroups`).
+
+## Special characters
+
+The special characters' **default list** — five families, the sub-categories of the special
+characters' tab, each character with its English and French names and its aliases — is `src/EmojiSelector/Data/SpecialCharacters.json`, embedded in the exe. At
+launch, `Data/SpecialCharacters` writes it to `special-characters.json` next to the exe **only when
+that file is missing**: a file already there is the user's and is never overwritten. Changing the
+default therefore reaches new installs and users who reset the app, not the others.
+
+The file is camelCase JSON, UTF-8 without BOM, the characters written as themselves:
+`{ "families": [ { "name", "characters": [ { "character", "name", "frenchName", "aliases" } ] } ] }`.
+The English name is the Unicode name in lower case (`copyright sign`), the French one the usual
+French name (`symbole copyright`).
 
 ## App icon
 

@@ -26,9 +26,12 @@ internal sealed class EmojiBitmapCache : IDisposable
     private const int AtlasColumns = 64;
 
     // Bumped whenever the atlas or the rendering changes in a way the rest of the key does not tell.
-    private const int FormatVersion = 1;
+    private const int FormatVersion = 2;
 
     private readonly IReadOnlyList<string> emojis;
+
+    // The texts drawn as special characters, monochrome with the text font (see EmojiRenderer).
+    private readonly IReadOnlySet<string> characters;
     private readonly SynchronizationContext? uiContext;
 
     // Held while an atlas is written, so StopWriting returns only once no write is under way.
@@ -38,9 +41,11 @@ internal sealed class EmojiBitmapCache : IDisposable
     private bool writingStopped;
 
     /// <param name="emojis">Every emoji, in the order they are pre-rendered: the first ones are ready first.</param>
-    public EmojiBitmapCache(IReadOnlyList<string> emojis)
+    /// <param name="characters">The ones among them drawn as <b>special characters</b>.</param>
+    public EmojiBitmapCache(IReadOnlyList<string> emojis, IReadOnlySet<string> characters)
     {
         this.emojis = emojis;
+        this.characters = characters;
         this.uiContext = SynchronizationContext.Current;
     }
 
@@ -174,7 +179,7 @@ internal sealed class EmojiBitmapCache : IDisposable
                 Bitmap bitmap;
                 try
                 {
-                    bitmap = renderer.Render(this.emojis[i], run.Size);
+                    bitmap = renderer.Render(this.emojis[i], run.Size, this.characters.Contains(this.emojis[i]));
                 }
                 catch (Exception exception) when (exception is COMException or ExternalException)
                 {
@@ -229,13 +234,16 @@ internal sealed class EmojiBitmapCache : IDisposable
         string fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "seguiemj.ttf");
         var font = new FileInfo(fontPath);
         string fontStamp = font.Exists ? $"{font.Length};{font.LastWriteTimeUtc.Ticks}" : "missing";
-        string emojiHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', this.emojis))));
+        // A special character is marked: drawn as text, its bitmap is not the emoji's.
+        string emojiHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n',
+            this.emojis.Select(emoji => this.characters.Contains(emoji) ? "text:" + emoji : emoji)))));
         return string.Join('\n',
             $"format={FormatVersion}",
             $"size={size}",
             $"font={fontStamp}",
             $"emojis={emojiHash}",
             $"renderer={EmojiRenderer.FontScale.ToString(System.Globalization.CultureInfo.InvariantCulture)};{EmojiRenderer.RaiseScale.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            $"text={EmojiRenderer.TextFontFamily};{EmojiRenderer.TextFontScale.ToString(System.Globalization.CultureInfo.InvariantCulture)};{EmojiRenderer.TextRaiseScale.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
             // The flag images in use: another Twemoji version, embedded or downloaded, may draw the same flags otherwise.
             $"flags={FlagImages.Version};{FlagImages.FolderImageCount}",
             "");

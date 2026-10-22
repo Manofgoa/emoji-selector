@@ -8,7 +8,7 @@ namespace EmojiSelector.Drawing;
 /// <summary>
 /// Draws an <b>emoji in colour</b>. GDI and GDI+ only draw Segoe UI Emoji in monochrome: the emoji goes through
 /// Direct2D and DirectWrite, colour fonts enabled, onto a WIC bitmap whose pixels are then copied to a
-/// <see cref="Bitmap"/>. The WIC bitmap, render target, text format and brush are built once per size and reused:
+/// <see cref="Bitmap"/>. The WIC bitmap, render target, text formats and brush are built once per size and reused:
 /// they cost far more than drawing a glyph. Single-threaded: one instance per thread.
 /// <para>
 /// A flag Segoe UI Emoji cannot draw is drawn from its <b>flag image</b> instead (<see cref="FlagImages"/>), by
@@ -16,6 +16,10 @@ namespace EmojiSelector.Drawing;
 /// that fails to draw falls back to the font.
 /// </para>
 /// </summary>
+/// <remarks>
+/// A <b>special character</b> is drawn as text instead: monochrome, with <see cref="TextFontFamily"/>, smaller —
+/// Segoe UI Emoji would draw © ® ™ in colour, and take the others from another font.
+/// </remarks>
 internal sealed class EmojiRenderer : IDisposable
 {
     public const string FontFamily = "Segoe UI Emoji";
@@ -27,6 +31,16 @@ internal sealed class EmojiRenderer : IDisposable
     // Centred in its line box, a glyph sits low: the layout box is raised by this share of the square.
     public const float RaiseScale = 0.024f;
 
+    /// <summary>The font of the special characters.</summary>
+    public const string TextFontFamily = "Segoe UI";
+
+    // The special characters' font size, as a share of the square: a letter and its accent fit in it with room around,
+    // like a glyph among the emojis.
+    public const float TextFontScale = 0.8f;
+
+    // Centred in its line box, a capital of Segoe UI sits low: the layout box is raised by this share of the square.
+    public const float TextRaiseScale = 0.05f;
+
     private readonly ID2D1Factory direct2DFactory;
     private readonly IDWriteFactory directWriteFactory;
     private readonly IWICImagingFactory wicFactory;
@@ -36,6 +50,7 @@ internal sealed class EmojiRenderer : IDisposable
     private IWICBitmap? wicBitmap;
     private ID2D1RenderTarget? renderTarget;
     private IDWriteTextFormat? textFormat;
+    private IDWriteTextFormat? characterFormat;
     private ID2D1SolidColorBrush? brush;
 
     public EmojiRenderer()
@@ -49,8 +64,11 @@ internal sealed class EmojiRenderer : IDisposable
         this.wicFactory = (IWICImagingFactory)Activator.CreateInstance(Type.GetTypeFromCLSID(WicImagingFactoryClsid, throwOnError: true)!)!;
     }
 
-    /// <summary>Draws <paramref name="emoji"/> centred on a transparent square of <paramref name="size"/> pixels.</summary>
-    public Bitmap Render(string emoji, int size)
+    /// <summary>
+    /// Draws <paramref name="emoji"/> centred on a transparent square of <paramref name="size"/> pixels — as a special
+    /// character, monochrome with the text font, when <paramref name="asText"/>.
+    /// </summary>
+    public Bitmap Render(string emoji, int size, bool asText = false)
     {
         if (FlagImages.TryGet(emoji, out byte[] svg) && this.TryRenderSvg(svg, size) is Bitmap flag)
         {
@@ -61,11 +79,12 @@ internal sealed class EmojiRenderer : IDisposable
         {
             this.EnsureResources(size);
             ID2D1RenderTarget renderTarget = this.renderTarget!;
-            float raise = size * RaiseScale;
+            float raise = size * (asText ? TextRaiseScale : RaiseScale);
             renderTarget.BeginDraw();
             renderTarget.Clear(new ColorF(0, 0, 0, 0));
-            renderTarget.DrawText(emoji, emoji.Length, this.textFormat!, new RectF(0, -raise, size, size - raise), this.brush!,
-                D2D1DrawTextOptionsEnableColorFont, DWriteMeasuringModeNatural);
+            renderTarget.DrawText(emoji, emoji.Length, asText ? this.characterFormat! : this.textFormat!,
+                new RectF(0, -raise, size, size - raise), this.brush!,
+                asText ? D2D1DrawTextOptionsNone : D2D1DrawTextOptionsEnableColorFont, DWriteMeasuringModeNatural);
             Marshal.ThrowExceptionForHR(renderTarget.EndDraw(IntPtr.Zero, IntPtr.Zero));
             return this.CopyToBitmap(size);
         }
@@ -110,8 +129,13 @@ internal sealed class EmojiRenderer : IDisposable
         this.textFormat = textFormat;
         Marshal.ThrowExceptionForHR(textFormat.SetTextAlignment(DWriteTextAlignmentCenter));
         Marshal.ThrowExceptionForHR(textFormat.SetParagraphAlignment(DWriteParagraphAlignmentCenter));
+        Marshal.ThrowExceptionForHR(this.directWriteFactory.CreateTextFormat(TextFontFamily, IntPtr.Zero,
+            DWriteFontWeightNormal, DWriteFontStyleNormal, DWriteFontStretchNormal, size * TextFontScale, "", out IDWriteTextFormat characterFormat));
+        this.characterFormat = characterFormat;
+        Marshal.ThrowExceptionForHR(characterFormat.SetTextAlignment(DWriteTextAlignmentCenter));
+        Marshal.ThrowExceptionForHR(characterFormat.SetParagraphAlignment(DWriteParagraphAlignmentCenter));
 
-        // The brush only paints a glyph the font has no colour version of.
+        // The brush paints a glyph the font has no colour version of, and the special characters.
         Marshal.ThrowExceptionForHR(renderTarget.CreateSolidColorBrush(new ColorF(0, 0, 0, 1), IntPtr.Zero, out ID2D1SolidColorBrush brush));
         this.brush = brush;
 
@@ -188,10 +212,12 @@ internal sealed class EmojiRenderer : IDisposable
     {
         Release(this.brush);
         Release(this.textFormat);
+        Release(this.characterFormat);
         Release(this.renderTarget);
         Release(this.wicBitmap);
         this.brush = null;
         this.textFormat = null;
+        this.characterFormat = null;
         this.renderTarget = null;
         this.wicBitmap = null;
     }
