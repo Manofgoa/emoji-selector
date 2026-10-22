@@ -693,15 +693,16 @@ Iterations 11–14).
 - **Shown**: the category's **header stays**; each sub-category starts a **new row**, its label at the
   start of its first row, its cells to the right; one longer than a row continues on the next rows,
   under the cells, the label column empty.
-- **The label column** (`EmojiGrid.LabelWidth`): one width for the whole grid — the widest label
-  shown, measured in the grid's font (cached, measured again after a change of font or DPI), plus
-  `LogicalLabelGap` (12) —, so every labelled section's cells line up; at most a **third** of the
-  grid's width, a longer label ending with an ellipsis. Labels grey (`SystemColors.GrayText`, darker
+- **The label column** (`EmojiGrid.LabelWidth`, `EmojiGridLayout.Section.LabelWidth`): one width **per
+  category** — the widest label of its own sub-categories, measured in the grid's font (cached,
+  measured again after a change of font or DPI), plus `LogicalLabelGap` (12) —, so its rows' cells
+  line up; another category's may be narrower or wider. At most a **third** of the grid's width, a
+  longer label ending with an ellipsis. Labels grey (`SystemColors.GrayText`, darker
   on Acrylic), vertically centred on their first row. A section without sub-categories keeps its cells
   from the left edge, the full width.
 - **Layout** (`UI/EmojiGridLayout.cs`): each section has its **rows** — the index of each row's first
-  emoji (`Section.Breaks`: the sub-categories' starts) —, its left edge and its column count, fewer in a
-  labelled section; `CellBounds`, `LabelBounds`, `HitTest` (nothing on a label), `CellsIn`, `Below` /
+  emoji (`Section.Breaks`: the sub-categories' starts) —, its left edge — after its own label column —
+  and its column count, fewer in a labelled section; `CellBounds`, `LabelBounds`, `HitTest` (nothing on a label), `CellsIn`, `Below` /
   `Above` (the column index kept, a shorter row giving its last cell) and `Insertion` read them.
 - **Emoji subgroups — `subgroups.json`** (`Data/EmojiSubgroups.cs`), a file of the emoji data set (see
   *Emoji Data*): Emojibase's `compact.json` has no subgroup. `{ "subgroups": [ { "key", "name",
