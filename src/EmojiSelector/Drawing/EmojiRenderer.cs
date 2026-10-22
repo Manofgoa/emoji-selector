@@ -30,10 +30,10 @@ internal sealed class EmojiRenderer : IDisposable
 
     // The special characters' font size, as a share of the square: a letter and its accent fit in it with room around,
     // like a glyph among the emojis.
-    public const float TextFontScale = 0.6f;
+    public const float TextFontScale = 0.8f;
 
     // Centred in its line box, a capital of Segoe UI sits low: the layout box is raised by this share of the square.
-    public const float TextRaiseScale = 0.04f;
+    public const float TextRaiseScale = 0.05f;
 
     private readonly ID2D1Factory direct2DFactory;
     private readonly IDWriteFactory directWriteFactory;
