@@ -480,6 +480,7 @@ says so rather than staying blank.
 | README | 8, 14, 16, 17 | 2026-10-22 | § *Special characters*, menu, reset — `README.md` and `README.fr.md` in the same commit |
 | CONTRIBUTING.md | 8, 14 | 2026-10-22 | § *Special characters*: the embedded default and its format |
 | GLOSSARY | 8, 14, 16 | 2026-10-22 | Special character, family, alias — `GLOSSARY.md` and `GLOSSARY.fr.md` in the same commit |
+| Merge | 17 | 2026-10-22 | Merged into `main` (`--no-ff`, no conflict, `main` built after it); worktree and branch removed once the app running from the worktree exits |
 
 ---
 
