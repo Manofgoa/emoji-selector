@@ -42,6 +42,9 @@ internal sealed class EmojiGrid : Control
     private const int LogicalPadding = 8;
     private const int LogicalSelectionWidth = 2;
 
+    // Between a sub-category's label and its first cell.
+    private const int LogicalLabelGap = 12;
+
     // A captioned section's cells: as wide as the others, taller to hold the caption under the emoji. The emoji's
     // distance from the top of its cell, and the caption's font size in points.
     private const int LogicalCaptionedCellHeight = 54;
@@ -66,6 +69,9 @@ internal sealed class EmojiGrid : Control
     private int? categoriesOffset;
 
     private EmojiGridLayout layout;
+
+    // The sub-category labels' widths in the grid's font, measured once: cleared when the font or the DPI changes.
+    private readonly Dictionary<string, int> labelWidths = [];
     private Font headerFont;
     private Font captionFont;
     private (int Section, int Index)? hovered;
@@ -534,6 +540,25 @@ internal sealed class EmojiGrid : Control
                 UI.Glass.DrawText(graphics, this.glass, emptyText, this.Font, message, SystemColors.GrayText,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
             }
+
+            // Each sub-category's name at the start of its first row, the gap before the cells kept.
+            int labelGap = this.LogicalToDeviceUnits(LogicalLabelGap);
+            foreach (SubCategory subCategory in this.sections[section].SubCategories ?? [])
+            {
+                if (subCategory.Start >= this.sections[section].Emojis.Count)
+                {
+                    continue;
+                }
+
+                Rectangle label = this.layout.LabelBounds(section, subCategory.Start);
+                label.Offset(0, -offset);
+                label.Width = Math.Max(0, label.Width - labelGap);
+                if (label.IntersectsWith(clip))
+                {
+                    UI.Glass.DrawText(graphics, this.glass, subCategory.Name, this.Font, label, SystemColors.GrayText,
+                        TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+                }
+            }
         }
 
         int emojiSize = this.EmojiSize;
@@ -589,6 +614,7 @@ internal sealed class EmojiGrid : Control
     {
         base.OnDpiChangedAfterParent(e);
         this.EnsureBitmapSize();
+        this.labelWidths.Clear();
         this.Relayout();
     }
 
@@ -609,7 +635,17 @@ internal sealed class EmojiGrid : Control
         Font previousCaption = this.captionFont;
         this.captionFont = new Font(this.Font.FontFamily, this.Font.Size - CaptionFontShrink);
         previousCaption.Dispose();
-        this.Invalidate();
+        // The labels are measured again in the new font: the column follows them — at the next resize before the
+        // handle exists.
+        this.labelWidths.Clear();
+        if (this.IsHandleCreated)
+        {
+            this.Relayout();
+        }
+        else
+        {
+            this.Invalidate();
+        }
     }
 
     protected override void OnMouseWheel(MouseEventArgs e)
@@ -761,12 +797,35 @@ internal sealed class EmojiGrid : Control
     private EmojiGridLayout CreateLayout(IReadOnlyList<EmojiCategory> sections) => new(
         sections.Select(section => new EmojiGridLayout.Section(
             section.Emojis.Count, MinRows: section.EmptyText is null ? 0 : 1, section.MaxRows,
-            section.Captions is null ? null : this.LogicalToDeviceUnits(LogicalCaptionedCellHeight))).ToList(),
+            section.Captions is null ? null : this.LogicalToDeviceUnits(LogicalCaptionedCellHeight),
+            section.SubCategories?.Select(subCategory => subCategory.Start).ToList())).ToList(),
         this.ClientSize.Width - this.scrollBar.Width,
         this.ViewportHeight,
         this.LogicalToDeviceUnits(LogicalCellSize),
         this.LogicalToDeviceUnits(LogicalHeaderHeight),
-        this.LogicalToDeviceUnits(LogicalPadding));
+        this.LogicalToDeviceUnits(LogicalPadding),
+        this.LabelWidth(sections));
+
+    // The label column of the sections with sub-categories: the widest label, then a gap before the cells; at most a
+    // third of the width — a longer label ends with an ellipsis. 0 without a sub-category.
+    private int LabelWidth(IReadOnlyList<EmojiCategory> sections)
+    {
+        int widest = 0;
+        foreach (SubCategory subCategory in sections.SelectMany(section => section.SubCategories ?? []))
+        {
+            if (!this.labelWidths.TryGetValue(subCategory.Name, out int width))
+            {
+                width = TextRenderer.MeasureText(subCategory.Name, this.Font, Size.Empty, TextFormatFlags.NoPrefix).Width;
+                this.labelWidths[subCategory.Name] = width;
+            }
+
+            widest = Math.Max(widest, width);
+        }
+
+        int padding = this.LogicalToDeviceUnits(LogicalPadding);
+        int available = this.ClientSize.Width - this.scrollBar.Width - 2 * padding;
+        return widest == 0 ? 0 : Math.Min(widest + this.LogicalToDeviceUnits(LogicalLabelGap), available / 3);
+    }
 
     private void Relayout()
     {
