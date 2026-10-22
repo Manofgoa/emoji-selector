@@ -213,12 +213,18 @@ checked by hand (custom-drawn, no accessibility), the search also by `WM_SETTEXT
 - [x] ~~Can the tab be hidden from the settings menu?~~ → Yes, `Show special characters`, saved as
   `showSpecial`
 - [x] ~~Is the character and alias list the default to ship?~~ → Yes, as it stands
-- [ ] Sub-categories (Iteration 11): only in the special characters' tab, or the emoji categories too
-  (Emojibase's subgroups: *face-smiling*, *hand-fingers-open*…)?
-- [ ] Sub-categories and families: does a family become a sub-category (its label at the start of its
-  row, no section header), or do families stay sections holding sub-categories?
-- [ ] The label: one column as wide as the widest label, every row aligned — or each label its own
-  width? A row longer than the window: its next rows under the cells, the label column left empty?
+- [x] ~~Sub-categories: only in the special characters' tab, or the emoji categories too?~~ → **Both**,
+  each with its own checkbox in the settings menu showing its sub-categories or not (Iteration 12)
+- [x] ~~Sub-categories and families?~~ → The **families are the sub-categories** of the one special
+  characters' category (its tab) (Iteration 12)
+- [x] ~~The label?~~ → **One aligned column**, as wide as the widest label; a longer row continues
+  under the cells, the label column empty (Iteration 12)
+- [ ] Special characters with their sub-categories **off**: one flat section (`Special characters`), or
+  the family sections with their headers, as today?
+- [ ] Emoji sub-categories: the compact data has **no subgroup** — where do they come from (Emojibase's
+  full `data.json` and `messages.json`, or a derived file)?
+- [ ] The default of each checkbox?
+- [ ] With sub-categories on, is the category's section header kept above the labelled rows?
 - [x] ~~A settings menu item opening `special-characters.json` in the user's editor?~~ → No: `Open app
   folder` is enough; an edit is read at the next launch
 - [x] ~~`Reset all settings…`: does it delete the user's edited file?~~ → Yes, back to the default
@@ -348,6 +354,15 @@ User request: a new concept, the **sub-category**. The **category** is a tab of 
 questions open (see *Open Questions*): where it applies, how it relates to the families, the
 label's width and the rows that wrap.
 
+### Iteration 12 — 2026-10-22 — ⚙️ Post-implementation — Sub-categories, first answers
+
+- **Both** the emoji categories and the special characters get sub-categories, each with its own
+  **checkbox** in the settings menu, showing them or not.
+- **Special characters**: one category — its tab —; the current families are its **sub-categories**.
+- **Label**: one aligned column, as wide as the widest label; a longer row continues under the cells.
+- Found in the data: Emojibase's `compact.json` carries **no subgroup** — the emoji sub-categories need
+  another source. Four questions added.
+
 ---
 
 ## Implementation Log
@@ -386,9 +401,13 @@ Questions asked by the agent during design, with user responses.
 | 12 | Can the tab be hidden from the settings menu? | Yes, `Show special characters` | 2026-10-22 |
 | 13 | Is the character and alias list the default to ship? | Yes, as it stands | 2026-10-22 |
 | 14 | A settings menu item opening the file in the user's editor? | No |
-| 15 | Sub-categories: special characters' tab only, or the emoji categories too? | | 2026-10-22 |
-| 16 | Families and sub-categories: a family becomes a sub-category, or families hold sub-categories? | | 2026-10-22 |
-| 17 | The label: one aligned column or each its own width; a long row's continuation? | | 2026-10-22 | 2026-10-22 | 2026-10-22 | 2026-10-22 |
+| 15 | Sub-categories: special characters' tab only, or the emoji categories too? | Both, each with a checkbox option showing the sub-categories or not | 2026-10-22 |
+| 16 | Families and sub-categories: a family becomes a sub-category, or families hold sub-categories? | One tab / category for the special characters; the current groupings under it are the sub-categories | 2026-10-22 |
+| 17 | The label: one aligned column or each its own width; a long row's continuation? | Aligned column | 2026-10-22 |
+| 18 | Special characters, sub-categories off: one flat section, or the family sections as today? | | 2026-10-22 |
+| 19 | Emoji sub-categories: source of the subgroups (full data.json + messages.json, or derived file)? | | 2026-10-22 |
+| 20 | Default of each checkbox? | | 2026-10-22 |
+| 21 | With sub-categories on, is the category's header kept above the rows? | | 2026-10-22 | 2026-10-22 | 2026-10-22 | 2026-10-22 |
 
 ---
 
