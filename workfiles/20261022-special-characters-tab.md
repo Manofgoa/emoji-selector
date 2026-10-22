@@ -147,7 +147,7 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
   with uneven metrics.
 - Decided (Iteration 6): the special characters are drawn **monochrome with Segoe UI**, the text font — a second
   `IDWriteTextFormat` in the renderer, chosen for them, at a smaller scale than the emojis' so a
-  letter does not fill its cell (`TextFontScale` 0.6, raised by `TextRaiseScale` 0.04). Colour: black,
+  letter does not fill its cell (`TextFontScale` 0.8, raised by `TextRaiseScale` 0.05 — Iteration 10). Colour: black,
   the renderer's existing brush (Iteration 9).
 - **Pre-render**: the special characters join the grid's pre-render list (the cache key holds the
   list: rendered again automatically); the renderer's change **bumps
@@ -327,6 +327,13 @@ The run took these decisions the frozen design did not state; no project rule wa
 - `EmojiCatalog.Keywords` and `Capitalize` made `internal`, shared with `SpecialCharacters`.
 - **Seen in the checks, left as is**: the details panel draws the alias `<<` with a visible gap
   (`< <`) in its tag row — the panel's own text drawing, outside the scope.
+
+### Iteration 10 — 2026-10-22 — ⚙️ Post-implementation — Larger special characters
+
+User request: the special characters are too small in their cells — draw them larger.
+`EmojiRenderer.TextFontScale` 0.6 → **0.8** of the cell, `TextRaiseScale` 0.04 → 0.05 (the same share
+of the font size): an accented capital (É) and a descender (Ç) still fit. The cache key's `text=` line
+holds both, so the bitmaps are rendered again.
 
 ---
 
