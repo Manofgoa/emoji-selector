@@ -32,6 +32,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Clear frequently used` | After a confirmation, every use counter reset (see *Frequent Tab* below) |
 | Settings button ⚙ → `New group…` | Asks for a name, then creates a **custom group**, last, and scrolls to it (see *Custom Tab* below) |
 | Settings button ⚙ → `Show groups ▸` | Every custom group, checked while shown: a click hides it or shows it again (see *Custom Tab* below) |
+| Settings button ⚙ → `Show special characters` | Checked while the special characters' tab is shown: a click hides it or shows it again (see *Special Characters Tab* below) |
 | Settings button ⚙ → `Show French names` | Checked while the details panel shows its French row: a click hides it or shows it again (see *Details Panel* below) |
 | Settings button ⚙ → `Highlight color…` | Windows' colour dialog: the colour highlighting the search's matches in the details panel (see *Details Panel* below) |
 | Settings button ⚙ → `Always show skin tone` | Checked while the details panel's tone swatch shows whatever the selection: a click turns it off — the swatch only on an emoji with variants — or on again (see *Skin Tones* below); the window stays |
@@ -45,16 +46,17 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Tray icon, left click | Hidden → shown in the **corner** of the mouse's monitor (see *Corner* below); covered by another window → brought to the front, not moved; already in front → hidden |
 | Tray icon, right click → `Exit` | Ends the app |
 | Win+; or Win+. — or an app's "Emoji — Windows+Period" menu entry that sends it | Hidden or covered → shown **under the text cursor** of the previous window and brought to the front; already in front → hidden, the previous window getting the foreground back (see *Shortcut* below) |
-| Emoji clicked in the grid — not one of the group in reorder mode | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below); its use counted (see *Frequent Tab* below) |
+| Emoji clicked in the grid — not one of the group in reorder mode | Inserted into the **previous window**, then the window hides to the tray (see *Insertion* below); its use counted (see *Frequent Tab* below) — a special character's never |
 | Emoji Ctrl+clicked in the grid — Ctrl alone, not one of the group in reorder mode | Inserted into the previous window, the window **kept open** (see *Keep-Open Insertion* below) |
-| Emoji right-clicked in the grid — or the Menu key / Shift+F10 on the grid's selection | Its menu: `Use as tray icon`, `Skin tone ▸` on an emoji with variants (see *Skin Tones* below), then `Add to ▸` the custom groups, `Remove` in a group (see *Custom Tab* below), `Remove from frequently used` in the frequent section (see *Frequent Tab* below) |
+| Emoji right-clicked in the grid — or the Menu key / Shift+F10 on the grid's selection | Its menu: `Use as tray icon` (never on a special character, see *Special Characters Tab* below), `Skin tone ▸` on an emoji with variants (see *Skin Tones* below), then `Add to ▸` the custom groups, `Remove` in a group (see *Custom Tab* below), `Remove from frequently used` in the frequent section (see *Frequent Tab* below) |
 | Enter, in the search box or the grid | Inserts the **selection**, like a click on it (see *Keyboard* below) — never an emoji of the group in reorder mode |
 | Ctrl+Enter, in the search box or the grid | Inserts the selection like Enter, the window **kept open** (see *Keep-Open Insertion* below) |
 | Esc, in the search box or the grid | Ends the reorder mode; otherwise clears the box; already empty → hides the window to the tray |
 | Any other close reason — Windows shutting down, the Task Manager, a `WM_CLOSE` sent by another process | Ends the app, never blocked |
 
 - The tray icon shows the **emoji the user chose**, 🙂 by default (`TrayIcon.DefaultEmoji`): using an
-  emoji never changes it. **`Use as tray icon`**, first in an emoji's right-click menu in any section,
+  emoji never changes it. **`Use as tray icon`**, first in an emoji's right-click menu in any section — a
+  special character's aside —,
   a separator after it, **checked** on the emoji the icon shows: a click shows it at once and saves
   it as `trayEmoji` in `settings.json` (see *Size* below) — the default 🙂 included, there is no
   reset; the window stays. Reloaded at launch; an emoji the catalog does not have shows 🙂, its key
@@ -96,9 +98,10 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 - The close cross and the settings button belong to the tab strip (`UI/CategoryTabStrip.cs`) and
   are never greyed by a search. The cross turns Windows red on hover; the settings button's menu is a
   `ContextMenuStrip` shown under it, owned by `MainForm`.
-- The settings menu has **five sections**, one per feature, in the window's order, separated by
+- The settings menu has **six sections**, one per feature, in the window's order, separated by
   lines and **untitled** (`MainForm.CreateSettingsMenu`): *frequently used* (`Show frequently used`,
-  `Clear frequently used`), *custom groups* (`New group…`, `Show groups ▸`), *details panel* (`Show
+  `Clear frequently used`), *custom groups* (`New group…`, `Show groups ▸`), *special characters*
+  (`Show special characters`), *details panel* (`Show
   French names`, `Highlight color…`, `Always show skin tone`), *window* (`Reset window size`, `Window opacity ▸`, `Acrylic veil ▸`), *app* (`Open app folder`,
   `Start with Windows`, `Check for emoji updates…`, `Reset all settings…`). A new item joins the section of its feature; the labels say their
   subject on their own.
@@ -121,7 +124,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   in place of the default. Not at exit: Windows shutting down or the Task Manager may end the app
   without running its code. A move, or a drag to a monitor of another scale, saves nothing.
 - `settings.json` is the app's **shared settings file** (`Data/SettingsFile.cs`): `{ "windowWidth":
-  …, "windowHeight": …, "trayEmoji": …, "showFrequent": …, "showFrench": …, "highlightColor": …, "opacity": …,
+  …, "windowHeight": …, "trayEmoji": …, "showFrequent": …, "showSpecial": …, "showFrench": …, "highlightColor": …, "opacity": …,
   "acrylicVeil": …, "skinTone": …, "alwaysShowSkinTone": … }`;
   a write keeps the keys it does not
   know. Written through `settings.json.new` then a replace, the emojis as themselves
@@ -342,7 +345,7 @@ launch the app at sign-in, hidden in the notification area. Off by default.
 
 ## Categories and Insertion
 
-- **Categories** come from `Data/EmojiCatalog.cs` only — the frequent and custom tabs aside (see *Frequent Tab*, *Custom Tab*): seven tabs in the Win+; order, the Emojibase
+- **Categories** come from `Data/EmojiCatalog.cs` only — the frequent, custom and special characters' tabs aside (see *Frequent Tab*, *Custom Tab*, *Special Characters Tab*): seven tabs in the Win+; order, the Emojibase
   data of `emoji-data\` next to the exe (see *Emoji Data* below). Left out:
   components, flags. The skin-tone variants are no emojis of their own: each one is kept on its
   emoji (`Emoji.Variants`, see *Skin Tones*). An emoji newer than the system font is kept (a box).
@@ -458,10 +461,10 @@ Always enabled.
 
 - **Confirmation**: Yes / No, **No the default**, the warning icon, listing what is lost — the custom
   groups, the counters, the window size and opacity, the tray emoji and the details panel's settings, the
-  skin tones, Start with Windows, the downloaded emoji data (back to the **embedded** version, named:
+  skin tones, the special characters' list (back to the default one), Start with Windows, the downloaded emoji data (back to the **embedded** version, named:
   `EmojiDataFolder.EmbeddedVersion`), the image cache — and saying the app restarts.
 - **What is deleted** (`AppReset.DeleteAll`), next to the exe: `settings.json`, `usage.json`,
-  `custom-groups.json`, `skin-tones.json` and their temporary files (`TemporaryFileName`), the whole `cache\` and
+  `custom-groups.json`, `skin-tones.json`, `special-characters.json` and their temporary files (`TemporaryFileName`), the whole `cache\` and
   `emoji-data\` folders; in the Startup folder, the **startup shortcut** and the Task Manager's value —
   **only when the shortcut targets this exe**, disabled or not (`StartupShortcut.DisableForThisExe`): a
   shortcut to another copy of the app is left alone. Nothing else, never the exe's folder itself.
@@ -515,8 +518,8 @@ and the grid, built from the counters (`MainForm.CreateFrequentCategory`), not f
   kept for it — the mechanism `No emoji found` uses too).
 - **Every show** scrolls the grid to the top, on the first section — this one while shown
   (`OnVisibleChanged`).
-- The **search box** searches the catalog's categories only: the frequent section would give each of
-  its emojis twice.
+- The **search box** searches the catalog's categories and the special characters' only: the frequent
+  section would give each of its emojis twice.
 - The grid pre-renders the catalog's emojis only (`EmojiGrid`'s `emojis` argument): the frequent
   section reuses their bitmaps, and the disk cache's key never changes with the counters.
 - **Clear frequently used**, in the settings menu: a Yes / No confirmation, *No* the default, then
@@ -585,8 +588,76 @@ section reading `Create a group from ⚙ → New group…`; while every group is
   (`EmojiGridLayout.Insertion`), the release drops it (`EmojiMoved`) and the file is written at once.
   A click or Enter on its emojis inserts nothing; the other sections insert as usual. It ends on
   `Done`, Esc, the window hiding, a search, and a group being moved or deleted.
-- The **search box** searches the catalog's categories only: a group would give its emojis twice.
-- The grid pre-renders the catalog's emojis only: the groups reuse their bitmaps.
+- The **search box** searches the catalog's categories and the special characters' only: a group would
+  give its emojis twice.
+- The grid pre-renders the catalog's emojis and the special characters only: the groups reuse their
+  bitmaps.
+
+## Special Characters Tab
+
+The last tab, **Special characters** (*Characters*, `E8C1`), offers the characters hard to type on a
+keyboard — ©, «, —, É, €, ±… —, one section per **family**, in the file's order (origin:
+`workfiles/20261022-special-characters-tab.md`). They are inserted, searched, copied and added to the
+custom groups like the emojis.
+
+- **`special-characters.json`, next to the exe** (`Data/SpecialCharacters.cs`), **the user's to
+  edit**: `{ "families": [ { "name", "characters": [ { "character", "name", "frenchName", "aliases"
+  } ] } ] }`, camelCase, the characters as themselves; comments and trailing commas are read. A
+  family's `name` is its section's header; `character` is any text, usually one character.
+- **Its default** is embedded in the exe (`Data/SpecialCharacters.json`, `EmbeddedResource`):
+  five families — *Legal & references*, *Punctuation & typography*, *Accented letters & ligatures*,
+  *Currencies*, *Maths, units & fractions*, 76 characters.
+- **At launch** (`SpecialCharacters.Load`):
+
+  | The file | Does |
+  |---|---|
+  | Missing | Written from the embedded default (`.tmp` then a replace), then used |
+  | Valid | Used as it is — **never rewritten**, even when the exe ships a newer default: the user's edits win |
+  | Invalid — not JSON, or no `families` list | **Kept as it is**; the embedded default used in memory; a **warning** on the window's first show |
+  | Unreadable, or a folder that cannot be written | The embedded default used in memory — never an error |
+
+- **The warning** (`MainForm.InvalidSpecialText`): `special-characters.json is not valid:` the
+  `JsonException`'s message, its line included, `The default list is used until it is fixed.`, OK,
+  the warning icon — once, posted from `OnShown` on the window's first show (a `--background` launch:
+  its first Win+;), never before a window exists.
+- **Lenient inside a valid file**: an entry without its `character` is left out, a character given
+  twice keeps its first entry, missing names and aliases are empty, a family without a character has
+  no section; no character at all → no tab.
+- An edit is read at the **next launch**; `Open app folder` finds the file. `Reset all settings…`
+  deletes it: the default comes back at the restart (see *Reset All Settings*).
+- **One tab, last**, after the catalog's seven, over every family's section — the custom tab's
+  mechanism (`MainForm.TabOf` / `SectionOf`, `FirstSpecialSection`, `SpecialTab`). The window's
+  minimum width counts it.
+- **Hidden**: `Show special characters`, in the settings menu's *special characters* section, checked
+  while shown, no confirmation, saved as `showSpecial` in `settings.json`
+  (`SettingsFile.ReadShowSpecial`; missing or unreadable → shown). Hidden, the tab leaves the strip and
+  its sections the grid **and the search results** (`MainForm.SetShowSpecial`).
+- **A special character is an `Emoji`** with `IsText` set (`SpecialCharacters.CreateCharacter`):
+  - `Name` / `FrenchName` its names, capitalized; `EnglishTags` / `FrenchTags` its **aliases**, so the
+    details panel shows them in both rows; `Hexcode` computed from its text (`U+00A9` in the copy
+    button's tooltip).
+  - **Search**: its names' words and its aliases are keywords (`EmojiCatalog.Keywords`); an alias
+    holding a symbol is a symbol keyword (`<<`, `"`, `(c)`); **every alias** — and the character
+    itself when it holds a symbol — is a character key: typed whole, it ranks the character first,
+    like an emoji's characters. `<<` → «; `"` → « » “ ” „ ″; `tm` → ™; `1/2` → ½.
+  - The search runs over the special characters **before** the catalog (`MainForm.OnSearchTextChanged`):
+    a tie gives the text form first — `tm` gives ™ before the emoji ™️.
+- **Inserted bare**, as written in the file — no `FE0E`: the catalog's ©️ ®️ ™️ carry `FE0F`, so they
+  are other texts. Click, Enter, Ctrl+click and Ctrl+Enter insert it, the copy button copies it.
+- **Never counted** by the frequent tab (`MainForm.OnEmojiUsed` returns for `IsText`; a counter found
+  for one is not shown); **no `Use as tray icon`** — its right-click menu starts with `Add to ▸`.
+- **Custom groups**: `MainForm.emojisByText` holds the special characters after the catalog's emojis
+  — a text the catalog has stays the catalog's emoji —, so a group shows them.
+- **Drawn as text** (`EmojiRenderer.Render` with `asText`): monochrome, black, `Segoe UI`
+  (`EmojiRenderer.TextFontFamily`) at `TextFontScale` (0.6) of the square, raised by
+  `TextRaiseScale` — Segoe UI Emoji would draw © ® ™ in colour and take the rest from fallback fonts.
+  The grid pre-renders them with the emojis, marked in the cache's key (`text:`), its `text=` line
+  holding the font and scales (`EmojiBitmapCache.FormatVersion` 2); the details panel draws its large
+  one the same way.
+- An agent checking them from a script cannot click the tab (custom-drawn): it checks
+  `SpecialCharacters.Load` and `EmojiSearch.Find` by reflection on the dll of a **copy** of the build
+  folder (`APP_CONTEXT_BASE_DIRECTORY`, see *Reset All Settings*), and sees the tab by typing a search
+  into the box (`WM_SETTEXT`) and capturing the window (`PrintWindow`).
 
 ## Search Box
 
