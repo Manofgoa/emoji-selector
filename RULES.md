@@ -32,7 +32,9 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Clear frequently used` | After a confirmation, every use counter reset (see *Frequent Tab* below) |
 | Settings button ⚙ → `New group…` | Asks for a name, then creates a **custom group**, last, and scrolls to it (see *Custom Tab* below) |
 | Settings button ⚙ → `Show groups ▸` | Every custom group, checked while shown: a click hides it or shows it again (see *Custom Tab* below) |
+| Settings button ⚙ → `Show emoji sub-categories` | Checked while the emoji categories show their sub-categories — off by default: a click shows or hides them (see *Sub-Categories* below) |
 | Settings button ⚙ → `Show special characters` | Checked while the special characters' tab is shown: a click hides it or shows it again (see *Special Characters Tab* below) |
+| Settings button ⚙ → `Show special character sub-categories` | Checked while the special characters show their families as sub-categories — on by default: a click shows or hides them (see *Sub-Categories* below) |
 | Settings button ⚙ → `Show French names` | Checked while the details panel shows its French row: a click hides it or shows it again (see *Details Panel* below) |
 | Settings button ⚙ → `Highlight color…` | Windows' colour dialog: the colour highlighting the search's matches in the details panel (see *Details Panel* below) |
 | Settings button ⚙ → `Always show skin tone` | Checked while the details panel's tone swatch shows whatever the selection: a click turns it off — the swatch only on an emoji with variants — or on again (see *Skin Tones* below); the window stays |
@@ -98,10 +100,11 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 - The close cross and the settings button belong to the tab strip (`UI/CategoryTabStrip.cs`) and
   are never greyed by a search. The cross turns Windows red on hover; the settings button's menu is a
   `ContextMenuStrip` shown under it, owned by `MainForm`.
-- The settings menu has **six sections**, one per feature, in the window's order, separated by
+- The settings menu has **seven sections**, one per feature, in the window's order, separated by
   lines and **untitled** (`MainForm.CreateSettingsMenu`): *frequently used* (`Show frequently used`,
-  `Clear frequently used`), *custom groups* (`New group…`, `Show groups ▸`), *special characters*
-  (`Show special characters`), *details panel* (`Show
+  `Clear frequently used`), *custom groups* (`New group…`, `Show groups ▸`), *emoji categories* (`Show
+  emoji sub-categories`), *special characters* (`Show special characters`, `Show special character
+  sub-categories`), *details panel* (`Show
   French names`, `Highlight color…`, `Always show skin tone`), *window* (`Reset window size`, `Window opacity ▸`, `Acrylic veil ▸`), *app* (`Open app folder`,
   `Start with Windows`, `Check for emoji updates…`, `Reset all settings…`). A new item joins the section of its feature; the labels say their
   subject on their own.
@@ -124,7 +127,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   in place of the default. Not at exit: Windows shutting down or the Task Manager may end the app
   without running its code. A move, or a drag to a monitor of another scale, saves nothing.
 - `settings.json` is the app's **shared settings file** (`Data/SettingsFile.cs`): `{ "windowWidth":
-  …, "windowHeight": …, "trayEmoji": …, "showFrequent": …, "showSpecial": …, "showFrench": …, "highlightColor": …, "opacity": …,
+  …, "windowHeight": …, "trayEmoji": …, "showFrequent": …, "showSpecial": …, "showEmojiSubcategories": …, "showSpecialSubcategories": …, "showFrench": …, "highlightColor": …, "opacity": …,
   "acrylicVeil": …, "skinTone": …, "alwaysShowSkinTone": … }`;
   a write keeps the keys it does not
   know. Written through `settings.json.new` then a replace, the emojis as themselves
@@ -412,8 +415,9 @@ The **emoji data** — the list, the names, the keywords — is Emojibase's, rea
 disposable. The embedded copy (`Data/Emojibase/`, [CONTRIBUTING.md § Emoji data](CONTRIBUTING.md#emoji-data))
 recreates it.
 
-- **A set of four files**, always written together: `compact.en.json` (the list, English keywords),
-  `compact.fr.json` (French keywords, joined by hexcode), `LICENSE` (Emojibase's, MIT) and
+- **A set of five files**, always written together: `compact.en.json` (the list, English keywords),
+  `compact.fr.json` (French keywords, joined by hexcode), `subgroups.json` (the sub-categories, see
+  *Sub-Categories*), `LICENSE` (Emojibase's, MIT) and
   `version.txt` (the set's Emojibase version, `major.minor.patch`). Each one written through
   `<name>.tmp` then a replace, `version.txt` last.
 - **At launch** (`EmojiDataFolder.Load`, in place of the embedded resources):
@@ -441,8 +445,9 @@ recreates it.
   2. Not newer than the version in use — or the one already downloaded this run → `Emoji data is up to
      date`. A network, HTTP or parse failure → `Could not check for emoji updates`, a warning.
   3. Newer → `Update the emoji list, names and keywords?`, Yes / No, *Yes* the default.
-  4. Yes → `en/compact.json`, `fr/compact.json` and `LICENSE` from
-     `https://cdn.jsdelivr.net/npm/emojibase-data@<version>/`, parsed like the folder (any newer
+  4. Yes → `en/compact.json`, `fr/compact.json`, `en/data.json`, `en/messages.json`,
+     `fr/messages.json` and `LICENSE` from `https://cdn.jsdelivr.net/npm/emojibase-data@<version>/`,
+     `subgroups.json` derived from the three middle ones (`EmojiSubgroups.Derive`), parsed like the folder (any newer
      major accepted when it parses), then written as a set. Any failure → `Could not update the emoji
      data`, the folder left as it was.
   5. `Restart now to use it?`, Yes / No, *Yes* the default: Yes → the exe started again
@@ -596,14 +601,15 @@ section reading `Create a group from ⚙ → New group…`; while every group is
 ## Special Characters Tab
 
 The last tab, **Special characters** (*Characters*, `E8C1`), offers the characters hard to type on a
-keyboard — ©, «, —, É, €, ±… —, one section per **family**, in the file's order (origin:
+keyboard — ©, «, —, É, €, ±… —, in **one section** whose sub-categories are the file's **families**
+(see *Sub-Categories*) (origin:
 `workfiles/20261022-special-characters-tab.md`). They are inserted, searched, copied and added to the
 custom groups like the emojis.
 
 - **`special-characters.json`, next to the exe** (`Data/SpecialCharacters.cs`), **the user's to
   edit**: `{ "families": [ { "name", "characters": [ { "character", "name", "frenchName", "aliases"
   } ] } ] }`, camelCase, the characters as themselves; comments and trailing commas are read. A
-  family's `name` is its section's header; `character` is any text, usually one character.
+  family's `name` is its sub-category's label; `character` is any text, usually one character.
 - **Its default** is embedded in the exe (`Data/SpecialCharacters.json`, `EmbeddedResource`):
   five families — *Legal & references*, *Punctuation & typography*, *Accented letters & ligatures*,
   *Currencies*, *Maths, units & fractions*, 76 characters.
@@ -622,16 +628,16 @@ custom groups like the emojis.
   its first Win+;), never before a window exists.
 - **Lenient inside a valid file**: an entry without its `character` is left out, a character given
   twice keeps its first entry, missing names and aliases are empty, a family without a character has
-  no section; no character at all → no tab.
+  no sub-category; no character at all → no tab.
 - An edit is read at the **next launch**; `Open app folder` finds the file. `Reset all settings…`
   deletes it: the default comes back at the restart (see *Reset All Settings*).
-- **One tab, last**, after the catalog's seven, over every family's section — the custom tab's
-  mechanism (`MainForm.TabOf` / `SectionOf`, `FirstSpecialSection`, `SpecialTab`). The window's
-  minimum width counts it.
+- **One tab, last**, after the catalog's seven, over **one section**, `Special characters`
+  (`MainForm.SpecialHeader`; `SpecialCharacters.Load` builds it, `MainForm.TabOf` / `SectionOf`,
+  `FirstSpecialSection`, `SpecialTab`). The window's minimum width counts it.
 - **Hidden**: `Show special characters`, in the settings menu's *special characters* section, checked
   while shown, no confirmation, saved as `showSpecial` in `settings.json`
   (`SettingsFile.ReadShowSpecial`; missing or unreadable → shown). Hidden, the tab leaves the strip and
-  its sections the grid **and the search results** (`MainForm.SetShowSpecial`).
+  its section the grid **and the search results** (`MainForm.SetShowSpecial`).
 - **A special character is an `Emoji`** with `IsText` set (`SpecialCharacters.CreateCharacter`):
   - `Name` / `FrenchName` its names, capitalized; `EnglishTags` / `FrenchTags` its **aliases**, so the
     details panel shows them in both rows; `Hexcode` computed from its text (`U+00A9` in the copy
@@ -658,6 +664,60 @@ custom groups like the emojis.
   `SpecialCharacters.Load` and `EmojiSearch.Find` by reflection on the dll of a **copy** of the build
   folder (`APP_CONTEXT_BASE_DIRECTORY`, see *Reset All Settings*), and sees the tab by typing a search
   into the box (`WM_SETTEXT`) and capturing the window (`PrintWindow`).
+
+## Sub-Categories
+
+A **category** is a tab of the strip; a **sub-category** is a group of its emojis, shown as a **label
+at the start of a row, its cells to its right** (origin: `workfiles/20261022-special-characters-tab.md`,
+Iterations 11–14).
+
+- **Which**: the catalog's seven categories — Emojibase's **subgroups** (*Smiling*, *Hand signs*,
+  *Ground transportation*… 95 used) — and the special characters' one — its **families**. Never the
+  frequent section, the custom groups nor the search results.
+- **`EmojiCategory.SubCategories`**: each a `SubCategory` — its name and the index of its first emoji,
+  running up to the next one's. `EmojiCatalog.Build` starts one at each emoji whose subgroup differs
+  from the one before (an emoji `subgroups.json` does not place stays in the one before);
+  `SpecialCharacters.Parse` one per family.
+- **Two checkboxes** in the settings menu, no confirmation, applied at once — the sections replaced
+  (`EmojiGrid.ReplaceCategories`), the grid back at the top unless a search is shown
+  (`MainForm.AfterSectionsReplaced`):
+
+  | Item | Section of the menu | Key in `settings.json` | Missing or unreadable |
+  |---|---|---|---|
+  | `Show emoji sub-categories` | *emoji categories*, between *custom groups* and *special characters* | `showEmojiSubcategories` | **off** |
+  | `Show special character sub-categories` | *special characters*, after `Show special characters` | `showSpecialSubcategories` | **on** |
+
+  Off, the category's section is given without them (`MainForm.ShownCatalogSections` /
+  `ShownSpecialSections`, `SubCategories = null`): its emojis in one run, as before — the special
+  characters every one in the file's order.
+- **Shown**: the category's **header stays**; each sub-category starts a **new row**, its label at the
+  start of its first row, its cells to the right; one longer than a row continues on the next rows,
+  under the cells, the label column empty.
+- **The label column** (`EmojiGrid.LabelWidth`): one width for the whole grid — the widest label
+  shown, measured in the grid's font (cached, measured again after a change of font or DPI), plus
+  `LogicalLabelGap` (12) —, so every labelled section's cells line up; at most a **third** of the
+  grid's width, a longer label ending with an ellipsis. Labels grey (`SystemColors.GrayText`, darker
+  on Acrylic), vertically centred on their first row. A section without sub-categories keeps its cells
+  from the left edge, the full width.
+- **Layout** (`UI/EmojiGridLayout.cs`): each section has its **rows** — the index of each row's first
+  emoji (`Section.Breaks`: the sub-categories' starts) —, its left edge and its column count, fewer in a
+  labelled section; `CellBounds`, `LabelBounds`, `HitTest` (nothing on a label), `CellsIn`, `Below` /
+  `Above` (the column index kept, a shorter row giving its last cell) and `Insertion` read them.
+- **Emoji subgroups — `subgroups.json`** (`Data/EmojiSubgroups.cs`), a file of the emoji data set (see
+  *Emoji Data*): Emojibase's `compact.json` has no subgroup. `{ "subgroups": [ { "key", "name",
+  "frenchName" } ], "emojis": { "<hexcode>": <subgroup> } }`, a subgroup's number its index in the list
+  — Emojibase's order. **Derived** from Emojibase's `en/data.json` (each emoji's subgroup) and the
+  `messages.json` of English and French (the names; the English one shown, capitalized); two subgroups
+  sharing an order keep the **last one listed** — Emojibase 17 gives `food-marine` and `food-sweet` both
+  46, and its data puts the sweets there. Invalid → the set is invalid: no list, a subgroup without a key
+  or a name, a number out of the list.
+- The embedded copy is generated by `Data/Emojibase/New-Subgroups.ps1`
+  ([CONTRIBUTING.md § Emoji data](CONTRIBUTING.md#emoji-data)); `Check for emoji updates…` derives it
+  in the app (`EmojiSubgroups.Derive`). Both give the same file.
+- An agent checking them cannot click the settings button: it writes `showEmojiSubcategories` /
+  `showSpecialSubcategories` in the build's `settings.json` — restored afterwards —, launches the exe
+  and captures the window; `EmojiSubgroups`, `EmojiDataFolder` and `EmojiGridLayout` are checked by
+  reflection on the dll of a **copy** of the build folder.
 
 ## Search Box
 
