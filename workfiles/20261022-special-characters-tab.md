@@ -105,6 +105,7 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
   `JsonException`'s message, its line included — `The default list is used until it is fixed.`, a
   warning icon, OK. Shown **once**, at the window's **first show** (`OnShown`, or the first Win+; of
   a `--background` launch) — never a dialog before any window exists.
+- **Comments and trailing commas** are read (Iteration 9): what a hand edit leaves behind.
 - **Leniency inside a valid file**, like `custom-groups.json`: a character without `character` is
   left out; a character given twice keeps its first entry; missing names or aliases are empty; a
   family without a character is not shown.
@@ -146,7 +147,8 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
   with uneven metrics.
 - Decided (Iteration 6): the special characters are drawn **monochrome with Segoe UI**, the text font — a second
   `IDWriteTextFormat` in the renderer, chosen for them, at a smaller scale than the emojis' so a
-  letter does not fill its cell. Colour: the text colour.
+  letter does not fill its cell (`TextFontScale` 0.6, raised by `TextRaiseScale` 0.04). Colour: black,
+  the renderer's existing brush (Iteration 9).
 - **Pre-render**: the special characters join the grid's pre-render list (the cache key holds the
   list: rendered again automatically); the renderer's change **bumps
   `EmojiBitmapCache.FormatVersion`** to 2.
@@ -155,12 +157,14 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
 
 ## Search and Details Panel
 
-- **Search**: `EmojiSearch.Find` runs over the catalog's categories **and** the special ones (one
-  call in `MainForm`); `EmojiSearch` itself does not change. Per character:
+- **Search**: `EmojiSearch.Find` runs over the special categories **then** the catalog's (one call in
+  `MainForm`) — a tie gives the text form first: `tm` → ™ before ™️, `copyright` → © before ©️
+  (Iteration 9); `EmojiSearch` itself does not change. Per character:
   - `Keywords` — the words of its English and French names;
   - `SymbolKeywords` — its aliases holding a symbol (`<<`, `"`, `(c)`), folded by `EmojiSearch.Fold`;
-  - `CharacterKeys` — every alias, folded: an alias typed whole ranks first, like an emoji's
-    character (`1` → 1️⃣).
+  - `CharacterKeys` — every alias, folded, and the character itself when it holds a symbol (`«`
+    typed finds «; a letter like É is left out, or `e` would rank it first): an alias typed whole
+    ranks first, like an emoji's character (`1` → 1️⃣).
 - **Details panel**: the character drawn large, its English and French names, its **aliases as
   tags** in both rows; the copy button copies the bare character. The panel's height takes the
   special characters into account (its catalog list includes them).
@@ -301,6 +305,29 @@ Go given: **code, unit tests and documentation**, in a **worktree** —
 `.claude/worktrees/special-characters-tab`, branch `feature/special-characters-tab`, created from
 `main` (the user asked for a branch and a worktree at the branch gate).
 
+### Iteration 9 — 2026-10-22 — 🧭 Implementation choices
+
+The run took these decisions the frozen design did not state; no project rule was broken.
+
+- **Search order**: the special characters are searched **before** the catalog. With the catalog
+  first, `tm` gave the emoji ™️ before ™ and `copyright` ©️ before © (equal ranks keep the list's
+  order); the design's "an alias typed whole ranks first" asked for the text form.
+- **The character itself as a key**: a special character holding a symbol (« ₹ ½) is found by typing
+  it; a letter (É, œ) is not, or `e` / `oe` would rank it first.
+- **Comments and trailing commas** are accepted in `special-characters.json`.
+- **Unreadable file** (locked, no access): the embedded default in memory, **no warning** — the file
+  is not invalid, and is left as it is.
+- **Text rendering**: Segoe UI at 0.6 of the cell, raised by 0.04, black — the renderer's brush; the
+  cache key marks the special characters (`text:`) and gains a `text=` line, `FormatVersion` 2.
+- **A special character whose text the catalog has** stays the catalog's emoji in
+  `MainForm.emojisByText` and in the pre-render (drawn as an emoji).
+- **Tray emoji**: a `trayEmoji` naming a special character (written by hand) falls back to 🙂.
+- **Names**: the English name from the Unicode name in lower case, the French one the usual name; the
+  section headers in English, like the catalog's.
+- `EmojiCatalog.Keywords` and `Capitalize` made `internal`, shared with `SpecialCharacters`.
+- **Seen in the checks, left as is**: the details panel draws the alias `<<` with a visible gap
+  (`< <`) in its tag row — the panel's own text drawing, outside the scope.
+
 ---
 
 ## Implementation Log
@@ -310,12 +337,12 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | |
-| RULES.md | | | |
-| README | | | |
-| CONTRIBUTING.md | | | |
-| GLOSSARY | | | |
+| Code | 8, 9 | 2026-10-22 | Data, rendering, `MainForm` — built, 0 warning; checked by reflection on a copy of the build (file written / kept / invalid, aliases, reset) and by window captures (tab, searches `symbole` and `"`) |
+| Unit tests | 8 | 2026-10-22 | Not applicable: no test project (see *Test Impact*) — the reflection checks stand in |
+| RULES.md | 8 | 2026-10-22 | New § *Special Characters Tab*; settings menu (six sections), `showSpecial`, reset, search, tray icon |
+| README | 8 | 2026-10-22 | § *Special characters*, menu, reset — `README.md` and `README.fr.md` in the same commit |
+| CONTRIBUTING.md | 8 | 2026-10-22 | § *Special characters*: the embedded default and its format |
+| GLOSSARY | 8 | 2026-10-22 | Special character, family, alias — `GLOSSARY.md` and `GLOSSARY.fr.md` in the same commit |
 
 ---
 
