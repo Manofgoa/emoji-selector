@@ -561,6 +561,14 @@ internal sealed class MainForm : Form
             this.placeInCornerWhenShown = false;
             this.PlaceInCorner();
         }
+
+        // The Acrylic frame computed again once the window is on screen, as a change of DPI does it: applied before the
+        // first show only, a band at the top kept a plain colour.
+        if (this.acrylic)
+        {
+            UI.Glass.Apply(this.Handle, acrylic: true);
+            SetWindowPos(this.Handle, IntPtr.Zero, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
+        }
     }
 
     // The details panel's height follows the width, set before the docking places the controls: set during it, the
@@ -695,6 +703,14 @@ internal sealed class MainForm : Form
                     m.Result = this.HitTestClient(WindowFrame.HitTestPoint(m.LParam));
                 }
 
+                return;
+
+            // The Acrylic backdrop's frame extended again on every activation, as Microsoft's custom frame sample does:
+            // extended only before the first show, a band at the top kept a plain colour until a change of DPI made
+            // Windows compute the frame again.
+            case WmActivate when this.acrylic:
+                base.WndProc(ref m);
+                UI.Glass.Apply(this.Handle, acrylic: true);
                 return;
         }
 
@@ -2078,6 +2094,7 @@ internal sealed class MainForm : Form
     private const int DwmwcpRound = 2;
     private const int EmSetCueBanner = 0x1501;
     private const int WmChar = 0x0102;
+    private const int WmActivate = 0x0006;
     private const uint SwpNoSize = 0x1;
     private const uint SwpNoMove = 0x2;
     private const uint SwpNoZOrder = 0x4;

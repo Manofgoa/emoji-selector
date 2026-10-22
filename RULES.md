@@ -203,6 +203,10 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   `DWMSBT_TRANSIENTWINDOW`, the frame extended over the whole client area
   (`DwmExtendFrameIntoClientArea`, margins −1). Windows 11 22H2 or later; elsewhere — or with the
   transparency effects off, in energy saver — Windows draws a plain background in its place.
+- **Extended again** after the first show (`OnShown`: `Glass.Apply`, then `SWP_FRAMECHANGED`) and on every
+  `WM_ACTIVATE`, as Microsoft's custom frame sample does. Extended only before the first show, a band
+  above the search box kept a plain colour on the backdrop until a change of DPI — a move to a monitor
+  of another scale — made Windows compute the frame again.
 - **No caption style** while it is on (`CreateParams` takes `WS_CAPTION` out, `UpdateStyles`): with the
   frame extended, DWM would draw the caption's buttons in the window's top-right corner. The resize
   borders, the shadow, the rounded corners and the system menu stay (see *Frame*).
