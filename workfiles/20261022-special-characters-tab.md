@@ -184,7 +184,9 @@ shown as a **label at the start of a row, its cells to its right**.
 - **Layout** (`UI/EmojiGridLayout.cs`): a section gets its **rows** computed once — each row its first
   index, its count, its label —, and its own left edge and column count; `CellBounds`, `HitTest`,
   `CellsIn`, `Below` / `Above`, `Insertion` read them. `EmojiCategory` gains `SubCategories`
-  (`Name`, first index), `Emoji` its subgroup's index.
+  (`Name`, first index); `Emoji` gains nothing — the category's list is enough (Iteration 15).
+- **Two subgroups sharing an order** keep the last one listed: Emojibase 17 gives `food-marine` and
+  `food-sweet` both 46, and its `data.json` puts the sweets there (Iteration 15).
 
 ---
 
@@ -424,6 +426,29 @@ emoji data set and in `Check for emoji updates…`. The special characters' tab 
 Go given for the sub-categories (Iteration 13): **code, unit tests and documentation**, in the same
 **worktree** and branch, `feature/special-characters-tab`.
 
+### Iteration 15 — 2026-10-22 — 🧭 Implementation choices — Sub-categories
+
+The run took these decisions the frozen design (Iteration 13) did not state; no project rule was
+broken.
+
+- **Emojibase's shared order**: `messages.json` 17 lists `food-marine` and `food-sweet` both at order
+  46; `data.json` puts the sweets there. Both derivations (C# and `New-Subgroups.ps1`) keep the **last
+  one listed** — 100 subgroups, numbered 0–99, 95 used by the catalog.
+- **`Emoji` gets no subgroup index** (the design said it would): `EmojiCategory.SubCategories` is
+  enough, nothing reads an emoji's subgroup.
+- **The first sub-category starts at 0** whatever the first emoji's subgroup; an emoji the file does
+  not place stays in the sub-category before it.
+- **Names**: the English subgroup name is shown, capitalized (`smiling` → `Smiling`); the French one is
+  kept in the file, unused.
+- **`subgroups.json` is required** in the set: a folder written by an earlier build (four files) is
+  rewritten from the embedded copy — a newer Emojibase version downloaded by such a build goes back to
+  the embedded one, to be downloaded again.
+- **Label column**: measured in the grid's font with `TextRenderer`, cached, cleared on a change of
+  font or DPI; `LogicalLabelGap` 12 between the label and the cells.
+- `SpecialCharacters.Load` takes the category's name (`MainForm.SpecialHeader`) and its icon.
+- **Checks**: the emoji sub-categories were seen by writing `showEmojiSubcategories` in the build's
+  `settings.json`, restored afterwards.
+
 ---
 
 ## Implementation Log
@@ -433,12 +458,12 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | 8, 9, 10 | 2026-10-22 | Data, rendering, `MainForm` — built, 0 warning; checked by reflection on a copy of the build (file written / kept / invalid, aliases, reset) and by window captures (tab, searches `symbole` and `"`) |
-| Unit tests | 8 | 2026-10-22 | Not applicable: no test project (see *Test Impact*) — the reflection checks stand in |
-| RULES.md | 8, 10 | 2026-10-22 | New § *Special Characters Tab*; settings menu (six sections), `showSpecial`, reset, search, tray icon |
-| README | 8 | 2026-10-22 | § *Special characters*, menu, reset — `README.md` and `README.fr.md` in the same commit |
-| CONTRIBUTING.md | 8 | 2026-10-22 | § *Special characters*: the embedded default and its format |
-| GLOSSARY | 8 | 2026-10-22 | Special character, family, alias — `GLOSSARY.md` and `GLOSSARY.fr.md` in the same commit |
+| Code | 8, 9, 10, 14 | 2026-10-22 | Data, rendering, `MainForm` — built, 0 warning; checked by reflection on a copy of the build (file written / kept / invalid, aliases, reset) and by window captures (tab, searches `symbole` and `"`) |
+| Unit tests | 8, 14 | 2026-10-22 | Not applicable: no test project (see *Test Impact*) — the reflection checks stand in |
+| RULES.md | 8, 10, 14 | 2026-10-22 | New § *Special Characters Tab*; settings menu (six sections), `showSpecial`, reset, search, tray icon |
+| README | 8, 14 | 2026-10-22 | § *Special characters*, menu, reset — `README.md` and `README.fr.md` in the same commit |
+| CONTRIBUTING.md | 8, 14 | 2026-10-22 | § *Special characters*: the embedded default and its format |
+| GLOSSARY | 8, 14 | 2026-10-22 | Special character, family, alias — `GLOSSARY.md` and `GLOSSARY.fr.md` in the same commit |
 
 ---
 
