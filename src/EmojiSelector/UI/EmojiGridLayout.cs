@@ -8,8 +8,8 @@ namespace EmojiSelector.UI;
 /// </summary>
 /// <remarks>
 /// A section with <b>sub-categories</b> (<see cref="Section.Breaks"/>) starts a new row at each of them, and leaves
-/// the label column on its left — <see cref="LabelWidth"/>, the same for every such section, so their cells line up
-/// too: it holds fewer columns. A sub-category longer than a row continues on the next ones.
+/// its label column on its left — <see cref="Section.LabelWidth"/>, its own: it holds fewer columns. A sub-category
+/// longer than a row continues on the next ones.
 /// </remarks>
 internal sealed class EmojiGridLayout
 {
@@ -27,21 +27,17 @@ internal sealed class EmojiGridLayout
     /// <param name="sections">Each section's emoji count and row bounds, in order.</param>
     /// <param name="width">The width the cells fit in, padding included.</param>
     /// <param name="viewportHeight">The visible height: the content is tall enough to bring the last header to the top.</param>
-    /// <param name="labelWidth">The label column of the sections with sub-categories, 0 when there is none.</param>
-    public EmojiGridLayout(IReadOnlyList<Section> sections, int width, int viewportHeight, int cellSize, int headerHeight, int padding,
-        int labelWidth = 0)
+    public EmojiGridLayout(IReadOnlyList<Section> sections, int width, int viewportHeight, int cellSize, int headerHeight, int padding)
     {
         this.sections = [.. sections];
         this.CellSize = cellSize;
         this.HeaderHeight = headerHeight;
         this.Padding = padding;
-        this.LabelWidth = labelWidth;
         this.width = width;
         this.Columns = Math.Max(1, (width - 2 * padding) / cellSize);
-        int labelledColumns = Math.Max(1, (width - 2 * padding - labelWidth) / cellSize);
 
-        this.lefts = [.. sections.Select(section => section.Breaks is null ? padding : padding + labelWidth)];
-        this.columns = [.. sections.Select(section => section.Breaks is null ? this.Columns : labelledColumns)];
+        this.lefts = [.. sections.Select(section => padding + LabelColumn(section))];
+        this.columns = [.. sections.Select(section => Math.Max(1, (width - 2 * padding - LabelColumn(section)) / cellSize))];
 
         // A section with a row limit shows only the emojis its rows hold: more or fewer as the columns change.
         this.counts = [.. sections.Select((section, index) =>
@@ -74,9 +70,6 @@ internal sealed class EmojiGridLayout
 
     public int Padding { get; }
 
-    /// <summary>The label column of the sections with sub-categories, 0 when there is none.</summary>
-    public int LabelWidth { get; }
-
     public int ContentHeight { get; }
 
     public int SectionCount => this.counts.Length;
@@ -102,7 +95,7 @@ internal sealed class EmojiGridLayout
     public Rectangle LabelBounds(int section, int start)
     {
         Rectangle cell = this.CellBounds(section, start);
-        return new(this.Padding, cell.Top, this.LabelWidth, cell.Height);
+        return new(this.Padding, cell.Top, LabelColumn(this.sections[section]), cell.Height);
     }
 
     /// <summary>
@@ -296,6 +289,9 @@ internal sealed class EmojiGridLayout
     private int CellOfRow(int section, int row, int column) =>
         this.rowStarts[section][row] + Math.Min(column, this.RowLength(section, row) - 1);
 
+    // A section's label column: none without sub-categories.
+    private static int LabelColumn(Section section) => section.Breaks is null ? 0 : section.LabelWidth;
+
     // The first emoji of each row: a new row every columns emojis, and at every break — a sub-category's first emoji.
     private static int[] RowStartsOf(IReadOnlyList<int>? breaks, int count, int columns)
     {
@@ -315,9 +311,9 @@ internal sealed class EmojiGridLayout
     /// <summary>
     /// A section's size: its emoji count, at least <paramref name="MinRows"/> rows (room for a message when it is
     /// empty), at most <paramref name="MaxRows"/> when set; its cells <paramref name="RowHeight"/> high when set.
-    /// <paramref name="Breaks"/>, when set, holds its sub-categories' first emojis: each one starts a row, the label
-    /// column left on their left.
+    /// <paramref name="Breaks"/>, when set, holds its sub-categories' first emojis: each one starts a row, its label
+    /// column — <paramref name="LabelWidth"/> wide — left on their left.
     /// </summary>
     public readonly record struct Section(int Count, int MinRows = 0, int? MaxRows = null, int? RowHeight = null,
-        IReadOnlyList<int>? Breaks = null);
+        IReadOnlyList<int>? Breaks = null, int LabelWidth = 0);
 }

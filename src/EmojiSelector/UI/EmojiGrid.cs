@@ -798,20 +798,19 @@ internal sealed class EmojiGrid : Control
         sections.Select(section => new EmojiGridLayout.Section(
             section.Emojis.Count, MinRows: section.EmptyText is null ? 0 : 1, section.MaxRows,
             section.Captions is null ? null : this.LogicalToDeviceUnits(LogicalCaptionedCellHeight),
-            section.SubCategories?.Select(subCategory => subCategory.Start).ToList())).ToList(),
+            section.SubCategories?.Select(subCategory => subCategory.Start).ToList(), this.LabelWidth(section))).ToList(),
         this.ClientSize.Width - this.scrollBar.Width,
         this.ViewportHeight,
         this.LogicalToDeviceUnits(LogicalCellSize),
         this.LogicalToDeviceUnits(LogicalHeaderHeight),
-        this.LogicalToDeviceUnits(LogicalPadding),
-        this.LabelWidth(sections));
+        this.LogicalToDeviceUnits(LogicalPadding));
 
-    // The label column of the sections with sub-categories: the widest label, then a gap before the cells; at most a
-    // third of the width — a longer label ends with an ellipsis. 0 without a sub-category.
-    private int LabelWidth(IReadOnlyList<EmojiCategory> sections)
+    // A section's label column: its widest label, then a gap before the cells; at most a third of the width — a longer
+    // label ends with an ellipsis. 0 without a sub-category. Each section its own: the column fits its category.
+    private int LabelWidth(EmojiCategory section)
     {
         int widest = 0;
-        foreach (SubCategory subCategory in sections.SelectMany(section => section.SubCategories ?? []))
+        foreach (SubCategory subCategory in section.SubCategories ?? [])
         {
             if (!this.labelWidths.TryGetValue(subCategory.Name, out int width))
             {
