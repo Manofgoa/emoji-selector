@@ -28,6 +28,7 @@ internal static class SettingsFile
     private const string WindowHeightKey = "windowHeight";
     private const string TrayEmojiKey = "trayEmoji";
     private const string ShowFrequentKey = "showFrequent";
+    private const string ShowSpecialKey = "showSpecial";
     private const string ShowFrenchKey = "showFrench";
     private const string AlwaysShowSkinToneKey = "alwaysShowSkinTone";
     private const string HighlightColorKey = "highlightColor";
@@ -93,6 +94,18 @@ internal static class SettingsFile
     {
         JsonObject settings = Read() ?? [];
         settings[ShowFrequentKey] = show;
+        Write(settings);
+    }
+
+    /// <summary>Whether the special characters' tab is shown; true when the file, the key or a readable value is missing.</summary>
+    public static bool ReadShowSpecial() =>
+        Read()?[ShowSpecialKey] is not JsonValue value || !value.TryGetValue(out bool show) || show;
+
+    /// <summary>Saves whether the special characters' tab is shown.</summary>
+    public static void WriteShowSpecial(bool show)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[ShowSpecialKey] = show;
         Write(settings);
     }
 

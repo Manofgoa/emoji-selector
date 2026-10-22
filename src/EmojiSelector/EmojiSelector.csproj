@@ -30,6 +30,12 @@
     <EmbeddedResource Include="Data\Emojibase\version.txt" LogicalName="EmojiSelector.Data.Emojibase.version.txt" />
   </ItemGroup>
 
+  <!-- The special characters' default list: Data/SpecialCharacters writes it to special-characters.json next to the exe
+       when that file is missing, and falls back on it while the file is not valid. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Data\SpecialCharacters.json" LogicalName="EmojiSelector.Data.SpecialCharacters.json" WithCulture="false" />
+  </ItemGroup>
+
   <!-- The details panel's flags, 1× and 2× (public-domain designs), read by UI/EmojiDetailsPanel. -->
   <ItemGroup>
     <EmbeddedResource Include="UI\Flags\us.png" LogicalName="EmojiSelector.UI.Flags.us.png" WithCulture="false" />

@@ -137,7 +137,8 @@ internal static class EmojiCatalog
         .ToList();
 
     // The words of an emoji's names and tags, in English and in French, each once: a name's when a name has it.
-    private static IReadOnlyList<EmojiKeyword> Keywords(
+    // Shared with SpecialCharacters, whose names and aliases are keywords the same way.
+    internal static IReadOnlyList<EmojiKeyword> Keywords(
         (string Label, string[] Tags)[] languages, Func<string, IEnumerable<string>> wordsOf)
     {
         var words = new Dictionary<string, bool>();
@@ -169,7 +170,7 @@ internal static class EmojiCatalog
     };
 
     // Emojibase's labels are lowercase: "grinning face" → "Grinning face".
-    private static string Capitalize(string label) =>
+    internal static string Capitalize(string label) =>
         label.Length == 0 ? label : char.ToUpperInvariant(label[0]) + label[1..];
 
     /// <summary>One entry of <c>compact.json</c>, or one of its skin-tone variants (<c>skins</c>), which have the same shape.</summary>

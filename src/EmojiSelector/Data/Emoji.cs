@@ -42,4 +42,10 @@ internal sealed record Emoji(string Text, string Name, IReadOnlyList<EmojiKeywor
 
     /// <summary>Whether its variants give each person a tone of their own (🤝, 🧑‍🤝‍🧑): one of them has two different tones.</summary>
     public bool IsTwoPerson { get; init; }
+
+    /// <summary>
+    /// A <b>special character</b> (see <see cref="SpecialCharacters"/>), not an emoji: drawn monochrome with the text
+    /// font, never counted by the frequent tab nor offered as the tray icon.
+    /// </summary>
+    public bool IsText { get; init; }
 }

@@ -1,0 +1,105 @@
+{
+  "families": [
+    {
+      "name": "Legal & references",
+      "characters": [
+        { "character": "©", "name": "copyright sign", "frenchName": "symbole copyright", "aliases": ["(c)", "c"] },
+        { "character": "®", "name": "registered sign", "frenchName": "symbole marque déposée", "aliases": ["(r)", "r"] },
+        { "character": "™", "name": "trade mark sign", "frenchName": "symbole marque de commerce", "aliases": ["tm", "(tm)"] },
+        { "character": "℠", "name": "service mark", "frenchName": "marque de service", "aliases": ["sm"] },
+        { "character": "℗", "name": "sound recording copyright", "frenchName": "droit d'auteur phonographique", "aliases": ["(p)"] },
+        { "character": "§", "name": "section sign", "frenchName": "signe section", "aliases": ["s", "par"] },
+        { "character": "¶", "name": "pilcrow sign", "frenchName": "pied-de-mouche", "aliases": ["p", "pilcrow"] },
+        { "character": "†", "name": "dagger", "frenchName": "obèle", "aliases": ["+"] },
+        { "character": "‡", "name": "double dagger", "frenchName": "double obèle", "aliases": ["++"] },
+        { "character": "№", "name": "numero sign", "frenchName": "symbole numéro", "aliases": ["no"] }
+      ]
+    },
+    {
+      "name": "Punctuation & typography",
+      "characters": [
+        { "character": "«", "name": "left-pointing double angle quotation mark", "frenchName": "guillemet ouvrant", "aliases": ["<<", "\""] },
+        { "character": "»", "name": "right-pointing double angle quotation mark", "frenchName": "guillemet fermant", "aliases": [">>", "\""] },
+        { "character": "‹", "name": "single left-pointing angle quotation mark", "frenchName": "guillemet simple ouvrant", "aliases": ["<", "'"] },
+        { "character": "›", "name": "single right-pointing angle quotation mark", "frenchName": "guillemet simple fermant", "aliases": [">", "'"] },
+        { "character": "“", "name": "left double quotation mark", "frenchName": "guillemet anglais ouvrant", "aliases": ["\""] },
+        { "character": "”", "name": "right double quotation mark", "frenchName": "guillemet anglais fermant", "aliases": ["\""] },
+        { "character": "‘", "name": "left single quotation mark", "frenchName": "apostrophe ouvrante", "aliases": ["'"] },
+        { "character": "’", "name": "right single quotation mark", "frenchName": "apostrophe typographique", "aliases": ["'"] },
+        { "character": "„", "name": "double low-9 quotation mark", "frenchName": "guillemet bas", "aliases": [",,", "\""] },
+        { "character": "—", "name": "em dash", "frenchName": "tiret cadratin", "aliases": ["---"] },
+        { "character": "–", "name": "en dash", "frenchName": "tiret demi-cadratin", "aliases": ["--"] },
+        { "character": "‑", "name": "non-breaking hyphen", "frenchName": "trait d'union insécable", "aliases": ["-"] },
+        { "character": "…", "name": "horizontal ellipsis", "frenchName": "points de suspension", "aliases": ["..."] },
+        { "character": "•", "name": "bullet", "frenchName": "puce", "aliases": ["*"] },
+        { "character": "·", "name": "middle dot", "frenchName": "point médian", "aliases": ["."] },
+        { "character": "¡", "name": "inverted exclamation mark", "frenchName": "point d'exclamation inversé", "aliases": ["!"] },
+        { "character": "¿", "name": "inverted question mark", "frenchName": "point d'interrogation inversé", "aliases": ["?"] },
+        { "character": "′", "name": "prime", "frenchName": "prime", "aliases": ["'"] },
+        { "character": "″", "name": "double prime", "frenchName": "double prime", "aliases": ["\"", "''"] }
+      ]
+    },
+    {
+      "name": "Accented letters & ligatures",
+      "characters": [
+        { "character": "É", "name": "latin capital letter e with acute", "frenchName": "E majuscule accent aigu", "aliases": ["e'", "E'"] },
+        { "character": "È", "name": "latin capital letter e with grave", "frenchName": "E majuscule accent grave", "aliases": ["e`"] },
+        { "character": "Ê", "name": "latin capital letter e with circumflex", "frenchName": "E majuscule accent circonflexe", "aliases": ["e^"] },
+        { "character": "À", "name": "latin capital letter a with grave", "frenchName": "A majuscule accent grave", "aliases": ["a`"] },
+        { "character": "Ç", "name": "latin capital letter c with cedilla", "frenchName": "C majuscule cédille", "aliases": ["c,"] },
+        { "character": "Ù", "name": "latin capital letter u with grave", "frenchName": "U majuscule accent grave", "aliases": ["u`"] },
+        { "character": "Œ", "name": "latin capital ligature oe", "frenchName": "E dans l'O majuscule", "aliases": ["oe"] },
+        { "character": "œ", "name": "latin small ligature oe", "frenchName": "e dans l'o", "aliases": ["oe"] },
+        { "character": "Æ", "name": "latin capital letter ae", "frenchName": "E dans l'A majuscule", "aliases": ["ae"] },
+        { "character": "æ", "name": "latin small letter ae", "frenchName": "e dans l'a", "aliases": ["ae"] },
+        { "character": "ß", "name": "latin small letter sharp s", "frenchName": "eszett", "aliases": ["ss"] },
+        { "character": "Ñ", "name": "latin capital letter n with tilde", "frenchName": "N majuscule tilde", "aliases": ["n~"] },
+        { "character": "ñ", "name": "latin small letter n with tilde", "frenchName": "n tilde", "aliases": ["n~"] }
+      ]
+    },
+    {
+      "name": "Currencies",
+      "characters": [
+        { "character": "€", "name": "euro sign", "frenchName": "symbole euro", "aliases": ["e", "eur", "euro"] },
+        { "character": "£", "name": "pound sign", "frenchName": "symbole livre sterling", "aliases": ["l", "gbp", "pound"] },
+        { "character": "¥", "name": "yen sign", "frenchName": "symbole yen", "aliases": ["y", "yen"] },
+        { "character": "¢", "name": "cent sign", "frenchName": "symbole cent", "aliases": ["c", "cent"] },
+        { "character": "$", "name": "dollar sign", "frenchName": "symbole dollar", "aliases": ["usd", "dollar"] },
+        { "character": "₹", "name": "indian rupee sign", "frenchName": "symbole roupie indienne", "aliases": ["inr", "rupee"] },
+        { "character": "₽", "name": "ruble sign", "frenchName": "symbole rouble", "aliases": ["rub", "ruble"] },
+        { "character": "₩", "name": "won sign", "frenchName": "symbole won", "aliases": ["krw", "won"] },
+        { "character": "₺", "name": "turkish lira sign", "frenchName": "symbole livre turque", "aliases": ["try", "lira"] },
+        { "character": "₿", "name": "bitcoin sign", "frenchName": "symbole bitcoin", "aliases": ["btc", "bitcoin"] },
+        { "character": "¤", "name": "currency sign", "frenchName": "symbole monétaire", "aliases": ["currency"] }
+      ]
+    },
+    {
+      "name": "Maths, units & fractions",
+      "characters": [
+        { "character": "±", "name": "plus-minus sign", "frenchName": "plus ou moins", "aliases": ["+-"] },
+        { "character": "×", "name": "multiplication sign", "frenchName": "signe multiplication", "aliases": ["x", "*"] },
+        { "character": "÷", "name": "division sign", "frenchName": "signe division", "aliases": ["/", ":"] },
+        { "character": "≈", "name": "almost equal to", "frenchName": "environ égal", "aliases": ["~=", "~~"] },
+        { "character": "≠", "name": "not equal to", "frenchName": "différent de", "aliases": ["!=", "<>", "=/"] },
+        { "character": "≤", "name": "less-than or equal to", "frenchName": "inférieur ou égal", "aliases": ["<="] },
+        { "character": "≥", "name": "greater-than or equal to", "frenchName": "supérieur ou égal", "aliases": [">="] },
+        { "character": "∞", "name": "infinity", "frenchName": "infini", "aliases": ["oo", "inf"] },
+        { "character": "√", "name": "square root", "frenchName": "racine carrée", "aliases": ["sqrt"] },
+        { "character": "∑", "name": "n-ary summation", "frenchName": "somme", "aliases": ["sum"] },
+        { "character": "∫", "name": "integral", "frenchName": "intégrale", "aliases": ["int"] },
+        { "character": "∂", "name": "partial differential", "frenchName": "dérivée partielle", "aliases": ["d"] },
+        { "character": "∆", "name": "increment", "frenchName": "delta", "aliases": ["delta"] },
+        { "character": "°", "name": "degree sign", "frenchName": "symbole degré", "aliases": ["deg", "o"] },
+        { "character": "‰", "name": "per mille sign", "frenchName": "pour mille", "aliases": ["%o"] },
+        { "character": "µ", "name": "micro sign", "frenchName": "symbole micro", "aliases": ["u", "micro"] },
+        { "character": "½", "name": "vulgar fraction one half", "frenchName": "un demi", "aliases": ["1/2"] },
+        { "character": "¼", "name": "vulgar fraction one quarter", "frenchName": "un quart", "aliases": ["1/4"] },
+        { "character": "¾", "name": "vulgar fraction three quarters", "frenchName": "trois quarts", "aliases": ["3/4"] },
+        { "character": "⅓", "name": "vulgar fraction one third", "frenchName": "un tiers", "aliases": ["1/3"] },
+        { "character": "²", "name": "superscript two", "frenchName": "exposant deux", "aliases": ["^2"] },
+        { "character": "³", "name": "superscript three", "frenchName": "exposant trois", "aliases": ["^3"] },
+        { "character": "℃", "name": "degree celsius", "frenchName": "degré Celsius", "aliases": ["°c"] }
+      ]
+    }
+  ]
+}
