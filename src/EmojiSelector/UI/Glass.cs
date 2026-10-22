@@ -7,7 +7,7 @@ namespace EmojiSelector.UI;
 /// <summary>
 /// Drawing on Windows' <b>Acrylic</b> backdrop, the window's blurred background (<see cref="Apply"/>). Under the frame
 /// extended into the client area, DWM blends every pixel with the blur by its alpha; GDI writes an alpha of 0, so a
-/// control drawn on the backdrop paints into a premultiplied 32-bit buffer with GDI+, over a light <see cref="Tint"/>
+/// control drawn on the backdrop paints into a premultiplied 32-bit buffer with GDI+, over a light veil (<see cref="VeilPercent"/>)
 /// (<see cref="Paint"/>, <see cref="DrawText(Graphics, bool, string, Font, Rectangle, Color, TextFormatFlags)"/>,
 /// <see cref="MeasureWidth"/>) and copies it, alpha included. A native child (the search box, a button, a scroll bar)
 /// cannot: it is made a layered child at full alpha, so DWM composes it opaque (<see cref="SetOpaque"/>) — which needs
@@ -24,8 +24,14 @@ internal static class Glass
     private const int LwaAlpha = 0x2;
     private const int SrcCopy = 0x00CC0020;
 
-    // A light veil over the blur, under everything drawn on it: the text keeps its contrast whatever is behind the window.
-    private static readonly Color Tint = Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF);
+    /// <summary>
+    /// The strength of the white veil over the blur, under everything drawn on it, percent: the text keeps its contrast
+    /// whatever is behind the window. Set from <c>Acrylic veil ▸</c>.
+    /// </summary>
+    public static int VeilPercent { get; set; } = DefaultVeilPercent;
+
+    /// <summary>The veil's strength when none is saved, percent.</summary>
+    public const int DefaultVeilPercent = 40;
 
     /// <summary>The grey text on the backdrop: darker than <see cref="SystemColors.GrayText"/>, unreadable on the blur.</summary>
     public static readonly Color GrayText = Color.FromArgb(0x3C, 0x3C, 0x3C);
@@ -70,7 +76,7 @@ internal static class Glass
             using (var bitmap = new Bitmap(clip.Width, clip.Height, clip.Width * 4, PixelFormat.Format32bppPArgb, bits))
             using (Graphics graphics = Graphics.FromImage(bitmap))
             {
-                graphics.Clear(Tint);
+                graphics.Clear(Color.FromArgb(VeilPercent * 255 / 100, Color.White));
                 graphics.TranslateTransform(-clip.X, -clip.Y);
                 graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
                 paint(graphics);
@@ -143,8 +149,11 @@ internal static class Glass
         return graphics;
     }
 
-    /// <summary>A native child made opaque on the backdrop — a layered child at full alpha — or back to a plain child.</summary>
-    public static void SetOpaque(Control control, bool opaque)
+    /// <summary>
+    /// A native child composed on the backdrop — a layered child at <paramref name="alpha"/>, opaque at 255 — or back to
+    /// a plain child.
+    /// </summary>
+    public static void SetOpaque(Control control, bool opaque, byte alpha = 255)
     {
         // A hidden control has no handle yet (the search's ✕): applied once it is created.
         if (!control.IsHandleCreated)
@@ -153,7 +162,7 @@ internal static class Glass
             created = (_, _) =>
             {
                 control.HandleCreated -= created;
-                SetOpaque(control, opaque);
+                SetOpaque(control, opaque, alpha);
             };
             control.HandleCreated += created;
             return;
@@ -168,7 +177,7 @@ internal static class Glass
 
         if (opaque)
         {
-            SetLayeredWindowAttributes(control.Handle, 0, 255, LwaAlpha);
+            SetLayeredWindowAttributes(control.Handle, 0, alpha, LwaAlpha);
         }
 
         control.Invalidate(invalidateChildren: true);

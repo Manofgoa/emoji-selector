@@ -33,6 +33,7 @@ internal static class SettingsFile
     private const string HighlightColorKey = "highlightColor";
     private const string OpacityKey = "opacity";
     private const string AcrylicValue = "acrylic";
+    private const string AcrylicVeilKey = "acrylicVeil";
     private const string SkinToneKey = "skinTone";
 
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, FileName);
@@ -162,6 +163,18 @@ internal static class SettingsFile
     {
         JsonObject settings = Read() ?? [];
         settings[OpacityKey] = AcrylicValue;
+        Write(settings);
+    }
+
+    /// <summary>The strength of the Acrylic backdrop's veil, percent, as saved — any integer; null when there is none, or none that can be read.</summary>
+    public static int? ReadAcrylicVeil() =>
+        Read()?[AcrylicVeilKey] is JsonValue value && value.TryGetValue(out int percent) ? percent : null;
+
+    /// <summary>Saves the strength of the Acrylic backdrop's veil, percent.</summary>
+    public static void WriteAcrylicVeil(int percent)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[AcrylicVeilKey] = percent;
         Write(settings);
     }
 

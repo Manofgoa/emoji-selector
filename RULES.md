@@ -37,6 +37,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Always show skin tone` | Checked while the details panel's tone swatch shows whatever the selection: a click turns it off — the swatch only on an emoji with variants — or on again (see *Skin Tones* below); the window stays |
 | Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept — moved only as far as needed to stay inside the working area —, and the saved size removed (see *Size* and *Corner* below); the window stays |
 | Settings button ⚙ → `Window opacity ▸` | `100%`, `98%`, `96%`, `94%`, `92%`, then `Acrylic` — Windows' blurred background —, the one in use checked: a click applies it to the whole window at once and saves it (see *Opacity* and *Acrylic* below); the window stays |
+| Settings button ⚙ → `Acrylic veil ▸` | `10%` … `90%`, the one in use checked, greyed while `Acrylic` is off: the strength of the white veil over the blur, applied at once and saved (see *Acrylic* below); the window stays |
 | Settings button ⚙ → `Open app folder` | Opens the exe's folder in the File Explorer, the exe selected; the window stays |
 | Settings button ⚙ → `Start with Windows` | Checked while Windows starts this exe at sign-in: a click writes or deletes the **startup shortcut** (see *Start with Windows* below); the window stays |
 | Settings button ⚙ → `Check for emoji updates…` | The latest Emojibase version online; a newer one offered, downloaded, then a restart offered (see *Emoji Data* below) |
@@ -98,7 +99,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 - The settings menu has **five sections**, one per feature, in the window's order, separated by
   lines and **untitled** (`MainForm.CreateSettingsMenu`): *frequently used* (`Show frequently used`,
   `Clear frequently used`), *custom groups* (`New group…`, `Show groups ▸`), *details panel* (`Show
-  French names`, `Highlight color…`, `Always show skin tone`), *window* (`Reset window size`, `Window opacity ▸`), *app* (`Open app folder`,
+  French names`, `Highlight color…`, `Always show skin tone`), *window* (`Reset window size`, `Window opacity ▸`, `Acrylic veil ▸`), *app* (`Open app folder`,
   `Start with Windows`, `Check for emoji updates…`, `Reset all settings…`). A new item joins the section of its feature; the labels say their
   subject on their own.
 - A **colour item** shows the colour in use as its image (`MainForm.SetSwatch`): a rounded square of
@@ -121,7 +122,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   without running its code. A move, or a drag to a monitor of another scale, saves nothing.
 - `settings.json` is the app's **shared settings file** (`Data/SettingsFile.cs`): `{ "windowWidth":
   …, "windowHeight": …, "trayEmoji": …, "showFrequent": …, "showFrench": …, "highlightColor": …, "opacity": …,
-  "skinTone": …, "alwaysShowSkinTone": … }`;
+  "acrylicVeil": …, "skinTone": …, "alwaysShowSkinTone": … }`;
   a write keeps the keys it does not
   know. Written through `settings.json.new` then a replace, the emojis as themselves
   (`EmojiUsage.ReadableEmojis`).
@@ -208,19 +209,29 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 - **Drawing on it**: DWM blends each pixel with the blur by its alpha, and GDI writes an alpha of 0 —
   its black turns transparent. While their `Glass` is set, the custom-drawn controls (the search bar,
   the tab strip, the grid, the details panel) paint into a premultiplied 32-bit buffer with GDI+, over
-  a white veil at 40 % (`Glass.Tint`) keeping the text readable whatever is behind, then copy it, alpha
-  included (`Glass.Paint`); their `OnPaintBackground` paints nothing.
+  a white veil keeping the text readable whatever is behind (`Glass.VeilPercent`, see *Veil* below), then
+  copy it, alpha included (`Glass.Paint`); their `OnPaintBackground` paints nothing.
   - Text goes through `Glass.DrawText` — `TextRenderer` off the backdrop, GDI+'s `DrawString` on it
     (grey-scale anti-aliasing, no ClearType) —, and the details panel measures its words with
     `Glass.MeasureWidth` there, so the spaces between them stay even.
   - `SystemColors.GrayText` is drawn darker on it (`Glass.GrayText`, `#3C3C3C`): the system grey is
     unreadable on the blur.
 - **Native controls** — the search box, its ✕, the grid's scroll bar — cannot draw with alpha: they
-  are made **layered children** at full alpha (`Glass.SetOpaque`), which DWM composes opaque. Windows
+  are made **layered children** (`Glass.SetOpaque`), which DWM composes at one alpha for the whole
+  control. The scroll bar is opaque; the search box and its ✕ are faded whole, field and text, to
+  `MainForm.SearchBoxAlpha` (`0xB0`, 69 %): opaque, the white field stood out as a bar across the top of
+  the window. Windows
   honours `WS_EX_LAYERED` on a child window only for an app declaring Windows 8 or later:
   `app.manifest` declares Windows 10 (`supportedOS`). A control without a handle yet — the ✕, hidden at
   launch — is set once it is created.
-- `Reset all settings…` brings it back to 100 %.
+- **Veil**: `Acrylic veil ▸`, in the settings menu's *window* section after `Window opacity ▸`:
+  `10%` … `90%` (`MainForm.VeilPercents`), the one in use checked, greyed while `Acrylic` is off. A click
+  sets `Glass.VeilPercent` and draws the window again at once (`MainForm.SetAcrylicVeil`); no
+  confirmation. Saved as `acrylicVeil` in `settings.json`, the percentage (`SettingsFile.ReadAcrylicVeil` /
+  `WriteAcrylicVeil`); missing or not an integer → 40 % (`Glass.DefaultVeilPercent`), another integer
+  → the nearest offered, the key left as it is. White only: the texts are dark, a dark veil would need
+  light ones.
+- `Reset all settings…` brings it back to 100 %, the veil to 40 %.
 - An agent checking it from a script writes `"opacity": "acrylic"` in the build's `settings.json` and
   launches the exe. It captures the screen (`CopyFromScreen`) **only while the window is in front**
   (`GetForegroundWindow`): the capture takes whatever is on screen there, the user's own windows

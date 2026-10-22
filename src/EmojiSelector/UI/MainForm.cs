@@ -46,6 +46,14 @@ internal sealed class MainForm : Form
 
     public const string WindowOpacityText = "Window opacity";
     public const string AcrylicText = "Acrylic";
+    public const string AcrylicVeilText = "Acrylic veil";
+
+    // The strengths Acrylic veil offers, percent.
+    private static readonly int[] VeilPercents = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+
+    // The search box and its ✕ on the backdrop: native controls, faded whole — field and text — so the white field
+    // does not stand out as a bar.
+    private const byte SearchBoxAlpha = 0xB0;
 
     // The opacities the settings menu offers, percent, the most opaque first: a saved value that is not one of them
     // takes the nearest, a tie going to the more opaque (see NearestOpacity).
@@ -294,6 +302,9 @@ internal sealed class MainForm : Form
         // --background launch shows it at its opacity from the first show.
         // With the Acrylic backdrop, fully opaque: a layered window has no backdrop.
         this.Opacity = this.acrylic ? 1.0 : this.opacityPercent / 100.0;
+        // The veil's saved strength — one written by hand taken to the nearest offered —, before the first paint.
+        int veil = SettingsFile.ReadAcrylicVeil() ?? UI.Glass.DefaultVeilPercent;
+        UI.Glass.VeilPercent = VeilPercents.MinBy(offered => Math.Abs(offered - veil));
 
         // The search box on top, the tabs below it, the details panel at the bottom, the grid filling the rest. Docking
         // runs from the last control added: the search bar first, then the strip, then the panel.
@@ -570,8 +581,8 @@ internal sealed class MainForm : Form
         }
 
         ((SearchBar)this.searchBar).Glass = this.acrylic;
-        UI.Glass.SetOpaque(this.searchBox, this.acrylic);
-        UI.Glass.SetOpaque(this.clearButton, this.acrylic);
+        UI.Glass.SetOpaque(this.searchBox, this.acrylic, SearchBoxAlpha);
+        UI.Glass.SetOpaque(this.clearButton, this.acrylic, SearchBoxAlpha);
         this.tabStrip.Glass = this.acrylic;
         this.grid.Glass = this.acrylic;
         this.detailsPanel.Glass = this.acrylic;
@@ -590,6 +601,17 @@ internal sealed class MainForm : Form
             this.Opacity = 1.0;
             SettingsFile.WriteAcrylic();
             this.ApplyBackdrop();
+        }
+    }
+
+    // The strength of the Acrylic backdrop's veil, from the settings menu: drawn again at once, saved.
+    private void SetAcrylicVeil(int percent)
+    {
+        if (percent != UI.Glass.VeilPercent)
+        {
+            UI.Glass.VeilPercent = percent;
+            SettingsFile.WriteAcrylicVeil(percent);
+            this.Invalidate(invalidateChildren: true);
         }
     }
 
@@ -791,6 +813,16 @@ internal sealed class MainForm : Form
         acrylicItem.Click += (_, _) => this.SetAcrylic();
         windowOpacity.DropDownItems.Add(acrylicItem);
         menu.Items.Add(windowOpacity);
+        // The veil's strength, greyed while the backdrop is off.
+        var acrylicVeil = new ToolStripMenuItem(AcrylicVeilText);
+        foreach (int percent in VeilPercents)
+        {
+            var item = new ToolStripMenuItem($"{percent}%") { Tag = percent };
+            item.Click += (_, _) => this.SetAcrylicVeil(percent);
+            acrylicVeil.DropDownItems.Add(item);
+        }
+
+        menu.Items.Add(acrylicVeil);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
         var startWithWindowsItem = new ToolStripMenuItem(StartWithWindowsText);
@@ -810,6 +842,12 @@ internal sealed class MainForm : Form
             foreach (ToolStripMenuItem item in windowOpacity.DropDownItems.OfType<ToolStripMenuItem>())
             {
                 item.Checked = item == acrylicItem ? this.acrylic : !this.acrylic && (int)item.Tag! == this.opacityPercent;
+            }
+
+            acrylicVeil.Enabled = this.acrylic;
+            foreach (ToolStripMenuItem item in acrylicVeil.DropDownItems)
+            {
+                item.Checked = (int)item.Tag! == UI.Glass.VeilPercent;
             }
 
             this.SetSwatch(highlightColorItem, this.detailsPanel.HighlightColor);
