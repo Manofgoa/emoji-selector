@@ -1,7 +1,7 @@
 {
   "families": [
     {
-      "name": "Legal & references",
+      "name": "Legal",
       "characters": [
         { "character": "©", "name": "copyright sign", "frenchName": "symbole copyright", "aliases": ["(c)", "c"] },
         { "character": "®", "name": "registered sign", "frenchName": "symbole marque déposée", "aliases": ["(r)", "r"] },
@@ -16,7 +16,7 @@
       ]
     },
     {
-      "name": "Punctuation & typography",
+      "name": "Punctuation",
       "characters": [
         { "character": "«", "name": "left-pointing double angle quotation mark", "frenchName": "guillemet ouvrant", "aliases": ["<<", "\""] },
         { "character": "»", "name": "right-pointing double angle quotation mark", "frenchName": "guillemet fermant", "aliases": [">>", "\""] },
@@ -40,7 +40,7 @@
       ]
     },
     {
-      "name": "Accented letters & ligatures",
+      "name": "Accents",
       "characters": [
         { "character": "É", "name": "latin capital letter e with acute", "frenchName": "E majuscule accent aigu", "aliases": ["e'", "E'"] },
         { "character": "È", "name": "latin capital letter e with grave", "frenchName": "E majuscule accent grave", "aliases": ["e`"] },
@@ -74,7 +74,7 @@
       ]
     },
     {
-      "name": "Maths, units & fractions",
+      "name": "Maths",
       "characters": [
         { "character": "±", "name": "plus-minus sign", "frenchName": "plus ou moins", "aliases": ["+-"] },
         { "character": "×", "name": "multiplication sign", "frenchName": "signe multiplication", "aliases": ["x", "*"] },
