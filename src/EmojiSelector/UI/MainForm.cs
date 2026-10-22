@@ -1352,7 +1352,8 @@ internal sealed class MainForm : Form
         }
         else
         {
-            this.grid.ShowSearchResults(EmojiSearch.Find([.. this.categories, .. this.ShownSpecialSections()], text));
+            // The special characters before the catalog: on a tie, tm gives ™ before the emoji ™️.
+            this.grid.ShowSearchResults(EmojiSearch.Find([.. this.ShownSpecialSections(), .. this.categories], text));
             this.tabStrip.Greyed = true;
         }
     }
