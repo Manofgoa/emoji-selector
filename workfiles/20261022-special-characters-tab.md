@@ -40,9 +40,10 @@ the user can still add them to the file.
 
 ---
 
-## Aliases
+## Names and Aliases
 
-Each character carries **aliases**: short, easy-to-type texts describing it, found by the **search
+Each character carries an **English and a French name** — shown in the details panel like an
+emoji's, searchable (Iteration 4) — and **aliases**: short, easy-to-type texts describing it, found by the **search
 box** (Iteration 3). `<<` finds «; `"` finds every character drawn as quotes — « » “ ” „ ″. They
 live in the characters' file, next to each character, so the user edits them too.
 
@@ -77,22 +78,25 @@ text form).
 - [x] ~~Which families are retained?~~ → Legal & references, punctuation & typography, accented letters & ligatures, currencies, maths/units/fractions
 - [ ] Which characters within each retained family?
 - [x] ~~Structure: one tab with one section per family, or one tab per family?~~ → One tab, one section per family
-- [ ] Where does the tab sit in the strip (after the custom tab, last…), and with which icon?
-- [ ] The file: format (JSON?), location (next to the exe, like `emoji-data\`?), and what happens
-  when the exe ships a newer default list while the user edited theirs (kept, merged, replaced)?
+- [x] ~~Where does the tab sit in the strip?~~ → **Last**, after the seven emoji categories
+- [ ] Which icon for the tab?
+- [x] ~~The exe ships a newer default list while the user edited theirs?~~ → **The user's file
+  wins**: never rewritten while it exists and is valid; `Reset all settings…` brings the default back
+- [ ] The file: format (JSON?), name and location (next to the exe, like `emoji-data\`?)
 - [x] ~~Is a character searchable from the search box?~~ → Yes, by its **aliases** (see *Aliases*)
 - [ ] Which aliases for each character?
-- [ ] Does each character also carry a **name** (English / French) — shown in the details panel, and
-  searchable?
-- [ ] Do the characters take part in the rest of the app: frequent tab counters, custom groups,
-  `Use as tray icon`?
+- [x] ~~Does each character also carry a **name** (English / French)?~~ → Yes: shown in the details
+  panel like an emoji's, and searchable, on top of the aliases
+- [x] ~~Do the characters take part in the rest of the app?~~ → **Custom groups only** (`Add to ▸`);
+  no frequent counters, no `Use as tray icon`
 - [x] ~~Invisible characters (spaces, soft hyphen): how are they shown in the grid?~~ → Moot: the
   family is not retained
 - [ ] © ® ™ also exist as emojis (©️ ®️ ™️, with `FE0F`): the tab inserts the **text form** — the
   bare character, or with `FE0E` to force the text presentation?
 - [ ] Rendering: drawn monochrome with a text font (Segoe UI), or through the emoji renderer?
 - [ ] Can the tab be hidden from the settings menu, like the frequent tab?
-- [ ] `Reset all settings…`: does it delete the user's edited file (back to the default list)?
+- [x] ~~`Reset all settings…`: does it delete the user's edited file?~~ → Yes, back to the default
+  list (Iteration 4)
 
 ---
 
@@ -128,6 +132,18 @@ User request: the characters need **aliases**, easy to use, describing them — 
 double angle quote, and `"` matching it too. A first alias list is proposed (see *Aliases*), found
 through the search box's symbol search.
 
+### Iteration 4 — 2026-10-22
+
+Second scoping batch answered:
+
+- **Integration**: the characters can be added to the **custom groups**; they are **not** counted
+  by the frequent tab, and `Use as tray icon` is not offered on them.
+- **Names**: an English and a French name per character, shown in the details panel like an
+  emoji's and searchable, **on top of** the aliases.
+- **Tab position**: last, after the seven emoji categories.
+- **Default list update**: the user's file wins — never rewritten while it exists and is valid;
+  `Reset all settings…` deletes it, so the default list comes back.
+
 ---
 
 ## Implementation Log
@@ -153,10 +169,10 @@ Questions asked by the agent during design, with user responses.
 | 2 | Which symbol families are retained (currencies, maths, arrows, bullets)? | Currencies, maths/units/fractions | 2026-10-22 |
 | 3 | Structure: one tab with one section per family, or one tab per family? | One tab, one section per family | 2026-10-22 |
 | 4 | Depth: straightforward, or tricky / long? | Straightforward |
-| 5 | Do the characters take part in the frequent tab, the custom groups, `Use as tray icon`? | | 2026-10-22 |
-| 6 | Besides the aliases, does each character carry a name (EN / FR), shown in the details panel and searchable? | | 2026-10-22 |
-| 7 | Where does the tab sit in the strip? | | 2026-10-22 |
-| 8 | The user edited the file and a new exe ships a newer default list: what happens? | | 2026-10-22 | 2026-10-22 |
+| 5 | Do the characters take part in the frequent tab, the custom groups, `Use as tray icon`? | Custom groups only | 2026-10-22 |
+| 6 | Besides the aliases, does each character carry a name (EN / FR), shown in the details panel and searchable? | Yes, names EN / FR + aliases | 2026-10-22 |
+| 7 | Where does the tab sit in the strip? | Last | 2026-10-22 |
+| 8 | The user edited the file and a new exe ships a newer default list: what happens? | The user's file wins; Reset all settings brings the default back | 2026-10-22 | 2026-10-22 |
 
 ---
 
