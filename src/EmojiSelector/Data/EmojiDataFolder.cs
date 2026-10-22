@@ -10,8 +10,8 @@ namespace EmojiSelector.Data;
 /// </summary>
 /// <remarks>
 /// The folder's files are a <b>set</b>, always written together: <c>compact.en.json</c> (the list),
-/// <c>compact.fr.json</c> (French keywords), <c>LICENSE</c> (Emojibase's, MIT) and <c>version.txt</c> (the Emojibase
-/// version of the set). A folder that cannot be written (an exe under Program Files) is not an error: the embedded copy
+/// <c>compact.fr.json</c> (French keywords), <c>subgroups.json</c> (the sub-categories, see <see cref="EmojiSubgroups"/>),
+/// <c>LICENSE</c> (Emojibase's, MIT) and <c>version.txt</c> (the Emojibase version of the set). A folder that cannot be written (an exe under Program Files) is not an error: the embedded copy
 /// is used in memory.
 /// </remarks>
 internal static class EmojiDataFolder
@@ -21,6 +21,8 @@ internal static class EmojiDataFolder
     public const string EnglishFileName = "compact.en.json";
 
     public const string FrenchFileName = "compact.fr.json";
+
+    public const string SubgroupsFileName = "subgroups.json";
 
     public const string LicenseFileName = "LICENSE";
 
@@ -33,8 +35,8 @@ internal static class EmojiDataFolder
 
     public static string FolderPath => Path.Combine(AppContext.BaseDirectory, FolderName);
 
-    /// <summary>The four files of a set, as they are on disk.</summary>
-    public sealed record FileSet(string Version, byte[] English, byte[] French, byte[] License);
+    /// <summary>The five files of a set, as they are on disk.</summary>
+    public sealed record FileSet(string Version, byte[] English, byte[] French, byte[] Subgroups, byte[] License);
 
     /// <summary>A set that parsed: its version and the categories built from it.</summary>
     public sealed record EmojiData(Version Version, IReadOnlyList<EmojiCategory> Categories);
@@ -71,19 +73,20 @@ internal static class EmojiDataFolder
     }
 
     /// <summary>
-    /// Parses a set: its version, and both JSON files into the categories. Null when any of them is not valid — the
-    /// LICENSE is not read.
+    /// Parses a set: its version, and the JSON files into the categories and their sub-categories. Null when any of
+    /// them is not valid — the LICENSE is not read.
     /// </summary>
     public static EmojiData? Parse(FileSet set)
     {
         if (ParseVersion(set.Version) is not Version version
             || EmojiCatalog.Parse(set.English, isList: true) is not EmojiCatalog.Entry[] english
-            || EmojiCatalog.Parse(set.French, isList: false) is not EmojiCatalog.Entry[] french)
+            || EmojiCatalog.Parse(set.French, isList: false) is not EmojiCatalog.Entry[] french
+            || EmojiSubgroups.Parse(set.Subgroups) is not EmojiSubgroups subgroups)
         {
             return null;
         }
 
-        return new EmojiData(version, EmojiCatalog.Build(english, french));
+        return new EmojiData(version, EmojiCatalog.Build(english, french, subgroups));
     }
 
     /// <summary>The version of the copy embedded in the exe: the one a deleted folder comes back to.</summary>
@@ -106,6 +109,7 @@ internal static class EmojiDataFolder
         [
             (EnglishFileName, set.English),
             (FrenchFileName, set.French),
+            (SubgroupsFileName, set.Subgroups),
             (LicenseFileName, set.License),
             (VersionFileName, Encoding.UTF8.GetBytes(set.Version.Trim() + Environment.NewLine)),
         ];
@@ -148,13 +152,15 @@ internal static class EmojiDataFolder
         {
             string PathOf(string name) => Path.Combine(FolderPath, name);
             if (!File.Exists(PathOf(VersionFileName)) || !File.Exists(PathOf(EnglishFileName))
-                || !File.Exists(PathOf(FrenchFileName)) || !File.Exists(PathOf(LicenseFileName)))
+                || !File.Exists(PathOf(FrenchFileName)) || !File.Exists(PathOf(SubgroupsFileName))
+                || !File.Exists(PathOf(LicenseFileName)))
             {
                 return null;
             }
 
             return new FileSet(File.ReadAllText(PathOf(VersionFileName)), File.ReadAllBytes(PathOf(EnglishFileName)),
-                File.ReadAllBytes(PathOf(FrenchFileName)), File.ReadAllBytes(PathOf(LicenseFileName)));
+                File.ReadAllBytes(PathOf(FrenchFileName)), File.ReadAllBytes(PathOf(SubgroupsFileName)),
+                File.ReadAllBytes(PathOf(LicenseFileName)));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -168,6 +174,7 @@ internal static class EmojiDataFolder
         Encoding.UTF8.GetString(ReadResource(VersionFileName)),
         ReadResource(EnglishFileName),
         ReadResource(FrenchFileName),
+        ReadResource(SubgroupsFileName),
         ReadResource(LicenseFileName));
 
     private static byte[] ReadResource(string fileName)
