@@ -419,6 +419,11 @@ Design written in *Sub-Categories*: the two checkboxes and their menu sections, 
 (widest label, at most a third of the width, ellipsis), the layout's rows, `subgroups.json` in the
 emoji data set and in `Check for emoji updates…`. The special characters' tab becomes one section.
 
+### Iteration 14 — 2026-10-22 — ✅ Implemented — Sub-categories go
+
+Go given for the sub-categories (Iteration 13): **code, unit tests and documentation**, in the same
+**worktree** and branch, `feature/special-characters-tab`.
+
 ---
 
 ## Implementation Log
