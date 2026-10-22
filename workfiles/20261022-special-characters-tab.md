@@ -161,9 +161,9 @@ shown as a **label at the start of a row, its cells to its right**.
 - **Shown**: the category's **header stays** above its rows; each sub-category starts a **new row**,
   its label at the start of its first row, its cells to the right; a sub-category longer than the
   row continues on the next rows, under the cells, the label column empty.
-- **The label column**: one width for the whole grid — the widest label shown, plus a gap —, so every
-  labelled row's cells line up; at most a third of the grid's width, a longer label cut with an
-  ellipsis. Labels in the text font, grey (`SystemColors.GrayText`, `Glass.GrayText` on Acrylic),
+- **The label column**: one width **per category** — the widest label of that category, plus a gap —,
+  so its rows' cells line up (Iteration 17; was one width for the whole grid); at most a third of the
+  grid's width, a longer label cut with an ellipsis. Labels in the text font, grey (`SystemColors.GrayText`, `Glass.GrayText` on Acrylic),
   vertically centred on their first row, capitalized (`smiling` → `Smiling`). A section without
   sub-categories keeps its cells from the left edge, the full width.
 - **Columns**: a labelled section holds fewer columns — the width minus the label column. ↑ / ↓ keep
@@ -457,6 +457,13 @@ User request: the sub-categories' names are too long. The families of the defaul
 *Punctuation & typography*, *Accented letters & ligatures*, *Currencies*, *Maths, units & fractions*).
 Only the default list changes: a `special-characters.json` already next to an exe keeps its names —
 the user's file wins.
+
+### Iteration 17 — 2026-10-22 — ⚙️ Post-implementation — Label column per category
+
+User request: the sub-categories' label column is sized on the longest label **of its category**, not
+of the whole grid. Each labelled section gets its own label width (`EmojiGridLayout.Section`); the
+third-of-the-width cap and the ellipsis stay. Categories' cells no longer line up with one another —
+only within a category.
 
 ---
 
