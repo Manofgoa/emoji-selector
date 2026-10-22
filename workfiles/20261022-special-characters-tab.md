@@ -63,13 +63,107 @@ Proposal, to be refined:
 
 ---
 
+## The File
+
+From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
+
+- **`special-characters.json`, next to the exe** (`SpecialCharacters.FileName`), like
+  `custom-groups.json`; its default is **embedded** in the exe (`Data/SpecialCharacters.json`, an
+  `EmbeddedResource` with an explicit `LogicalName`), the way `Data/EmojiDataFolder.cs` carries the
+  Emojibase copy.
+- **Format** — camelCase JSON, UTF-8 without BOM, the characters written as themselves:
+
+  ```json
+  {
+    "families": [
+      {
+        "name": "Legal & references",
+        "characters": [
+          { "character": "©", "name": "copyright sign", "frenchName": "symbole copyright", "aliases": ["(c)", "c"] }
+        ]
+      }
+    ]
+  }
+  ```
+
+  - `name` of a family: the section's header (English, like the catalog's sections).
+  - `character`: any text — usually one character, a sequence allowed.
+  - The code point shown in the copy button's tooltip (`U+00A9`) is computed from the text, not
+    written in the file.
+- **At launch** (`SpecialCharacters.Load`, modelled on `EmojiDataFolder.Load`):
+
+  | The file | Does |
+  |---|---|
+  | Missing | Written from the embedded default (`.tmp` then a replace), then used |
+  | Present and valid | Used as it is — **never rewritten**, even when the exe ships a newer default |
+  | Present, invalid | See *Open Questions* |
+  | Cannot be written | The embedded default used in memory — never an error |
+
+- **Leniency inside a valid file**, like `custom-groups.json`: a character without `character` is
+  left out; a character given twice keeps its first entry; missing names or aliases are empty; a
+  family without a character is not shown.
+- **`Reset all settings…`** deletes it (and its `.tmp`) — a row in `Data/AppReset.cs`, a line in
+  the confirmation's list: the default list comes back at the restart.
+
+---
+
+## Tab and Sections
+
+- **One tab, last** in the strip, after the seven catalog tabs; **one section per family**, in the
+  file's order — the custom tab's mechanism (`MainForm.TabOf` / `SectionOf`), with a trailing block
+  of sections and one tab. The minimum window width grows by one tab.
+- The sections are `EmojiCategory` objects built from the file (`Data/SpecialCharacters.cs`), each
+  character an `Emoji` (`Text`, `Name`, `FrenchName`, keywords) — kept **apart** from the catalog's
+  categories (`MainForm.specialCategories`).
+- **Insertion**: click, Enter, Ctrl+click, Ctrl+Enter insert the **bare character**, as written in
+  the file — no `FE0E`: the catalog's ©️ ®️ ™️ carry `FE0F`, so the special © is another text, and
+  a target app draws a bare © as text.
+- **Not counted** by the frequent tab (`MainForm.OnEmojiUsed` returns early for a special
+  character); **no `Use as tray icon`** in its right-click menu (nor the separator after it).
+- **Custom groups**: `Add to ▸` works as for an emoji — `MainForm.emojisByText` includes the special
+  characters, or a group would drop them silently.
+
+---
+
+## Rendering
+
+- The grid and the details panel draw through `Drawing/EmojiRenderer.cs`, whose only font is
+  Segoe UI Emoji: a bare © ® ™ would come out **in colour**, and ₹ ∑ through DirectWrite's fallback,
+  with uneven metrics.
+- Proposal: the special characters are drawn **monochrome with Segoe UI**, the text font — a second
+  `IDWriteTextFormat` in the renderer, chosen for them, at a smaller scale than the emojis' so a
+  letter does not fill its cell. Colour: the text colour.
+- **Pre-render**: the special characters join the grid's pre-render list (the cache key holds the
+  list: rendered again automatically); the renderer's change **bumps
+  `EmojiBitmapCache.FormatVersion`** to 2.
+
+---
+
+## Search and Details Panel
+
+- **Search**: `EmojiSearch.Find` runs over the catalog's categories **and** the special ones (one
+  call in `MainForm`); `EmojiSearch` itself does not change. Per character:
+  - `Keywords` — the words of its English and French names;
+  - `SymbolKeywords` — its aliases holding a symbol (`<<`, `"`, `(c)`), folded by `EmojiSearch.Fold`;
+  - `CharacterKeys` — every alias, folded: an alias typed whole ranks first, like an emoji's
+    character (`1` → 1️⃣).
+- **Details panel**: the character drawn large, its English and French names, its **aliases as
+  tags** in both rows; the copy button copies the bare character. The panel's height takes the
+  special characters into account (its catalog list includes them).
+
+---
+
 ## Test Impact
 
-To be filled once the design settles (file parsing, the tab's sections, the insertion of the
-text form).
+**No unit test**: the repository has no test project. The file's loading and parsing
+(`SpecialCharacters.Load` / `Parse`) are checked **by reflection on the dll of a copy of the build
+folder** (`APP_CONTEXT_BASE_DIRECTORY`, RULES.md § Reset All Settings): missing file written,
+valid edited file kept, invalid file handled as decided. The tab, the rendering and the search are
+checked by hand (custom-drawn, no accessibility), the search also by `WM_SETTEXT` into the box.
 
 | Behaviour to pin | Test file | Create / Update |
 |---|---|---|
+| — (no test project; reflection checks and by hand) | — | — |
 
 ---
 
@@ -82,8 +176,11 @@ text form).
 - [ ] Which icon for the tab?
 - [x] ~~The exe ships a newer default list while the user edited theirs?~~ → **The user's file
   wins**: never rewritten while it exists and is valid; `Reset all settings…` brings the default back
-- [ ] The file: format (JSON?), name and location (next to the exe, like `emoji-data\`?)
-- [x] ~~Is a character searchable from the search box?~~ → Yes, by its **aliases** (see *Aliases*)
+- [x] ~~The file: format, name and location?~~ → `special-characters.json` next to the exe, JSON,
+  default embedded (see *The File*)
+- [ ] An **invalid** file (a JSON syntax error after an edit): rewritten from the default — the
+  user's edits lost — or kept as it is, the default used in memory?
+- [x] ~~Is a character searchable from the search box?~~ → Yes, by its **aliases** (see *Names and Aliases*)
 - [ ] Which aliases for each character?
 - [x] ~~Does each character also carry a **name** (English / French)?~~ → Yes: shown in the details
   panel like an emoji's, and searchable, on top of the aliases
@@ -91,8 +188,8 @@ text form).
   no frequent counters, no `Use as tray icon`
 - [x] ~~Invisible characters (spaces, soft hyphen): how are they shown in the grid?~~ → Moot: the
   family is not retained
-- [ ] © ® ™ also exist as emojis (©️ ®️ ™️, with `FE0F`): the tab inserts the **text form** — the
-  bare character, or with `FE0E` to force the text presentation?
+- [x] ~~© ® ™ also exist as emojis: bare character or `FE0E`?~~ → The bare character: the catalog's
+  ones carry `FE0F`, so they are other texts (see *Tab and Sections*)
 - [ ] Rendering: drawn monochrome with a text font (Segoe UI), or through the emoji renderer?
 - [ ] Can the tab be hidden from the settings menu, like the frequent tab?
 - [x] ~~`Reset all settings…`: does it delete the user's edited file?~~ → Yes, back to the default
@@ -129,7 +226,7 @@ Scoping batch answered:
 ### Iteration 3 — 2026-10-22
 
 User request: the characters need **aliases**, easy to use, describing them — `<<` for the left
-double angle quote, and `"` matching it too. A first alias list is proposed (see *Aliases*), found
+double angle quote, and `"` matching it too. A first alias list is proposed (see *Names and Aliases*), found
 through the search box's symbol search.
 
 ### Iteration 4 — 2026-10-22
@@ -144,6 +241,21 @@ Second scoping batch answered:
 - **Default list update**: the user's file wins — never rewritten while it exists and is valid;
   `Reset all settings…` deletes it, so the default list comes back.
 
+### Iteration 5 — 2026-10-22
+
+Scout pass of the codebase (three read-only agents: category wiring, rendering, deployed file).
+Technical design written: *The File*, *Tab and Sections*, *Rendering*, *Search and Details Panel*,
+*Test Impact*. Findings that shaped it:
+
+- A special character can be an `Emoji`; the frequent and custom tabs already show non-catalog
+  sections, and the custom tab's one-tab-several-sections mapping is reused.
+- `MainForm.emojisByText` is built from the catalog only: custom groups would drop the special
+  characters silently — it must include them.
+- The catalog's © ® ™ are `©️ ®️ ™️` (`FE0F`): no clash with the bare characters.
+- The renderer knows Segoe UI Emoji only: a bare © would be drawn in colour — hence a text format.
+- No existing file follows "the user's edits win": `EmojiDataFolder` rewrites an older folder; the
+  new file drops that comparison.
+
 ---
 
 ## Implementation Log
@@ -155,7 +267,10 @@ says so rather than staying blank.
 |---|---|---|---|
 | Code | | | |
 | Unit tests | | | |
+| RULES.md | | | |
 | README | | | |
+| CONTRIBUTING.md | | | |
+| GLOSSARY | | | |
 
 ---
 
@@ -172,7 +287,11 @@ Questions asked by the agent during design, with user responses.
 | 5 | Do the characters take part in the frequent tab, the custom groups, `Use as tray icon`? | Custom groups only | 2026-10-22 |
 | 6 | Besides the aliases, does each character carry a name (EN / FR), shown in the details panel and searchable? | Yes, names EN / FR + aliases | 2026-10-22 |
 | 7 | Where does the tab sit in the strip? | Last | 2026-10-22 |
-| 8 | The user edited the file and a new exe ships a newer default list: what happens? | The user's file wins; Reset all settings brings the default back | 2026-10-22 | 2026-10-22 |
+| 8 | The user edited the file and a new exe ships a newer default list: what happens? | The user's file wins; Reset all settings brings the default back |
+| 9 | Which icon for the tab? | | 2026-10-22 |
+| 10 | Rendering: monochrome text font, or like the emojis? | | 2026-10-22 |
+| 11 | An invalid file after an edit: rewritten from the default, or kept and the default used in memory? | | 2026-10-22 |
+| 12 | Can the tab be hidden from the settings menu? | | 2026-10-22 | 2026-10-22 | 2026-10-22 |
 
 ---
 
