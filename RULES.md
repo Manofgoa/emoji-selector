@@ -649,7 +649,7 @@ custom groups like the emojis.
 - **Custom groups**: `MainForm.emojisByText` holds the special characters after the catalog's emojis
   — a text the catalog has stays the catalog's emoji —, so a group shows them.
 - **Drawn as text** (`EmojiRenderer.Render` with `asText`): monochrome, black, `Segoe UI`
-  (`EmojiRenderer.TextFontFamily`) at `TextFontScale` (0.6) of the square, raised by
+  (`EmojiRenderer.TextFontFamily`) at `TextFontScale` (0.8) of the square, raised by
   `TextRaiseScale` — Segoe UI Emoji would draw © ® ™ in colour and take the rest from fallback fonts.
   The grid pre-renders them with the emojis, marked in the cache's key (`text:`), its `text=` line
   holding the font and scales (`EmojiBitmapCache.FormatVersion` 2); the details panel draws its large
