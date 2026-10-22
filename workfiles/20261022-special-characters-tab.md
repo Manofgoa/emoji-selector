@@ -23,16 +23,17 @@ design starts from **families** of characters, refined progressively with the us
 
 ## Character Families
 
-**One tab, one section per family**, in this order (Iteration 2). This list is the **default
+**One tab, one section per family**, in this order (Iteration 2); the families' names shortened to
+one word, they are the sub-categories' labels (Iteration 16). This list is the **default
 shipped** in the exe (Iteration 7); the user refines it in `special-characters.json`.
 
 | # | Family | Characters |
 |---|---|---|
-| 1 | **Legal & references** | © ® ™ ℠ ℗ § ¶ † ‡ № |
-| 2 | **Punctuation & typography** | « » ‹ › “ ” ‘ ’ „ — – ‑ … • · ¡ ¿ ′ ″ |
-| 3 | **Accented letters & ligatures** — the capitals hard to type on AZERTY | É È Ê À Ç Ù Œ œ Æ æ ß Ñ ñ |
+| 1 | **Legal** | © ® ™ ℠ ℗ § ¶ † ‡ № |
+| 2 | **Punctuation** | « » ‹ › “ ” ‘ ’ „ — – ‑ … • · ¡ ¿ ′ ″ |
+| 3 | **Accents** — the capitals hard to type on AZERTY, the ligatures | É È Ê À Ç Ù Œ œ Æ æ ß Ñ ñ |
 | 4 | **Currencies** | € £ ¥ ¢ $ ₹ ₽ ₩ ₺ ₿ ¤ |
-| 5 | **Maths, units & fractions** | ± × ÷ ≈ ≠ ≤ ≥ ∞ √ ∑ ∫ ∂ ∆ ° ‰ µ ½ ¼ ¾ ⅓ ² ³ ℃ |
+| 5 | **Maths** — units and fractions included | ± × ÷ ≈ ≠ ≤ ≥ ∞ √ ∑ ∫ ∂ ∆ ° ‰ µ ½ ¼ ¾ ⅓ ² ³ ℃ |
 
 Left out (Iteration 2): **spaces & invisible characters**, **arrows**, **bullets, check marks &
 suits**, and the further candidates (Greek letters, superscripts & subscripts, keyboard keys) —
@@ -57,11 +58,11 @@ one from the Unicode name in lower case (`copyright sign`), the French one the u
 
 | Family | Character → aliases |
 |---|---|
-| Legal & references | © `(c)` `c` · ® `(r)` `r` · ™ `tm` `(tm)` · ℠ `sm` · ℗ `(p)` · § `s` `par` · ¶ `p` `pilcrow` · † `+` · ‡ `++` · № `no` |
-| Punctuation & typography | « `<<` `"` · » `>>` `"` · ‹ `<` `'` · › `>` `'` · “ `"` · ” `"` · ‘ `'` · ’ `'` · „ `,,` `"` · — `---` · – `--` · ‑ `-` · … `...` · • `*` · · `.` · ¡ `!` · ¿ `?` · ′ `'` · ″ `"` `''` |
-| Accented letters & ligatures | É `e'` `E'` · È `e`` · Ê `e^` · À `a`` · Ç `c,` · Ù `u`` · Œ `oe` · œ `oe` · Æ `ae` · æ `ae` · ß `ss` · Ñ `n~` · ñ `n~` |
+| Legal | © `(c)` `c` · ® `(r)` `r` · ™ `tm` `(tm)` · ℠ `sm` · ℗ `(p)` · § `s` `par` · ¶ `p` `pilcrow` · † `+` · ‡ `++` · № `no` |
+| Punctuation | « `<<` `"` · » `>>` `"` · ‹ `<` `'` · › `>` `'` · “ `"` · ” `"` · ‘ `'` · ’ `'` · „ `,,` `"` · — `---` · – `--` · ‑ `-` · … `...` · • `*` · · `.` · ¡ `!` · ¿ `?` · ′ `'` · ″ `"` `''` |
+| Accents | É `e'` `E'` · È `e`` · Ê `e^` · À `a`` · Ç `c,` · Ù `u`` · Œ `oe` · œ `oe` · Æ `ae` · æ `ae` · ß `ss` · Ñ `n~` · ñ `n~` |
 | Currencies | € `e` `eur` `euro` · £ `l` `gbp` `pound` · ¥ `y` `yen` · ¢ `c` `cent` · $ `usd` `dollar` · ₹ `inr` `rupee` · ₽ `rub` `ruble` · ₩ `krw` `won` · ₺ `try` `lira` · ₿ `btc` `bitcoin` · ¤ `currency` |
-| Maths, units & fractions | ± `+-` · × `x` `*` · ÷ `/` `:` · ≈ `~=` `~~` · ≠ `!=` `<>` `=/` · ≤ `<=` · ≥ `>=` · ∞ `oo` `inf` · √ `sqrt` · ∑ `sum` · ∫ `int` · ∂ `d` · ∆ `delta` · ° `deg` `o` · ‰ `%o` · µ `u` `micro` · ½ `1/2` · ¼ `1/4` · ¾ `3/4` · ⅓ `1/3` · ² `^2` · ³ `^3` · ℃ `°c` |
+| Maths | ± `+-` · × `x` `*` · ÷ `/` `:` · ≈ `~=` `~~` · ≠ `!=` `<>` `=/` · ≤ `<=` · ≥ `>=` · ∞ `oo` `inf` · √ `sqrt` · ∑ `sum` · ∫ `int` · ∂ `d` · ∆ `delta` · ° `deg` `o` · ‰ `%o` · µ `u` `micro` · ½ `1/2` · ¼ `1/4` · ¾ `3/4` · ⅓ `1/3` · ² `^2` · ³ `^3` · ℃ `°c` |
 
 ---
 
@@ -79,7 +80,7 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
   {
     "families": [
       {
-        "name": "Legal & references",
+        "name": "Legal",
         "characters": [
           { "character": "©", "name": "copyright sign", "frenchName": "symbole copyright", "aliases": ["(c)", "c"] }
         ]
@@ -448,6 +449,14 @@ broken.
 - `SpecialCharacters.Load` takes the category's name (`MainForm.SpecialHeader`) and its icon.
 - **Checks**: the emoji sub-categories were seen by writing `showEmojiSubcategories` in the build's
   `settings.json`, restored afterwards.
+
+### Iteration 16 — 2026-10-22 — ⚙️ Post-implementation — Shorter family names
+
+User request: the sub-categories' names are too long. The families of the default list become
+**Legal**, **Punctuation**, **Accents**, **Currencies**, **Maths** (were *Legal & references*,
+*Punctuation & typography*, *Accented letters & ligatures*, *Currencies*, *Maths, units & fractions*).
+Only the default list changes: a `special-characters.json` already next to an exe keeps its names —
+the user's file wins.
 
 ---
 
