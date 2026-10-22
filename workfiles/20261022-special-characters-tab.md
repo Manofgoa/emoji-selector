@@ -213,6 +213,12 @@ checked by hand (custom-drawn, no accessibility), the search also by `WM_SETTEXT
 - [x] ~~Can the tab be hidden from the settings menu?~~ → Yes, `Show special characters`, saved as
   `showSpecial`
 - [x] ~~Is the character and alias list the default to ship?~~ → Yes, as it stands
+- [ ] Sub-categories (Iteration 11): only in the special characters' tab, or the emoji categories too
+  (Emojibase's subgroups: *face-smiling*, *hand-fingers-open*…)?
+- [ ] Sub-categories and families: does a family become a sub-category (its label at the start of its
+  row, no section header), or do families stay sections holding sub-categories?
+- [ ] The label: one column as wide as the widest label, every row aligned — or each label its own
+  width? A row longer than the window: its next rows under the cells, the label column left empty?
 - [x] ~~A settings menu item opening `special-characters.json` in the user's editor?~~ → No: `Open app
   folder` is enough; an edit is read at the next launch
 - [x] ~~`Reset all settings…`: does it delete the user's edited file?~~ → Yes, back to the default
@@ -335,6 +341,13 @@ User request: the special characters are too small in their cells — draw them 
 of the font size): an accented capital (É) and a descender (Ç) still fit. The cache key's `text=` line
 holds both, so the bitmaps are rendered again.
 
+### Iteration 11 — 2026-10-22 — ⚙️ Post-implementation — Sub-categories
+
+User request: a new concept, the **sub-category**. The **category** is a tab of the strip; a
+**sub-category** is shown as a **label at the start of a row, its cells to its right**. Design
+questions open (see *Open Questions*): where it applies, how it relates to the families, the
+label's width and the rows that wrap.
+
 ---
 
 ## Implementation Log
@@ -372,7 +385,10 @@ Questions asked by the agent during design, with user responses.
 | 11 | An invalid file after an edit: rewritten from the default, or kept and the default used in memory? | Kept, default in memory, plus a warning | 2026-10-22 |
 | 12 | Can the tab be hidden from the settings menu? | Yes, `Show special characters` | 2026-10-22 |
 | 13 | Is the character and alias list the default to ship? | Yes, as it stands | 2026-10-22 |
-| 14 | A settings menu item opening the file in the user's editor? | No | 2026-10-22 | 2026-10-22 | 2026-10-22 |
+| 14 | A settings menu item opening the file in the user's editor? | No |
+| 15 | Sub-categories: special characters' tab only, or the emoji categories too? | | 2026-10-22 |
+| 16 | Families and sub-categories: a family becomes a sub-category, or families hold sub-categories? | | 2026-10-22 |
+| 17 | The label: one aligned column or each its own width; a long row's continuation? | | 2026-10-22 | 2026-10-22 | 2026-10-22 | 2026-10-22 |
 
 ---
 
