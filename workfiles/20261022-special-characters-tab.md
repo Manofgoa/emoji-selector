@@ -96,9 +96,13 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
   |---|---|
   | Missing | Written from the embedded default (`.tmp` then a replace), then used |
   | Present and valid | Used as it is — **never rewritten**, even when the exe ships a newer default |
-  | Present, invalid | See *Open Questions* |
+  | Present, invalid — not JSON, or no `families` list | **Kept as it is**, never rewritten: the embedded default used in memory, and a **warning** on the window's first show (see below) |
   | Cannot be written | The embedded default used in memory — never an error |
 
+- **The warning** (Iteration 6): `special-characters.json is not valid: <reason>` — the
+  `JsonException`'s message, its line included — `The default list is used until it is fixed.`, a
+  warning icon, OK. Shown **once**, at the window's **first show** (`OnShown`, or the first Win+; of
+  a `--background` launch) — never a dialog before any window exists.
 - **Leniency inside a valid file**, like `custom-groups.json`: a character without `character` is
   left out; a character given twice keeps its first entry; missing names or aliases are empty; a
   family without a character is not shown.
@@ -109,6 +113,8 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
 
 ## Tab and Sections
 
+- **Tab icon**: Segoe Fluent Icons `E8C1` (*Characters*), `MainForm.SpecialIcon`, next to
+  `FrequentIcon` and `CustomIcon` (Iteration 6).
 - **One tab, last** in the strip, after the seven catalog tabs; **one section per family**, in the
   file's order — the custom tab's mechanism (`MainForm.TabOf` / `SectionOf`), with a trailing block
   of sections and one tab. The minimum window width grows by one tab.
@@ -120,6 +126,12 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
   a target app draws a bare © as text.
 - **Not counted** by the frequent tab (`MainForm.OnEmojiUsed` returns early for a special
   character); **no `Use as tray icon`** in its right-click menu (nor the separator after it).
+- **Hidden** (Iteration 6): `Show special characters`, a checked item of the settings menu, in a
+  section of its own — *special characters* — right after the *custom groups* section (the window's
+  order: the special tab comes after the custom one). No confirmation; saved as `showSpecial` in
+  `settings.json` (`SettingsFile.ReadShowSpecial`; missing or unreadable → shown). Hidden, the tab
+  leaves the strip, its sections the grid **and the search results**; a toggle goes through
+  `MainForm.RebuildSections`, like the frequent tab's. A file with no character shows no tab either.
 - **Custom groups**: `Add to ▸` works as for an emoji — `MainForm.emojisByText` includes the special
   characters, or a group would drop them silently.
 
@@ -130,7 +142,7 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
 - The grid and the details panel draw through `Drawing/EmojiRenderer.cs`, whose only font is
   Segoe UI Emoji: a bare © ® ™ would come out **in colour**, and ₹ ∑ through DirectWrite's fallback,
   with uneven metrics.
-- Proposal: the special characters are drawn **monochrome with Segoe UI**, the text font — a second
+- Decided (Iteration 6): the special characters are drawn **monochrome with Segoe UI**, the text font — a second
   `IDWriteTextFormat` in the renderer, chosen for them, at a smaller scale than the emojis' so a
   letter does not fill its cell. Colour: the text colour.
 - **Pre-render**: the special characters join the grid's pre-render list (the cache key holds the
@@ -173,13 +185,13 @@ checked by hand (custom-drawn, no accessibility), the search also by `WM_SETTEXT
 - [ ] Which characters within each retained family?
 - [x] ~~Structure: one tab with one section per family, or one tab per family?~~ → One tab, one section per family
 - [x] ~~Where does the tab sit in the strip?~~ → **Last**, after the seven emoji categories
-- [ ] Which icon for the tab?
+- [x] ~~Which icon for the tab?~~ → Segoe Fluent Icons `E8C1`, *Characters*
 - [x] ~~The exe ships a newer default list while the user edited theirs?~~ → **The user's file
   wins**: never rewritten while it exists and is valid; `Reset all settings…` brings the default back
 - [x] ~~The file: format, name and location?~~ → `special-characters.json` next to the exe, JSON,
   default embedded (see *The File*)
-- [ ] An **invalid** file (a JSON syntax error after an edit): rewritten from the default — the
-  user's edits lost — or kept as it is, the default used in memory?
+- [x] ~~An **invalid** file: rewritten from the default, or kept?~~ → Kept as it is, the default used
+  in memory, and a warning on the window's first show
 - [x] ~~Is a character searchable from the search box?~~ → Yes, by its **aliases** (see *Names and Aliases*)
 - [ ] Which aliases for each character?
 - [x] ~~Does each character also carry a **name** (English / French)?~~ → Yes: shown in the details
@@ -190,8 +202,13 @@ checked by hand (custom-drawn, no accessibility), the search also by `WM_SETTEXT
   family is not retained
 - [x] ~~© ® ™ also exist as emojis: bare character or `FE0E`?~~ → The bare character: the catalog's
   ones carry `FE0F`, so they are other texts (see *Tab and Sections*)
-- [ ] Rendering: drawn monochrome with a text font (Segoe UI), or through the emoji renderer?
-- [ ] Can the tab be hidden from the settings menu, like the frequent tab?
+- [x] ~~Rendering: monochrome text font, or through the emoji renderer?~~ → Monochrome, Segoe UI,
+  the text colour, smaller than the emojis
+- [x] ~~Can the tab be hidden from the settings menu?~~ → Yes, `Show special characters`, saved as
+  `showSpecial`
+- [ ] Is the character and alias list (see *Character Families*, *Names and Aliases*) the default
+  to ship, or adjusted first?
+- [ ] A settings menu item opening `special-characters.json` in the user's editor?
 - [x] ~~`Reset all settings…`: does it delete the user's edited file?~~ → Yes, back to the default
   list (Iteration 4)
 
@@ -256,6 +273,19 @@ Technical design written: *The File*, *Tab and Sections*, *Rendering*, *Search a
 - No existing file follows "the user's edits win": `EmojiDataFolder` rewrites an older folder; the
   new file drops that comparison.
 
+### Iteration 6 — 2026-10-22
+
+Third batch answered:
+
+- **Tab icon**: `E8C1`, *Characters*.
+- **Rendering**: monochrome, Segoe UI, the text colour, smaller than the emojis.
+- **Invalid file**: kept as it is, the default used in memory, plus a warning on the window's first
+  show.
+- **Hidden**: `Show special characters` in the settings menu, a section of its own after the custom
+  groups', saved as `showSpecial`.
+
+Two questions added: the default list to ship, and a menu item opening the file.
+
 ---
 
 ## Implementation Log
@@ -288,10 +318,12 @@ Questions asked by the agent during design, with user responses.
 | 6 | Besides the aliases, does each character carry a name (EN / FR), shown in the details panel and searchable? | Yes, names EN / FR + aliases | 2026-10-22 |
 | 7 | Where does the tab sit in the strip? | Last | 2026-10-22 |
 | 8 | The user edited the file and a new exe ships a newer default list: what happens? | The user's file wins; Reset all settings brings the default back |
-| 9 | Which icon for the tab? | | 2026-10-22 |
-| 10 | Rendering: monochrome text font, or like the emojis? | | 2026-10-22 |
-| 11 | An invalid file after an edit: rewritten from the default, or kept and the default used in memory? | | 2026-10-22 |
-| 12 | Can the tab be hidden from the settings menu? | | 2026-10-22 | 2026-10-22 | 2026-10-22 |
+| 9 | Which icon for the tab? | E8C1, Characters | 2026-10-22 |
+| 10 | Rendering: monochrome text font, or like the emojis? | Monochrome text font | 2026-10-22 |
+| 11 | An invalid file after an edit: rewritten from the default, or kept and the default used in memory? | Kept, default in memory, plus a warning | 2026-10-22 |
+| 12 | Can the tab be hidden from the settings menu? | Yes, `Show special characters` | 2026-10-22 |
+| 13 | Is the character and alias list the default to ship? | | 2026-10-22 |
+| 14 | A settings menu item opening the file in the user's editor? | | 2026-10-22 | 2026-10-22 | 2026-10-22 |
 
 ---
 
