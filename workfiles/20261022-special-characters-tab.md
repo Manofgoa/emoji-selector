@@ -23,16 +23,17 @@ design starts from **families** of characters, refined progressively with the us
 
 ## Character Families
 
-**One tab, one section per family**, in this order (Iteration 2). This list is the **default
+**One tab, one section per family**, in this order (Iteration 2); the families' names shortened to
+one word, they are the sub-categories' labels (Iteration 16). This list is the **default
 shipped** in the exe (Iteration 7); the user refines it in `special-characters.json`.
 
 | # | Family | Characters |
 |---|---|---|
-| 1 | **Legal & references** | © ® ™ ℠ ℗ § ¶ † ‡ № |
-| 2 | **Punctuation & typography** | « » ‹ › “ ” ‘ ’ „ — – ‑ … • · ¡ ¿ ′ ″ |
-| 3 | **Accented letters & ligatures** — the capitals hard to type on AZERTY | É È Ê À Ç Ù Œ œ Æ æ ß Ñ ñ |
+| 1 | **Legal** | © ® ™ ℠ ℗ § ¶ † ‡ № |
+| 2 | **Punctuation** | « » ‹ › “ ” ‘ ’ „ — – ‑ … • · ¡ ¿ ′ ″ |
+| 3 | **Accents** — the capitals hard to type on AZERTY, the ligatures | É È Ê À Ç Ù Œ œ Æ æ ß Ñ ñ |
 | 4 | **Currencies** | € £ ¥ ¢ $ ₹ ₽ ₩ ₺ ₿ ¤ |
-| 5 | **Maths, units & fractions** | ± × ÷ ≈ ≠ ≤ ≥ ∞ √ ∑ ∫ ∂ ∆ ° ‰ µ ½ ¼ ¾ ⅓ ² ³ ℃ |
+| 5 | **Maths** — units and fractions included | ± × ÷ ≈ ≠ ≤ ≥ ∞ √ ∑ ∫ ∂ ∆ ° ‰ µ ½ ¼ ¾ ⅓ ² ³ ℃ |
 
 Left out (Iteration 2): **spaces & invisible characters**, **arrows**, **bullets, check marks &
 suits**, and the further candidates (Greek letters, superscripts & subscripts, keyboard keys) —
@@ -57,11 +58,11 @@ one from the Unicode name in lower case (`copyright sign`), the French one the u
 
 | Family | Character → aliases |
 |---|---|
-| Legal & references | © `(c)` `c` · ® `(r)` `r` · ™ `tm` `(tm)` · ℠ `sm` · ℗ `(p)` · § `s` `par` · ¶ `p` `pilcrow` · † `+` · ‡ `++` · № `no` |
-| Punctuation & typography | « `<<` `"` · » `>>` `"` · ‹ `<` `'` · › `>` `'` · “ `"` · ” `"` · ‘ `'` · ’ `'` · „ `,,` `"` · — `---` · – `--` · ‑ `-` · … `...` · • `*` · · `.` · ¡ `!` · ¿ `?` · ′ `'` · ″ `"` `''` |
-| Accented letters & ligatures | É `e'` `E'` · È `e`` · Ê `e^` · À `a`` · Ç `c,` · Ù `u`` · Œ `oe` · œ `oe` · Æ `ae` · æ `ae` · ß `ss` · Ñ `n~` · ñ `n~` |
+| Legal | © `(c)` `c` · ® `(r)` `r` · ™ `tm` `(tm)` · ℠ `sm` · ℗ `(p)` · § `s` `par` · ¶ `p` `pilcrow` · † `+` · ‡ `++` · № `no` |
+| Punctuation | « `<<` `"` · » `>>` `"` · ‹ `<` `'` · › `>` `'` · “ `"` · ” `"` · ‘ `'` · ’ `'` · „ `,,` `"` · — `---` · – `--` · ‑ `-` · … `...` · • `*` · · `.` · ¡ `!` · ¿ `?` · ′ `'` · ″ `"` `''` |
+| Accents | É `e'` `E'` · È `e`` · Ê `e^` · À `a`` · Ç `c,` · Ù `u`` · Œ `oe` · œ `oe` · Æ `ae` · æ `ae` · ß `ss` · Ñ `n~` · ñ `n~` |
 | Currencies | € `e` `eur` `euro` · £ `l` `gbp` `pound` · ¥ `y` `yen` · ¢ `c` `cent` · $ `usd` `dollar` · ₹ `inr` `rupee` · ₽ `rub` `ruble` · ₩ `krw` `won` · ₺ `try` `lira` · ₿ `btc` `bitcoin` · ¤ `currency` |
-| Maths, units & fractions | ± `+-` · × `x` `*` · ÷ `/` `:` · ≈ `~=` `~~` · ≠ `!=` `<>` `=/` · ≤ `<=` · ≥ `>=` · ∞ `oo` `inf` · √ `sqrt` · ∑ `sum` · ∫ `int` · ∂ `d` · ∆ `delta` · ° `deg` `o` · ‰ `%o` · µ `u` `micro` · ½ `1/2` · ¼ `1/4` · ¾ `3/4` · ⅓ `1/3` · ² `^2` · ³ `^3` · ℃ `°c` |
+| Maths | ± `+-` · × `x` `*` · ÷ `/` `:` · ≈ `~=` `~~` · ≠ `!=` `<>` `=/` · ≤ `<=` · ≥ `>=` · ∞ `oo` `inf` · √ `sqrt` · ∑ `sum` · ∫ `int` · ∂ `d` · ∆ `delta` · ° `deg` `o` · ‰ `%o` · µ `u` `micro` · ½ `1/2` · ¼ `1/4` · ¾ `3/4` · ⅓ `1/3` · ² `^2` · ³ `^3` · ℃ `°c` |
 
 ---
 
@@ -79,7 +80,7 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
   {
     "families": [
       {
-        "name": "Legal & references",
+        "name": "Legal",
         "characters": [
           { "character": "©", "name": "copyright sign", "frenchName": "symbole copyright", "aliases": ["(c)", "c"] }
         ]
@@ -105,6 +106,7 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
   `JsonException`'s message, its line included — `The default list is used until it is fixed.`, a
   warning icon, OK. Shown **once**, at the window's **first show** (`OnShown`, or the first Win+; of
   a `--background` launch) — never a dialog before any window exists.
+- **Comments and trailing commas** are read (Iteration 9): what a hand edit leaves behind.
 - **Leniency inside a valid file**, like `custom-groups.json`: a character without `character` is
   left out; a character given twice keeps its first entry; missing names or aliases are empty; a
   family without a character is not shown.
@@ -117,9 +119,9 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
 
 - **Tab icon**: Segoe Fluent Icons `E8C1` (*Characters*), `MainForm.SpecialIcon`, next to
   `FrequentIcon` and `CustomIcon` (Iteration 6).
-- **One tab, last** in the strip, after the seven catalog tabs; **one section per family**, in the
-  file's order — the custom tab's mechanism (`MainForm.TabOf` / `SectionOf`), with a trailing block
-  of sections and one tab. The minimum window width grows by one tab.
+- **One tab, last** in the strip, after the seven catalog tabs, over **one section** — `Special
+  characters` —, its families shown as sub-categories (see *Sub-Categories*, Iteration 13). The
+  minimum window width grows by one tab.
 - The sections are `EmojiCategory` objects built from the file (`Data/SpecialCharacters.cs`), each
   character an `Emoji` (`Text`, `Name`, `FrenchName`, keywords) — kept **apart** from the catalog's
   categories (`MainForm.specialCategories`).
@@ -139,6 +141,56 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
 
 ---
 
+## Sub-Categories
+
+Iterations 11–13 — a **category** is a tab of the strip; a **sub-category** is a group of its emojis
+shown as a **label at the start of a row, its cells to its right**.
+
+- **Where**: the catalog's seven categories (Emojibase's **subgroups**: *smiling*, *hand signs*,
+  *ground transportation*… — 95 of them) and the special characters' category (its **families**).
+  Never the frequent section, the custom groups nor the search results.
+- **Two checkboxes** in the settings menu, saved in `settings.json`:
+
+  | Item | Section of the menu | Key | Default |
+  |---|---|---|---|
+  | `Show emoji sub-categories` | a new *emoji categories* section, between *custom groups* and *special characters* | `showEmojiSubcategories` | **off** |
+  | `Show special character sub-categories` | *special characters*, after `Show special characters` | `showSpecialSubcategories` | **on** |
+
+  A click applies it at once, no confirmation: the sections rebuilt, the grid back at the top unless a
+  search is shown.
+- **Shown**: the category's **header stays** above its rows; each sub-category starts a **new row**,
+  its label at the start of its first row, its cells to the right; a sub-category longer than the
+  row continues on the next rows, under the cells, the label column empty.
+- **The label column**: one width **per category** — the widest label of that category, plus a gap —,
+  so its rows' cells line up (Iteration 17; was one width for the whole grid); at most a third of the
+  grid's width, a longer label cut with an ellipsis. Labels in the text font, grey (`SystemColors.GrayText`, `Glass.GrayText` on Acrylic),
+  vertically centred on their first row, capitalized (`smiling` → `Smiling`). A section without
+  sub-categories keeps its cells from the left edge, the full width.
+- **Columns**: a labelled section holds fewer columns — the width minus the label column. ↑ / ↓ keep
+  the column index, a shorter row giving its last cell, as across sections today.
+- **Hidden**: the category shows its emojis in one run, as today. The special characters' category
+  is then **one section**, `Special characters`, every character in the file's order, no label.
+- **The special characters' tab is one section either way** (Iteration 12): the families are its
+  sub-categories, no longer sections of their own.
+- **Emoji subgroups — a derived file** (Iteration 13): Emojibase's `compact.json` has no subgroup.
+  A fifth file joins the emoji data set, **`subgroups.json`**, derived from Emojibase's `en/data.json`
+  (each emoji's subgroup) and `en/messages.json` / `fr/messages.json` (the subgroups' names):
+  `{ "subgroups": [ { "key", "name", "frenchName" } ], "emojis": { "<hexcode>": <subgroup index> } }`
+  — about 40 KB. Embedded with the others (`Data/Emojibase/subgroups.json`), written to
+  `emoji-data\` as part of the set, validated by parsing; a set without it is incomplete — rewritten
+  from the embedded copy, like a missing file today. `Check for emoji updates…` downloads `data.json`
+  and both `messages.json` too and derives it (`Data/EmojiSubgroups.cs`); the embedded copy is
+  generated by a script, `Data/Emojibase/New-Subgroups.ps1` ([CONTRIBUTING.md § Emoji data]).
+  An emoji without a subgroup in the file joins the previous one's.
+- **Layout** (`UI/EmojiGridLayout.cs`): a section gets its **rows** computed once — each row its first
+  index, its count, its label —, and its own left edge and column count; `CellBounds`, `HitTest`,
+  `CellsIn`, `Below` / `Above`, `Insertion` read them. `EmojiCategory` gains `SubCategories`
+  (`Name`, first index); `Emoji` gains nothing — the category's list is enough (Iteration 15).
+- **Two subgroups sharing an order** keep the last one listed: Emojibase 17 gives `food-marine` and
+  `food-sweet` both 46, and its `data.json` puts the sweets there (Iteration 15).
+
+---
+
 ## Rendering
 
 - The grid and the details panel draw through `Drawing/EmojiRenderer.cs`, whose only font is
@@ -146,7 +198,8 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
   with uneven metrics.
 - Decided (Iteration 6): the special characters are drawn **monochrome with Segoe UI**, the text font — a second
   `IDWriteTextFormat` in the renderer, chosen for them, at a smaller scale than the emojis' so a
-  letter does not fill its cell. Colour: the text colour.
+  letter does not fill its cell (`TextFontScale` 0.8, raised by `TextRaiseScale` 0.05 — Iteration 10). Colour: black,
+  the renderer's existing brush (Iteration 9).
 - **Pre-render**: the special characters join the grid's pre-render list (the cache key holds the
   list: rendered again automatically); the renderer's change **bumps
   `EmojiBitmapCache.FormatVersion`** to 2.
@@ -155,12 +208,14 @@ From the scout pass (Iteration 5) — a proposal, subject to the user's reading.
 
 ## Search and Details Panel
 
-- **Search**: `EmojiSearch.Find` runs over the catalog's categories **and** the special ones (one
-  call in `MainForm`); `EmojiSearch` itself does not change. Per character:
+- **Search**: `EmojiSearch.Find` runs over the special categories **then** the catalog's (one call in
+  `MainForm`) — a tie gives the text form first: `tm` → ™ before ™️, `copyright` → © before ©️
+  (Iteration 9); `EmojiSearch` itself does not change. Per character:
   - `Keywords` — the words of its English and French names;
   - `SymbolKeywords` — its aliases holding a symbol (`<<`, `"`, `(c)`), folded by `EmojiSearch.Fold`;
-  - `CharacterKeys` — every alias, folded: an alias typed whole ranks first, like an emoji's
-    character (`1` → 1️⃣).
+  - `CharacterKeys` — every alias, folded, and the character itself when it holds a symbol (`«`
+    typed finds «; a letter like É is left out, or `e` would rank it first): an alias typed whole
+    ranks first, like an emoji's character (`1` → 1️⃣).
 - **Details panel**: the character drawn large, its English and French names, its **aliases as
   tags** in both rows; the copy button copies the bare character. The panel's height takes the
   special characters into account (its catalog list includes them).
@@ -178,6 +233,7 @@ checked by hand (custom-drawn, no accessibility), the search also by `WM_SETTEXT
 | Behaviour to pin | Test file | Create / Update |
 |---|---|---|
 | — (no test project; reflection checks and by hand) | — | — |
+| *Iteration 13 — reflection checks*: `subgroups.json` derived from Emojibase's files (95 subgroups, every catalog emoji placed), parsed with the set; a set without it rewritten; the layout's rows — a sub-category starting a row, its continuation under the cells, `HitTest` / `Below` / `Above` across labelled and plain sections | — | — |
 
 ---
 
@@ -209,6 +265,17 @@ checked by hand (custom-drawn, no accessibility), the search also by `WM_SETTEXT
 - [x] ~~Can the tab be hidden from the settings menu?~~ → Yes, `Show special characters`, saved as
   `showSpecial`
 - [x] ~~Is the character and alias list the default to ship?~~ → Yes, as it stands
+- [x] ~~Sub-categories: only in the special characters' tab, or the emoji categories too?~~ → **Both**,
+  each with its own checkbox in the settings menu showing its sub-categories or not (Iteration 12)
+- [x] ~~Sub-categories and families?~~ → The **families are the sub-categories** of the one special
+  characters' category (its tab) (Iteration 12)
+- [x] ~~The label?~~ → **One aligned column**, as wide as the widest label; a longer row continues
+  under the cells, the label column empty (Iteration 12)
+- [x] ~~Special characters with their sub-categories off?~~ → **One flat section**, `Special characters`
+- [x] ~~Emoji sub-categories: where do they come from?~~ → A **derived file**, `subgroups.json`, from
+  Emojibase's `data.json` and `messages.json`
+- [x] ~~The default of each checkbox?~~ → Emojis **off**, special characters **on**
+- [x] ~~With sub-categories on, is the category's header kept?~~ → **Yes**
 - [x] ~~A settings menu item opening `special-characters.json` in the user's editor?~~ → No: `Open app
   folder` is enough; an edit is read at the next launch
 - [x] ~~`Reset all settings…`: does it delete the user's edited file?~~ → Yes, back to the default
@@ -295,6 +362,109 @@ Two questions added: the default list to ship, and a menu item opening the file.
 
 No open question left.
 
+### Iteration 8 — 2026-10-22 — ✅ Implemented
+
+Go given: **code, unit tests and documentation**, in a **worktree** —
+`.claude/worktrees/special-characters-tab`, branch `feature/special-characters-tab`, created from
+`main` (the user asked for a branch and a worktree at the branch gate).
+
+### Iteration 9 — 2026-10-22 — 🧭 Implementation choices
+
+The run took these decisions the frozen design did not state; no project rule was broken.
+
+- **Search order**: the special characters are searched **before** the catalog. With the catalog
+  first, `tm` gave the emoji ™️ before ™ and `copyright` ©️ before © (equal ranks keep the list's
+  order); the design's "an alias typed whole ranks first" asked for the text form.
+- **The character itself as a key**: a special character holding a symbol (« ₹ ½) is found by typing
+  it; a letter (É, œ) is not, or `e` / `oe` would rank it first.
+- **Comments and trailing commas** are accepted in `special-characters.json`.
+- **Unreadable file** (locked, no access): the embedded default in memory, **no warning** — the file
+  is not invalid, and is left as it is.
+- **Text rendering**: Segoe UI at 0.6 of the cell, raised by 0.04, black — the renderer's brush; the
+  cache key marks the special characters (`text:`) and gains a `text=` line, `FormatVersion` 2.
+- **A special character whose text the catalog has** stays the catalog's emoji in
+  `MainForm.emojisByText` and in the pre-render (drawn as an emoji).
+- **Tray emoji**: a `trayEmoji` naming a special character (written by hand) falls back to 🙂.
+- **Names**: the English name from the Unicode name in lower case, the French one the usual name; the
+  section headers in English, like the catalog's.
+- `EmojiCatalog.Keywords` and `Capitalize` made `internal`, shared with `SpecialCharacters`.
+- **Seen in the checks, left as is**: the details panel draws the alias `<<` with a visible gap
+  (`< <`) in its tag row — the panel's own text drawing, outside the scope.
+
+### Iteration 10 — 2026-10-22 — ⚙️ Post-implementation — Larger special characters
+
+User request: the special characters are too small in their cells — draw them larger.
+`EmojiRenderer.TextFontScale` 0.6 → **0.8** of the cell, `TextRaiseScale` 0.04 → 0.05 (the same share
+of the font size): an accented capital (É) and a descender (Ç) still fit. The cache key's `text=` line
+holds both, so the bitmaps are rendered again.
+
+### Iteration 11 — 2026-10-22 — ⚙️ Post-implementation — Sub-categories
+
+User request: a new concept, the **sub-category**. The **category** is a tab of the strip; a
+**sub-category** is shown as a **label at the start of a row, its cells to its right**. Design
+questions open (see *Open Questions*): where it applies, how it relates to the families, the
+label's width and the rows that wrap.
+
+### Iteration 12 — 2026-10-22 — ⚙️ Post-implementation — Sub-categories, first answers
+
+- **Both** the emoji categories and the special characters get sub-categories, each with its own
+  **checkbox** in the settings menu, showing them or not.
+- **Special characters**: one category — its tab —; the current families are its **sub-categories**.
+- **Label**: one aligned column, as wide as the widest label; a longer row continues under the cells.
+- Found in the data: Emojibase's `compact.json` carries **no subgroup** — the emoji sub-categories need
+  another source. Four questions added.
+
+### Iteration 13 — 2026-10-22 — ⚙️ Post-implementation — Sub-categories, design
+
+Answers: special characters with their sub-categories off → **one section**; emoji subgroups from a
+**derived file**; defaults **emojis off, special characters on**; the category's **header kept**.
+Design written in *Sub-Categories*: the two checkboxes and their menu sections, the label column
+(widest label, at most a third of the width, ellipsis), the layout's rows, `subgroups.json` in the
+emoji data set and in `Check for emoji updates…`. The special characters' tab becomes one section.
+
+### Iteration 14 — 2026-10-22 — ✅ Implemented — Sub-categories go
+
+Go given for the sub-categories (Iteration 13): **code, unit tests and documentation**, in the same
+**worktree** and branch, `feature/special-characters-tab`.
+
+### Iteration 15 — 2026-10-22 — 🧭 Implementation choices — Sub-categories
+
+The run took these decisions the frozen design (Iteration 13) did not state; no project rule was
+broken.
+
+- **Emojibase's shared order**: `messages.json` 17 lists `food-marine` and `food-sweet` both at order
+  46; `data.json` puts the sweets there. Both derivations (C# and `New-Subgroups.ps1`) keep the **last
+  one listed** — 100 subgroups, numbered 0–99, 95 used by the catalog.
+- **`Emoji` gets no subgroup index** (the design said it would): `EmojiCategory.SubCategories` is
+  enough, nothing reads an emoji's subgroup.
+- **The first sub-category starts at 0** whatever the first emoji's subgroup; an emoji the file does
+  not place stays in the sub-category before it.
+- **Names**: the English subgroup name is shown, capitalized (`smiling` → `Smiling`); the French one is
+  kept in the file, unused.
+- **`subgroups.json` is required** in the set: a folder written by an earlier build (four files) is
+  rewritten from the embedded copy — a newer Emojibase version downloaded by such a build goes back to
+  the embedded one, to be downloaded again.
+- **Label column**: measured in the grid's font with `TextRenderer`, cached, cleared on a change of
+  font or DPI; `LogicalLabelGap` 12 between the label and the cells.
+- `SpecialCharacters.Load` takes the category's name (`MainForm.SpecialHeader`) and its icon.
+- **Checks**: the emoji sub-categories were seen by writing `showEmojiSubcategories` in the build's
+  `settings.json`, restored afterwards.
+
+### Iteration 16 — 2026-10-22 — ⚙️ Post-implementation — Shorter family names
+
+User request: the sub-categories' names are too long. The families of the default list become
+**Legal**, **Punctuation**, **Accents**, **Currencies**, **Maths** (were *Legal & references*,
+*Punctuation & typography*, *Accented letters & ligatures*, *Currencies*, *Maths, units & fractions*).
+Only the default list changes: a `special-characters.json` already next to an exe keeps its names —
+the user's file wins.
+
+### Iteration 17 — 2026-10-22 — ⚙️ Post-implementation — Label column per category
+
+User request: the sub-categories' label column is sized on the longest label **of its category**, not
+of the whole grid. Each labelled section gets its own label width (`EmojiGridLayout.Section`); the
+third-of-the-width cap and the ellipsis stay. Categories' cells no longer line up with one another —
+only within a category.
+
 ---
 
 ## Implementation Log
@@ -304,12 +474,12 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | |
-| RULES.md | | | |
-| README | | | |
-| CONTRIBUTING.md | | | |
-| GLOSSARY | | | |
+| Code | 8, 9, 10, 14, 16, 17 | 2026-10-22 | Data, rendering, `MainForm` — built, 0 warning; checked by reflection on a copy of the build (file written / kept / invalid, aliases, reset) and by window captures (tab, searches `symbole` and `"`) |
+| Unit tests | 8, 14 | 2026-10-22 | Not applicable: no test project (see *Test Impact*) — the reflection checks stand in |
+| RULES.md | 8, 10, 14, 16, 17 | 2026-10-22 | New § *Special Characters Tab*; settings menu (six sections), `showSpecial`, reset, search, tray icon |
+| README | 8, 14, 16, 17 | 2026-10-22 | § *Special characters*, menu, reset — `README.md` and `README.fr.md` in the same commit |
+| CONTRIBUTING.md | 8, 14 | 2026-10-22 | § *Special characters*: the embedded default and its format |
+| GLOSSARY | 8, 14, 16 | 2026-10-22 | Special character, family, alias — `GLOSSARY.md` and `GLOSSARY.fr.md` in the same commit |
 
 ---
 
@@ -332,7 +502,14 @@ Questions asked by the agent during design, with user responses.
 | 11 | An invalid file after an edit: rewritten from the default, or kept and the default used in memory? | Kept, default in memory, plus a warning | 2026-10-22 |
 | 12 | Can the tab be hidden from the settings menu? | Yes, `Show special characters` | 2026-10-22 |
 | 13 | Is the character and alias list the default to ship? | Yes, as it stands | 2026-10-22 |
-| 14 | A settings menu item opening the file in the user's editor? | No | 2026-10-22 | 2026-10-22 | 2026-10-22 |
+| 14 | A settings menu item opening the file in the user's editor? | No |
+| 15 | Sub-categories: special characters' tab only, or the emoji categories too? | Both, each with a checkbox option showing the sub-categories or not | 2026-10-22 |
+| 16 | Families and sub-categories: a family becomes a sub-category, or families hold sub-categories? | One tab / category for the special characters; the current groupings under it are the sub-categories | 2026-10-22 |
+| 17 | The label: one aligned column or each its own width; a long row's continuation? | Aligned column | 2026-10-22 |
+| 18 | Special characters, sub-categories off: one flat section, or the family sections as today? | One section | 2026-10-22 |
+| 19 | Emoji sub-categories: source of the subgroups (full data.json + messages.json, or derived file)? | Derived file | 2026-10-22 |
+| 20 | Default of each checkbox? | Emojis off, special characters on | 2026-10-22 |
+| 21 | With sub-categories on, is the category's header kept above the rows? | Yes | 2026-10-22 | 2026-10-22 | 2026-10-22 | 2026-10-22 |
 
 ---
 

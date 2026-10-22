@@ -27,15 +27,20 @@ internal static class EmojiDataUpdate
     }
 
     /// <summary>
-    /// Downloads the files of a version, not validated yet (see <see cref="EmojiDataFolder.Parse"/>). Throws on a
-    /// network or HTTP failure.
+    /// Downloads the files of a version, not validated yet (see <see cref="EmojiDataFolder.Parse"/>), and derives its
+    /// <c>subgroups.json</c> from its <c>en/data.json</c> and <c>messages.json</c> (see <see cref="EmojiSubgroups.Derive"/>).
+    /// Throws on a network, HTTP or derivation failure.
     /// </summary>
     public static async Task<EmojiDataFolder.FileSet> DownloadAsync(Version version)
     {
         Task<byte[]> english = Client.GetByteArrayAsync(string.Format(FileUrl, version, "en/compact.json"));
         Task<byte[]> french = Client.GetByteArrayAsync(string.Format(FileUrl, version, "fr/compact.json"));
+        Task<byte[]> data = Client.GetByteArrayAsync(string.Format(FileUrl, version, "en/data.json"));
+        Task<byte[]> englishMessages = Client.GetByteArrayAsync(string.Format(FileUrl, version, "en/messages.json"));
+        Task<byte[]> frenchMessages = Client.GetByteArrayAsync(string.Format(FileUrl, version, "fr/messages.json"));
         Task<byte[]> license = Client.GetByteArrayAsync(string.Format(FileUrl, version, "LICENSE"));
-        return new EmojiDataFolder.FileSet(version.ToString(), await english, await french, await license);
+        byte[] subgroups = EmojiSubgroups.Derive(await data, await englishMessages, await frenchMessages);
+        return new EmojiDataFolder.FileSet(version.ToString(), await english, await french, subgroups, await license);
     }
 
     /// <summary>Whether an exception is one of the failures a check or a download reports to the user.</summary>

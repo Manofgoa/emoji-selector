@@ -48,7 +48,8 @@ internal static class EmojiCatalog
     /// </summary>
     /// <param name="english">The list: <c>compact.en.json</c>.</param>
     /// <param name="french">The French keywords: <c>compact.fr.json</c>.</param>
-    public static IReadOnlyList<EmojiCategory> Build(Entry[] english, Entry[] french)
+    /// <param name="subgroups">The sub-categories: <c>subgroups.json</c>.</param>
+    public static IReadOnlyList<EmojiCategory> Build(Entry[] english, Entry[] french, EmojiSubgroups subgroups)
     {
         // An emoji given twice keeps its first entry: the app maps the emojis by their text.
         Entry[] entries = english.DistinctBy(entry => entry.Unicode).ToArray();
@@ -57,12 +58,35 @@ internal static class EmojiCatalog
             .ToDictionary(group => group.Key, group => group.First());
 
         return Tabs
-            .Select(tab => new EmojiCategory(tab.Name, tab.Icon, entries
-                .Where(entry => entry.Group is int group && tab.Groups.Contains(group))
-                .OrderBy(entry => entry.Order)
-                .Select(entry => CreateEmoji(entry, frenchByHexcode.GetValueOrDefault(entry.Hexcode)))
-                .ToList()))
+            .Select(tab =>
+            {
+                Entry[] ordered = entries
+                    .Where(entry => entry.Group is int group && tab.Groups.Contains(group))
+                    .OrderBy(entry => entry.Order)
+                    .ToArray();
+                return new EmojiCategory(tab.Name, tab.Icon,
+                    ordered.Select(entry => CreateEmoji(entry, frenchByHexcode.GetValueOrDefault(entry.Hexcode))).ToList(),
+                    SubCategories: SubCategoriesOf(ordered, subgroups));
+            })
             .ToList();
+    }
+
+    // A sub-category starts at each emoji whose subgroup differs from the one before; an emoji the file does not place
+    // stays in the one before it.
+    private static IReadOnlyList<SubCategory> SubCategoriesOf(Entry[] ordered, EmojiSubgroups subgroups)
+    {
+        var subCategories = new List<SubCategory>();
+        Subgroup? current = null;
+        for (int index = 0; index < ordered.Length; index++)
+        {
+            if (subgroups.Of(ordered[index].Hexcode) is Subgroup subgroup && subgroup != current)
+            {
+                current = subgroup;
+                subCategories.Add(new SubCategory(Capitalize(subgroup.Name), subCategories.Count == 0 ? 0 : index));
+            }
+        }
+
+        return subCategories;
     }
 
     /// <summary>
@@ -137,7 +161,8 @@ internal static class EmojiCatalog
         .ToList();
 
     // The words of an emoji's names and tags, in English and in French, each once: a name's when a name has it.
-    private static IReadOnlyList<EmojiKeyword> Keywords(
+    // Shared with SpecialCharacters, whose names and aliases are keywords the same way.
+    internal static IReadOnlyList<EmojiKeyword> Keywords(
         (string Label, string[] Tags)[] languages, Func<string, IEnumerable<string>> wordsOf)
     {
         var words = new Dictionary<string, bool>();
@@ -169,7 +194,7 @@ internal static class EmojiCatalog
     };
 
     // Emojibase's labels are lowercase: "grinning face" → "Grinning face".
-    private static string Capitalize(string label) =>
+    internal static string Capitalize(string label) =>
         label.Length == 0 ? label : char.ToUpperInvariant(label[0]) + label[1..];
 
     /// <summary>One entry of <c>compact.json</c>, or one of its skin-tone variants (<c>skins</c>), which have the same shape.</summary>

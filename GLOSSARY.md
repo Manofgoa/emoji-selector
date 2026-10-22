@@ -18,6 +18,10 @@ each.
 | Text cursor (*curseur de texte*) | The blinking insertion point of the previous window, where typed text goes — Win+; shows the window just under it |
 | Custom tab (*onglet personnalisé*) | The second tab, a heart, right after *Frequently used*: it holds every **custom group** |
 | Custom group (*groupe personnalisé*) | A list of emojis the user keeps at hand: created and named by the user, filled by right click, ordered as the user wants; one section of the custom tab each, kept in `custom-groups.json` next to the exe |
+| Special character (*caractère spécial*) | A character hard to type on a keyboard that the last tab offers — ©, «, —, É, €, ±: drawn like text, inserted like an emoji, never counted as **frequent**; listed in `special-characters.json` next to the exe, which the user may edit — not an emoji's **character** |
+| Sub-category (*sous-catégorie*) | A group of a **category**'s emojis — an Emojibase subgroup (*Smiling*, *Hand signs*) for the emojis, a **family** for the special characters —, shown as a row starting with its name, its emojis to its right, when its checkbox is on |
+| Family (*famille*) | A group of **special characters** by use — Legal, Currencies…: the **sub-categories** of the special characters' tab |
+| Alias (*alias*) | A short text standing for a **special character** in the search box, easy to type: `<<` for «, `"` for every quotation mark, `tm` for ™ — typed whole, it finds the character first |
 | Emoji data (*données des émojis*) | Emojibase's files the emoji list, the emojis' names and their keywords come from: in the `emoji-data` folder next to the exe, written from the copy the exe carries, replaced by *Check for emoji updates…* |
 | Frequent (*fréquent*) | An emoji counted by its uses — each use adds 1 to its counter, kept in `usage.json` next to the exe; the most used are shown in the first tab, *Frequently used* |
 | Details panel (*panneau de détails*) | The band at the bottom of the window showing the **selection** large, with its names and tags in English and in French, its emoticon, and a button copying it to the clipboard |

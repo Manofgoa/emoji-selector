@@ -6,12 +6,22 @@ namespace EmojiSelector.UI;
 /// columns as the width holds. Every cell has the same width, so the columns line up; a section may have taller
 /// cells (<see cref="Section.RowHeight"/>). Each section starts on a new row.
 /// </summary>
+/// <remarks>
+/// A section with <b>sub-categories</b> (<see cref="Section.Breaks"/>) starts a new row at each of them, and leaves
+/// its label column on its left — <see cref="Section.LabelWidth"/>, its own: it holds fewer columns. A sub-category
+/// longer than a row continues on the next ones.
+/// </remarks>
 internal sealed class EmojiGridLayout
 {
     private readonly Section[] sections;
     private readonly int[] counts;
     private readonly int[] headerTops;
     private readonly int[] cellsTops;
+
+    // Each section's left edge, column count, and the index of the first emoji of each of its rows.
+    private readonly int[] lefts;
+    private readonly int[] columns;
+    private readonly int[][] rowStarts;
     private readonly int width;
 
     /// <param name="sections">Each section's emoji count and row bounds, in order.</param>
@@ -26,9 +36,13 @@ internal sealed class EmojiGridLayout
         this.width = width;
         this.Columns = Math.Max(1, (width - 2 * padding) / cellSize);
 
+        this.lefts = [.. sections.Select(section => padding + LabelColumn(section))];
+        this.columns = [.. sections.Select(section => Math.Max(1, (width - 2 * padding - LabelColumn(section)) / cellSize))];
+
         // A section with a row limit shows only the emojis its rows hold: more or fewer as the columns change.
-        this.counts = [.. sections.Select(section =>
-            section.MaxRows is int maxRows ? Math.Min(section.Count, maxRows * this.Columns) : section.Count)];
+        this.counts = [.. sections.Select((section, index) =>
+            section.MaxRows is int maxRows ? Math.Min(section.Count, maxRows * this.columns[index]) : section.Count)];
+        this.rowStarts = [.. sections.Select((section, index) => RowStartsOf(section.Breaks, this.counts[index], this.columns[index]))];
         this.headerTops = new int[this.counts.Length];
         this.cellsTops = new int[this.counts.Length];
 
@@ -47,6 +61,7 @@ internal sealed class EmojiGridLayout
         this.ContentHeight = Math.Max(y + padding, lastHeaderTop + viewportHeight);
     }
 
+    /// <summary>The columns of a section without sub-categories.</summary>
     public int Columns { get; }
 
     public int CellSize { get; }
@@ -63,11 +78,25 @@ internal sealed class EmojiGridLayout
     public int HeaderTop(int section) => this.headerTops[section];
 
     /// <summary>The cell of an emoji, in content coordinates.</summary>
-    public Rectangle CellBounds(int section, int index) => new(
-        this.Padding + index % this.Columns * this.CellSize,
-        this.cellsTops[section] + index / this.Columns * this.RowHeight(section),
-        this.CellSize,
-        this.RowHeight(section));
+    public Rectangle CellBounds(int section, int index)
+    {
+        int row = this.RowOf(section, index);
+        return new(
+            this.lefts[section] + (index - this.rowStarts[section][row]) * this.CellSize,
+            this.cellsTops[section] + row * this.RowHeight(section),
+            this.CellSize,
+            this.RowHeight(section));
+    }
+
+    /// <summary>
+    /// The label of the sub-category starting at <paramref name="start"/> in <paramref name="section"/>, in content
+    /// coordinates: the label column, on the sub-category's first row.
+    /// </summary>
+    public Rectangle LabelBounds(int section, int start)
+    {
+        Rectangle cell = this.CellBounds(section, start);
+        return new(this.Padding, cell.Top, LabelColumn(this.sections[section]), cell.Height);
+    }
 
     /// <summary>
     /// The section whose tab is active at scroll offset <paramref name="offset"/>: the last one whose header is at
@@ -84,23 +113,23 @@ internal sealed class EmojiGridLayout
         return section;
     }
 
-    /// <summary>The emoji under <paramref name="point"/> (content coordinates), null over a header or a blank.</summary>
+    /// <summary>The emoji under <paramref name="point"/> (content coordinates), null over a header, a label or a blank.</summary>
     public (int Section, int Index)? HitTest(Point point)
     {
-        int column = (point.X - this.Padding) / this.CellSize;
-        if (point.X < this.Padding || column >= this.Columns)
-        {
-            return null;
-        }
-
         for (int section = 0; section < this.counts.Length; section++)
         {
             int top = this.cellsTops[section];
             int bottom = top + this.RowCount(section) * this.RowHeight(section);
             if (point.Y >= top && point.Y < bottom)
             {
-                int index = (point.Y - top) / this.RowHeight(section) * this.Columns + column;
-                return index < this.counts[section] ? (section, index) : null;
+                int row = (point.Y - top) / this.RowHeight(section);
+                int column = (point.X - this.lefts[section]) / this.CellSize;
+                if (point.X < this.lefts[section] || column >= this.columns[section] || row >= this.rowStarts[section].Length)
+                {
+                    return null;
+                }
+
+                return column < this.RowLength(section, row) ? (section, this.rowStarts[section][row] + column) : null;
             }
         }
 
@@ -122,20 +151,17 @@ internal sealed class EmojiGridLayout
     /// </summary>
     public (int Index, Point Gap) Insertion(int section, Point point)
     {
-        int count = this.counts[section];
         int rowHeight = this.RowHeight(section);
-        int row = Math.Clamp((point.Y - this.cellsTops[section]) / rowHeight, 0, Math.Max(0, this.RowCount(section) - 1));
-        int column = Math.Clamp((point.X - this.Padding + this.CellSize / 2) / this.CellSize, 0, this.Columns);
-        int index = row * this.Columns + column;
-        if (index > count)
+        int rows = this.rowStarts[section].Length;
+        if (rows == 0)
         {
-            // Past the last emoji: the gap right after it.
-            index = count;
-            row = Math.Max(0, count - 1) / this.Columns;
-            column = count - row * this.Columns;
+            return (0, new Point(this.lefts[section], this.cellsTops[section]));
         }
 
-        return (index, new Point(this.Padding + column * this.CellSize, this.cellsTops[section] + row * rowHeight));
+        int row = Math.Clamp((point.Y - this.cellsTops[section]) / rowHeight, 0, rows - 1);
+        int column = Math.Clamp((point.X - this.lefts[section] + this.CellSize / 2) / this.CellSize, 0, this.RowLength(section, row));
+        return (this.rowStarts[section][row] + column,
+            new Point(this.lefts[section] + column * this.CellSize, this.cellsTops[section] + row * rowHeight));
     }
 
     /// <summary>The sections' cells overlapping the band [top, bottom), for painting the visible ones only.</summary>
@@ -151,19 +177,14 @@ internal sealed class EmojiGridLayout
 
             int rowHeight = this.RowHeight(section);
             int firstRow = Math.Max(0, (top - cellsTop) / rowHeight);
-            int lastRow = Math.Min(this.RowCount(section) - 1, (bottom - 1 - cellsTop) / rowHeight);
+            int lastRow = Math.Min(this.rowStarts[section].Length - 1, (bottom - 1 - cellsTop) / rowHeight);
 
             for (int row = firstRow; row <= lastRow; row++)
             {
-                for (int column = 0; column < this.Columns; column++)
+                int start = this.rowStarts[section][row];
+                for (int column = 0; column < this.RowLength(section, row); column++)
                 {
-                    int index = row * this.Columns + column;
-                    if (index >= this.counts[section])
-                    {
-                        break;
-                    }
-
-                    yield return (section, index);
+                    yield return (section, start + column);
                 }
             }
         }
@@ -197,15 +218,15 @@ internal sealed class EmojiGridLayout
     /// </summary>
     public (int Section, int Index)? Below((int Section, int Index) cell)
     {
-        int row = cell.Index / this.Columns;
-        int column = cell.Index % this.Columns;
-        if (row + 1 < this.RowCount(cell.Section))
+        int row = this.RowOf(cell.Section, cell.Index);
+        int column = cell.Index - this.rowStarts[cell.Section][row];
+        if (row + 1 < this.rowStarts[cell.Section].Length)
         {
-            return (cell.Section, Math.Min((row + 1) * this.Columns + column, this.counts[cell.Section] - 1));
+            return (cell.Section, this.CellOfRow(cell.Section, row + 1, column));
         }
 
         int next = this.NextNonEmpty(cell.Section);
-        return next < this.counts.Length ? (next, Math.Min(column, this.counts[next] - 1)) : null;
+        return next < this.counts.Length ? (next, this.CellOfRow(next, 0, column)) : null;
     }
 
     /// <summary>
@@ -214,21 +235,15 @@ internal sealed class EmojiGridLayout
     /// </summary>
     public (int Section, int Index)? Above((int Section, int Index) cell)
     {
-        int row = cell.Index / this.Columns;
-        int column = cell.Index % this.Columns;
+        int row = this.RowOf(cell.Section, cell.Index);
+        int column = cell.Index - this.rowStarts[cell.Section][row];
         if (row > 0)
         {
-            return (cell.Section, (row - 1) * this.Columns + column);
+            return (cell.Section, this.CellOfRow(cell.Section, row - 1, column));
         }
 
         int previous = this.PreviousNonEmpty(cell.Section);
-        if (previous < 0)
-        {
-            return null;
-        }
-
-        int lastRowStart = (this.RowCount(previous) - 1) * this.Columns;
-        return (previous, Math.Min(lastRowStart + column, this.counts[previous] - 1));
+        return previous < 0 ? null : (previous, this.CellOfRow(previous, this.rowStarts[previous].Length - 1, column));
     }
 
     private int NextNonEmpty(int section)
@@ -256,12 +271,49 @@ internal sealed class EmojiGridLayout
     /// <summary>The height of <paramref name="section"/>'s cells: <see cref="CellSize"/> unless it has its own.</summary>
     public int RowHeight(int section) => this.sections[section].RowHeight ?? this.CellSize;
 
-    private int RowCount(int section) =>
-        Math.Max(this.sections[section].MinRows, (this.counts[section] + this.Columns - 1) / this.Columns);
+    private int RowCount(int section) => Math.Max(this.sections[section].MinRows, this.rowStarts[section].Length);
+
+    // The emojis of a row: up to the next row's first one, or the section's end.
+    private int RowLength(int section, int row) =>
+        (row + 1 < this.rowStarts[section].Length ? this.rowStarts[section][row + 1] : this.counts[section]) - this.rowStarts[section][row];
+
+    // The row holding an emoji: the last one starting at or before it.
+    private int RowOf(int section, int index)
+    {
+        int[] starts = this.rowStarts[section];
+        int found = Array.BinarySearch(starts, index);
+        return found >= 0 ? found : Math.Max(0, ~found - 1);
+    }
+
+    // The emoji of a row at a column; a shorter row gives its last emoji.
+    private int CellOfRow(int section, int row, int column) =>
+        this.rowStarts[section][row] + Math.Min(column, this.RowLength(section, row) - 1);
+
+    // A section's label column: none without sub-categories.
+    private static int LabelColumn(Section section) => section.Breaks is null ? 0 : section.LabelWidth;
+
+    // The first emoji of each row: a new row every columns emojis, and at every break — a sub-category's first emoji.
+    private static int[] RowStartsOf(IReadOnlyList<int>? breaks, int count, int columns)
+    {
+        var starts = new List<int>();
+        int[] bounds = [.. (breaks ?? []).Where(start => start > 0 && start < count).Prepend(0).Distinct().Order(), count];
+        for (int run = 0; run + 1 < bounds.Length; run++)
+        {
+            for (int start = bounds[run]; start < bounds[run + 1]; start += columns)
+            {
+                starts.Add(start);
+            }
+        }
+
+        return [.. starts];
+    }
 
     /// <summary>
     /// A section's size: its emoji count, at least <paramref name="MinRows"/> rows (room for a message when it is
     /// empty), at most <paramref name="MaxRows"/> when set; its cells <paramref name="RowHeight"/> high when set.
+    /// <paramref name="Breaks"/>, when set, holds its sub-categories' first emojis: each one starts a row, its label
+    /// column — <paramref name="LabelWidth"/> wide — left on their left.
     /// </summary>
-    public readonly record struct Section(int Count, int MinRows = 0, int? MaxRows = null, int? RowHeight = null);
+    public readonly record struct Section(int Count, int MinRows = 0, int? MaxRows = null, int? RowHeight = null,
+        IReadOnlyList<int>? Breaks = null, int LabelWidth = 0);
 }
