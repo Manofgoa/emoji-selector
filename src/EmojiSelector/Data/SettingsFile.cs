@@ -29,6 +29,8 @@ internal static class SettingsFile
     private const string TrayEmojiKey = "trayEmoji";
     private const string ShowFrequentKey = "showFrequent";
     private const string ShowSpecialKey = "showSpecial";
+    private const string ShowEmojiSubcategoriesKey = "showEmojiSubcategories";
+    private const string ShowSpecialSubcategoriesKey = "showSpecialSubcategories";
     private const string ShowFrenchKey = "showFrench";
     private const string AlwaysShowSkinToneKey = "alwaysShowSkinTone";
     private const string HighlightColorKey = "highlightColor";
@@ -106,6 +108,30 @@ internal static class SettingsFile
     {
         JsonObject settings = Read() ?? [];
         settings[ShowSpecialKey] = show;
+        Write(settings);
+    }
+
+    /// <summary>Whether the emoji categories show their sub-categories; false when the file, the key or a readable value is missing.</summary>
+    public static bool ReadShowEmojiSubcategories() =>
+        Read()?[ShowEmojiSubcategoriesKey] is JsonValue value && value.TryGetValue(out bool show) && show;
+
+    /// <summary>Saves whether the emoji categories show their sub-categories.</summary>
+    public static void WriteShowEmojiSubcategories(bool show)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[ShowEmojiSubcategoriesKey] = show;
+        Write(settings);
+    }
+
+    /// <summary>Whether the special characters show their sub-categories; true when the file, the key or a readable value is missing.</summary>
+    public static bool ReadShowSpecialSubcategories() =>
+        Read()?[ShowSpecialSubcategoriesKey] is not JsonValue value || !value.TryGetValue(out bool show) || show;
+
+    /// <summary>Saves whether the special characters show their sub-categories.</summary>
+    public static void WriteShowSpecialSubcategories(bool show)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[ShowSpecialSubcategoriesKey] = show;
         Write(settings);
     }
 

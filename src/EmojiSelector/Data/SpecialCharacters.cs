@@ -5,7 +5,8 @@ using System.Text.Json;
 namespace EmojiSelector.Data;
 
 /// <summary>
-/// The <b>special characters</b> the last tab offers (©, «, €, ±…), one section per <b>family</b>, read at launch from
+/// The <b>special characters</b> the last tab offers (©, «, €, ±…), one category whose <b>families</b> are its
+/// sub-categories, read at launch from
 /// <see cref="FileName"/> next to the exe — a file the user may edit. A copy of the default list is embedded in the exe:
 /// it writes the file when it is missing, never over an existing one, so the user's edits win over a newer exe.
 /// </summary>
@@ -35,19 +36,19 @@ internal static class SpecialCharacters
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, FileName);
 
     /// <summary>
-    /// The families to show, one category each under <paramref name="icon"/>, and the reason the user's file is not
-    /// valid — null when it is, or when there was none.
+    /// The category to show, and the reason the user's file is not valid — null when it is, or when there was none.
     /// </summary>
-    public sealed record LoadResult(IReadOnlyList<EmojiCategory> Families, string? Error);
+    public sealed record LoadResult(EmojiCategory Category, string? Error);
 
     /// <summary>
-    /// The families of <see cref="FileName"/> when it is valid. Missing, it is written from the embedded list, then that
-    /// list is used; invalid or unreadable, the embedded list is used and the file left as it is.
+    /// The special characters of <see cref="FileName"/> when it is valid, as one category named <paramref name="name"/>
+    /// under <paramref name="icon"/>. Missing, the file is written from the embedded list, then that list is used;
+    /// invalid or unreadable, the embedded list is used and the file left as it is.
     /// </summary>
-    public static LoadResult Load(char icon)
+    public static LoadResult Load(string name, char icon)
     {
         byte[] embedded = ReadEmbedded();
-        IReadOnlyList<EmojiCategory> embeddedFamilies = Parse(embedded, icon, out _)
+        EmojiCategory embeddedCategory = Parse(embedded, name, icon, out _)
             ?? throw new InvalidOperationException("The embedded special characters are not valid.");
 
         byte[]? file;
@@ -58,7 +59,7 @@ internal static class SpecialCharacters
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             Debug.WriteLine($"SpecialCharacters: {FileName} not read — {exception.Message}");
-            return new LoadResult(embeddedFamilies, null);
+            return new LoadResult(embeddedCategory, null);
         }
 
         if (file is null)
@@ -73,23 +74,24 @@ internal static class SpecialCharacters
                 Debug.WriteLine($"SpecialCharacters: {FileName} not written — {exception.Message}");
             }
 
-            return new LoadResult(embeddedFamilies, null);
+            return new LoadResult(embeddedCategory, null);
         }
 
-        if (Parse(file, icon, out string? error) is IReadOnlyList<EmojiCategory> families)
+        if (Parse(file, name, icon, out string? error) is EmojiCategory category)
         {
-            return new LoadResult(families, null);
+            return new LoadResult(category, null);
         }
 
         Debug.WriteLine($"SpecialCharacters: {FileName} invalid — the embedded copy used, the file kept: {error}");
-        return new LoadResult(embeddedFamilies, error);
+        return new LoadResult(embeddedCategory, error);
     }
 
     /// <summary>
-    /// Parses a special characters file into its families, one category each under <paramref name="icon"/> — a family
-    /// without a character left out. Null when it is not valid, <paramref name="error"/> then saying why.
+    /// Parses a special characters file into one category named <paramref name="name"/> under <paramref name="icon"/>,
+    /// every character in the file's order, each family a sub-category — a family without a character left out. Null
+    /// when it is not valid, <paramref name="error"/> then saying why.
     /// </summary>
-    public static IReadOnlyList<EmojiCategory>? Parse(byte[] json, char icon, out string? error)
+    public static EmojiCategory? Parse(byte[] json, string name, char icon, out string? error)
     {
         FileEntry? file;
         try
@@ -110,20 +112,22 @@ internal static class SpecialCharacters
 
         error = null;
         var seen = new HashSet<string>();
-        var families = new List<EmojiCategory>();
+        var characters = new List<Emoji>();
+        var families = new List<SubCategory>();
         foreach (FamilyEntry? family in familyEntries)
         {
-            List<Emoji> characters = (family?.Characters ?? [])
+            List<Emoji> familyCharacters = (family?.Characters ?? [])
                 .Where(entry => !string.IsNullOrEmpty(entry?.Character) && seen.Add(entry!.Character!))
                 .Select(entry => CreateCharacter(entry!))
                 .ToList();
-            if (characters.Count > 0)
+            if (familyCharacters.Count > 0)
             {
-                families.Add(new EmojiCategory(family!.Name ?? "", icon, characters));
+                families.Add(new SubCategory(family!.Name ?? "", characters.Count));
+                characters.AddRange(familyCharacters);
             }
         }
 
-        return families;
+        return new EmojiCategory(name, icon, characters, SubCategories: families);
     }
 
     // Written through a temporary file then a replace: a crash never leaves it half-written. Throws IOException or

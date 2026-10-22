@@ -192,6 +192,10 @@ internal sealed class MainForm : Form
 
     public const string ShowSpecialText = "Show special characters";
 
+    public const string ShowEmojiSubcategoriesText = "Show emoji sub-categories";
+
+    public const string ShowSpecialSubcategoriesText = "Show special character sub-categories";
+
     public const string InvalidSpecialText = "{0} is not valid: {1}\n\nThe default list is used until it is fixed.";
 
     // The special characters' tab glyph: Characters, in Segoe Fluent Icons and Segoe MDL2 Assets.
@@ -235,12 +239,17 @@ internal sealed class MainForm : Form
     // Whether the frequent tab is shown: its tab and its section first, or neither. The counters count either way.
     private bool showFrequent = SettingsFile.ReadShowFrequent();
 
-    // The special characters, one section per family, after the catalog's — from special-characters.json, or the
-    // embedded default while that file is not valid.
-    private readonly IReadOnlyList<EmojiCategory> specialCategories;
+    // The special characters, one category after the catalog's, its families as its sub-categories — from
+    // special-characters.json, or the embedded default while that file is not valid.
+    private readonly EmojiCategory specialCategory;
 
-    // Whether the special characters' tab is shown: its tab and its sections last, or neither.
+    // Whether the special characters' tab is shown: its tab and its section last, or neither.
     private bool showSpecial = SettingsFile.ReadShowSpecial();
+
+    // Whether the catalog's categories, and the special characters', show their sub-categories: a label at the start of
+    // a row, their emojis to its right.
+    private bool showEmojiSubcategories = SettingsFile.ReadShowEmojiSubcategories();
+    private bool showSpecialSubcategories = SettingsFile.ReadShowSpecialSubcategories();
 
     // Why special-characters.json is not valid, told once on the window's first show; null when there is nothing to tell.
     private string? specialCharactersError;
@@ -334,12 +343,12 @@ internal sealed class MainForm : Form
         EmojiDataFolder.EmojiData emojiData = EmojiDataFolder.Load();
         this.emojiDataVersion = emojiData.Version;
         this.categories = emojiData.Categories;
-        SpecialCharacters.LoadResult special = SpecialCharacters.Load(SpecialIcon);
-        this.specialCategories = special.Families;
+        SpecialCharacters.LoadResult special = SpecialCharacters.Load(SpecialHeader, SpecialIcon);
+        this.specialCategory = special.Category;
         this.specialCharactersError = special.Error;
         // A special character whose text the catalog has is the catalog's emoji there: the custom groups find either.
         this.emojisByText = this.categories.SelectMany(category => category.Emojis).ToDictionary(emoji => emoji.Text);
-        foreach (Emoji character in this.specialCategories.SelectMany(category => category.Emojis))
+        foreach (Emoji character in this.specialCategory.Emojis)
         {
             this.emojisByText.TryAdd(character.Text, character);
         }
@@ -348,8 +357,9 @@ internal sealed class MainForm : Form
         List<EmojiCategory> customSections = this.CreateCustomSections();
         this.customSectionCount = customSections.Count;
         List<Emoji> offered = [.. this.categories.SelectMany(category => category.Emojis),
-            .. this.specialCategories.SelectMany(category => category.Emojis)];
-        this.grid = new EmojiGrid([.. this.CreateFrequentSections(), .. customSections, .. this.categories, .. this.ShownSpecialSections()],
+            .. this.specialCategory.Emojis];
+        this.grid = new EmojiGrid(
+            [.. this.CreateFrequentSections(), .. customSections, .. this.ShownCatalogSections(), .. this.ShownSpecialSections()],
             offered)
         {
             Dock = DockStyle.Fill,
@@ -832,8 +842,8 @@ internal sealed class MainForm : Form
     }
 
     // The menu of the tab strip's settings button, shown under it, its right edge on the button's. One section per
-    // feature, in the window's order, separated by lines: frequently used, custom groups, special characters, details
-    // panel, window, app.
+    // feature, in the window's order, separated by lines: frequently used, custom groups, emoji categories, special
+    // characters, details panel, window, app.
     private ContextMenuStrip CreateSettingsMenu()
     {
         var menu = new ContextMenuStrip();
@@ -846,9 +856,16 @@ internal sealed class MainForm : Form
         var showGroups = new ToolStripMenuItem(ShowGroupsText);
         menu.Items.Add(showGroups);
         menu.Items.Add(new ToolStripSeparator());
+        var showEmojiSubcategoriesItem = new ToolStripMenuItem(ShowEmojiSubcategoriesText);
+        showEmojiSubcategoriesItem.Click += (_, _) => this.SetShowEmojiSubcategories(!this.showEmojiSubcategories);
+        menu.Items.Add(showEmojiSubcategoriesItem);
+        menu.Items.Add(new ToolStripSeparator());
         var showSpecialItem = new ToolStripMenuItem(ShowSpecialText);
         showSpecialItem.Click += (_, _) => this.SetShowSpecial(!this.showSpecial);
         menu.Items.Add(showSpecialItem);
+        var showSpecialSubcategoriesItem = new ToolStripMenuItem(ShowSpecialSubcategoriesText);
+        showSpecialSubcategoriesItem.Click += (_, _) => this.SetShowSpecialSubcategories(!this.showSpecialSubcategories);
+        menu.Items.Add(showSpecialSubcategoriesItem);
         menu.Items.Add(new ToolStripSeparator());
         var showFrenchItem = new ToolStripMenuItem(ShowFrenchText);
         showFrenchItem.Click += (_, _) => this.SetShowFrench(!this.detailsPanel.ShowFrench);
@@ -899,6 +916,8 @@ internal sealed class MainForm : Form
             this.FillShowGroups(showGroups);
             showFrequentItem.Checked = this.showFrequent;
             showSpecialItem.Checked = this.showSpecial;
+            showEmojiSubcategoriesItem.Checked = this.showEmojiSubcategories;
+            showSpecialSubcategoriesItem.Checked = this.showSpecialSubcategories;
             clearFrequent.Enabled = !this.usage.IsEmpty;
             showFrenchItem.Checked = this.detailsPanel.ShowFrench;
             alwaysShowSkinToneItem.Checked = this.detailsPanel.AlwaysShowTone;
@@ -1245,6 +1264,32 @@ internal sealed class MainForm : Form
         SettingsFile.WriteShowSpecial(show);
         this.grid.ReplaceCategories(this.FirstSpecialSection, replaced, this.ShownSpecialSections());
         this.UpdateTabs();
+        this.AfterSectionsReplaced();
+    }
+
+    // The catalog's sub-categories shown or hidden, from the settings menu; saved. The tabs stay as they are.
+    private void SetShowEmojiSubcategories(bool show)
+    {
+        this.showEmojiSubcategories = show;
+        SettingsFile.WriteShowEmojiSubcategories(show);
+        this.grid.ReplaceCategories(this.FirstCustomSection + this.customSectionCount, this.categories.Count, this.ShownCatalogSections());
+        this.AfterSectionsReplaced();
+    }
+
+    // The special characters' sub-categories shown or hidden, from the settings menu; saved — the section rebuilt while
+    // shown.
+    private void SetShowSpecialSubcategories(bool show)
+    {
+        this.showSpecialSubcategories = show;
+        SettingsFile.WriteShowSpecialSubcategories(show);
+        this.grid.ReplaceCategories(this.FirstSpecialSection, this.SpecialSectionCount, this.ShownSpecialSections());
+        this.AfterSectionsReplaced();
+    }
+
+    // After sections came, went or changed shape: the grid back at the top on its first emoji — the search results
+    // found again while a search is shown —, the active tab following.
+    private void AfterSectionsReplaced()
+    {
         if (string.IsNullOrWhiteSpace(this.searchBox.Text))
         {
             this.grid.ResetToTop();
@@ -1468,12 +1513,18 @@ internal sealed class MainForm : Form
 
     private int FirstSpecialSection => this.FirstCustomSection + this.customSectionCount + this.categories.Count;
 
-    private int SpecialSectionCount => this.showSpecial ? this.specialCategories.Count : 0;
+    private int SpecialSectionCount => this.showSpecial && this.specialCategory.Emojis.Count > 0 ? 1 : 0;
 
     private int SpecialTab => this.CustomTab + this.CustomTabCount + this.categories.Count;
 
-    // The special characters' sections while shown, none while hidden.
-    private IReadOnlyList<EmojiCategory> ShownSpecialSections() => this.showSpecial ? this.specialCategories : [];
+    // The special characters' section while shown and not empty — its sub-categories while shown —, none otherwise.
+    private IReadOnlyList<EmojiCategory> ShownSpecialSections() =>
+        this.SpecialSectionCount == 0 ? []
+        : [this.showSpecialSubcategories ? this.specialCategory : this.specialCategory with { SubCategories = null }];
+
+    // The catalog's categories, their sub-categories while shown.
+    private IReadOnlyList<EmojiCategory> ShownCatalogSections() =>
+        this.showEmojiSubcategories ? this.categories : [.. this.categories.Select(category => category with { SubCategories = null })];
 
     // The tab of a section.
     private int TabOf(int section) =>
