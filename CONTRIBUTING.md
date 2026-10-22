@@ -34,6 +34,19 @@ To update the embedded copy, replace both files and `LICENSE` with those of the 
 `emojibase-data` version (`https://cdn.jsdelivr.net/npm/emojibase-data@<version>/<en|fr>/compact.json`),
 then update `version.txt` and the version above.
 
+## Special characters
+
+The special characters' **default list** — five families, each character with its English and French
+names and its aliases — is `src/EmojiSelector/Data/SpecialCharacters.json`, embedded in the exe. At
+launch, `Data/SpecialCharacters` writes it to `special-characters.json` next to the exe **only when
+that file is missing**: a file already there is the user's and is never overwritten. Changing the
+default therefore reaches new installs and users who reset the app, not the others.
+
+The file is camelCase JSON, UTF-8 without BOM, the characters written as themselves:
+`{ "families": [ { "name", "characters": [ { "character", "name", "frenchName", "aliases" } ] } ] }`.
+The English name is the Unicode name in lower case (`copyright sign`), the French one the usual
+French name (`symbole copyright`).
+
 ## App icon
 
 The app icon — the exe's and the window's — is the *Slightly smiling face* of Microsoft's
