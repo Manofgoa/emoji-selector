@@ -23,8 +23,8 @@ design starts from **families** of characters, refined progressively with the us
 
 ## Character Families
 
-**One tab, one section per family**, in this order (Iteration 2). The characters are still a
-proposal, to be refined.
+**One tab, one section per family**, in this order (Iteration 2). This list is the **default
+shipped** in the exe (Iteration 7); the user refines it in `special-characters.json`.
 
 | # | Family | Characters |
 |---|---|---|
@@ -51,7 +51,9 @@ live in the characters' file, next to each character, so the user edits them too
   looked for in the symbol keywords — the aliases join them, like the emojis' **characters**
   (`Data/EmojiCharacters.cs`), and an alias typed whole ranks first.
 
-Proposal, to be refined:
+The default aliases (Iteration 7). The **names** are written by the implementation: the English
+one from the Unicode name in lower case (`copyright sign`), the French one the usual French name
+(`symbole copyright`, `guillemet ouvrant`).
 
 | Family | Character → aliases |
 |---|---|
@@ -206,9 +208,9 @@ checked by hand (custom-drawn, no accessibility), the search also by `WM_SETTEXT
   the text colour, smaller than the emojis
 - [x] ~~Can the tab be hidden from the settings menu?~~ → Yes, `Show special characters`, saved as
   `showSpecial`
-- [ ] Is the character and alias list (see *Character Families*, *Names and Aliases*) the default
-  to ship, or adjusted first?
-- [ ] A settings menu item opening `special-characters.json` in the user's editor?
+- [x] ~~Is the character and alias list the default to ship?~~ → Yes, as it stands
+- [x] ~~A settings menu item opening `special-characters.json` in the user's editor?~~ → No: `Open app
+  folder` is enough; an edit is read at the next launch
 - [x] ~~`Reset all settings…`: does it delete the user's edited file?~~ → Yes, back to the default
   list (Iteration 4)
 
@@ -286,6 +288,13 @@ Third batch answered:
 
 Two questions added: the default list to ship, and a menu item opening the file.
 
+### Iteration 7 — 2026-10-22
+
+- **Default list**: the families, characters and aliases as they stand are the default shipped.
+- **No menu item** opening the file: `Open app folder` finds it; an edit is read at the next launch.
+
+No open question left.
+
 ---
 
 ## Implementation Log
@@ -322,8 +331,8 @@ Questions asked by the agent during design, with user responses.
 | 10 | Rendering: monochrome text font, or like the emojis? | Monochrome text font | 2026-10-22 |
 | 11 | An invalid file after an edit: rewritten from the default, or kept and the default used in memory? | Kept, default in memory, plus a warning | 2026-10-22 |
 | 12 | Can the tab be hidden from the settings menu? | Yes, `Show special characters` | 2026-10-22 |
-| 13 | Is the character and alias list the default to ship? | | 2026-10-22 |
-| 14 | A settings menu item opening the file in the user's editor? | | 2026-10-22 | 2026-10-22 | 2026-10-22 |
+| 13 | Is the character and alias list the default to ship? | Yes, as it stands | 2026-10-22 |
+| 14 | A settings menu item opening the file in the user's editor? | No | 2026-10-22 | 2026-10-22 | 2026-10-22 |
 
 ---
 
