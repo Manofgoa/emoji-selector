@@ -40,6 +40,28 @@ the user can still add them to the file.
 
 ---
 
+## Aliases
+
+Each character carries **aliases**: short, easy-to-type texts describing it, found by the **search
+box** (Iteration 3). `<<` finds «; `"` finds every character drawn as quotes — « » “ ” „ ″. They
+live in the characters' file, next to each character, so the user edits them too.
+
+- They fit the existing **symbol** search (RULES.md § Search Box): a typed word holding a symbol is
+  looked for in the symbol keywords — the aliases join them, like the emojis' **characters**
+  (`Data/EmojiCharacters.cs`), and an alias typed whole ranks first.
+
+Proposal, to be refined:
+
+| Family | Character → aliases |
+|---|---|
+| Legal & references | © `(c)` `c` · ® `(r)` `r` · ™ `tm` `(tm)` · ℠ `sm` · ℗ `(p)` · § `s` `par` · ¶ `p` `pilcrow` · † `+` · ‡ `++` · № `no` |
+| Punctuation & typography | « `<<` `"` · » `>>` `"` · ‹ `<` `'` · › `>` `'` · “ `"` · ” `"` · ‘ `'` · ’ `'` · „ `,,` `"` · — `---` · – `--` · ‑ `-` · … `...` · • `*` · · `.` · ¡ `!` · ¿ `?` · ′ `'` · ″ `"` `''` |
+| Accented letters & ligatures | É `e'` `E'` · È `e`` · Ê `e^` · À `a`` · Ç `c,` · Ù `u`` · Œ `oe` · œ `oe` · Æ `ae` · æ `ae` · ß `ss` · Ñ `n~` · ñ `n~` |
+| Currencies | € `e` `eur` `euro` · £ `l` `gbp` `pound` · ¥ `y` `yen` · ¢ `c` `cent` · $ `usd` `dollar` · ₹ `inr` `rupee` · ₽ `rub` `ruble` · ₩ `krw` `won` · ₺ `try` `lira` · ₿ `btc` `bitcoin` · ¤ `currency` |
+| Maths, units & fractions | ± `+-` · × `x` `*` · ÷ `/` `:` · ≈ `~=` `~~` · ≠ `!=` `<>` `=/` · ≤ `<=` · ≥ `>=` · ∞ `oo` `inf` · √ `sqrt` · ∑ `sum` · ∫ `int` · ∂ `d` · ∆ `delta` · ° `deg` `o` · ‰ `%o` · µ `u` `micro` · ½ `1/2` · ¼ `1/4` · ¾ `3/4` · ⅓ `1/3` · ² `^2` · ³ `^3` · ℃ `°c` |
+
+---
+
 ## Test Impact
 
 To be filled once the design settles (file parsing, the tab's sections, the insertion of the
@@ -58,8 +80,10 @@ text form).
 - [ ] Where does the tab sit in the strip (after the custom tab, last…), and with which icon?
 - [ ] The file: format (JSON?), location (next to the exe, like `emoji-data\`?), and what happens
   when the exe ships a newer default list while the user edited theirs (kept, merged, replaced)?
-- [ ] Does each character carry a **name** (English / French) — shown in the details panel, and
-  searchable from the search box?
+- [x] ~~Is a character searchable from the search box?~~ → Yes, by its **aliases** (see *Aliases*)
+- [ ] Which aliases for each character?
+- [ ] Does each character also carry a **name** (English / French) — shown in the details panel, and
+  searchable?
 - [ ] Do the characters take part in the rest of the app: frequent tab counters, custom groups,
   `Use as tray icon`?
 - [x] ~~Invisible characters (spaces, soft hyphen): how are they shown in the grid?~~ → Moot: the
@@ -98,6 +122,12 @@ Scoping batch answered:
 - **Structure**: one tab, one section per family — like the custom tab and its groups.
 - **Depth**: straightforward — a single scout pass of the codebase.
 
+### Iteration 3 — 2026-10-22
+
+User request: the characters need **aliases**, easy to use, describing them — `<<` for the left
+double angle quote, and `"` matching it too. A first alias list is proposed (see *Aliases*), found
+through the search box's symbol search.
+
 ---
 
 ## Implementation Log
@@ -124,7 +154,7 @@ Questions asked by the agent during design, with user responses.
 | 3 | Structure: one tab with one section per family, or one tab per family? | One tab, one section per family | 2026-10-22 |
 | 4 | Depth: straightforward, or tricky / long? | Straightforward |
 | 5 | Do the characters take part in the frequent tab, the custom groups, `Use as tray icon`? | | 2026-10-22 |
-| 6 | Does each character carry a name (EN / FR), shown in the details panel and searchable? | | 2026-10-22 |
+| 6 | Besides the aliases, does each character carry a name (EN / FR), shown in the details panel and searchable? | | 2026-10-22 |
 | 7 | Where does the tab sit in the strip? | | 2026-10-22 |
 | 8 | The user edited the file and a new exe ships a newer default list: what happens? | | 2026-10-22 | 2026-10-22 |
 
