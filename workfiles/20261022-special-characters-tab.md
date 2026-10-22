@@ -295,6 +295,12 @@ Two questions added: the default list to ship, and a menu item opening the file.
 
 No open question left.
 
+### Iteration 8 — 2026-10-22 — ✅ Implemented
+
+Go given: **code, unit tests and documentation**, in a **worktree** —
+`.claude/worktrees/special-characters-tab`, branch `feature/special-characters-tab`, created from
+`main` (the user asked for a branch and a worktree at the branch gate).
+
 ---
 
 ## Implementation Log
