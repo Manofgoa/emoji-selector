@@ -611,8 +611,8 @@ custom groups like the emojis.
   } ] } ] }`, camelCase, the characters as themselves; comments and trailing commas are read. A
   family's `name` is its sub-category's label; `character` is any text, usually one character.
 - **Its default** is embedded in the exe (`Data/SpecialCharacters.json`, `EmbeddedResource`):
-  five families — *Legal & references*, *Punctuation & typography*, *Accented letters & ligatures*,
-  *Currencies*, *Maths, units & fractions*, 76 characters.
+  five families, one word each since they are the sub-categories' labels — *Legal*, *Punctuation*,
+  *Accents*, *Currencies*, *Maths* —, 76 characters.
 - **At launch** (`SpecialCharacters.Load`):
 
   | The file | Does |
