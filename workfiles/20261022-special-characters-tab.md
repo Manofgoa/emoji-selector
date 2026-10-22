@@ -474,12 +474,12 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | 8, 9, 10, 14 | 2026-10-22 | Data, rendering, `MainForm` — built, 0 warning; checked by reflection on a copy of the build (file written / kept / invalid, aliases, reset) and by window captures (tab, searches `symbole` and `"`) |
+| Code | 8, 9, 10, 14, 16, 17 | 2026-10-22 | Data, rendering, `MainForm` — built, 0 warning; checked by reflection on a copy of the build (file written / kept / invalid, aliases, reset) and by window captures (tab, searches `symbole` and `"`) |
 | Unit tests | 8, 14 | 2026-10-22 | Not applicable: no test project (see *Test Impact*) — the reflection checks stand in |
-| RULES.md | 8, 10, 14 | 2026-10-22 | New § *Special Characters Tab*; settings menu (six sections), `showSpecial`, reset, search, tray icon |
-| README | 8, 14 | 2026-10-22 | § *Special characters*, menu, reset — `README.md` and `README.fr.md` in the same commit |
+| RULES.md | 8, 10, 14, 16, 17 | 2026-10-22 | New § *Special Characters Tab*; settings menu (six sections), `showSpecial`, reset, search, tray icon |
+| README | 8, 14, 16, 17 | 2026-10-22 | § *Special characters*, menu, reset — `README.md` and `README.fr.md` in the same commit |
 | CONTRIBUTING.md | 8, 14 | 2026-10-22 | § *Special characters*: the embedded default and its format |
-| GLOSSARY | 8, 14 | 2026-10-22 | Special character, family, alias — `GLOSSARY.md` and `GLOSSARY.fr.md` in the same commit |
+| GLOSSARY | 8, 14, 16 | 2026-10-22 | Special character, family, alias — `GLOSSARY.md` and `GLOSSARY.fr.md` in the same commit |
 
 ---
 
