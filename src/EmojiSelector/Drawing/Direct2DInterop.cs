@@ -13,6 +13,7 @@ internal static class Direct2DInterop
     public const int DxgiFormatB8G8R8A8Unorm = 87;
     public const int D2D1AlphaModePremultiplied = 1;
     public const int D2D1TextAntialiasModeGrayscale = 2;
+    public const int D2D1DrawTextOptionsNone = 0;
     public const int D2D1DrawTextOptionsEnableColorFont = 4;
     public const int DWriteMeasuringModeNatural = 0;
     public const int DWriteFontWeightNormal = 400;

@@ -763,7 +763,7 @@ internal sealed class EmojiDetailsPanel : Control
     private void RenderEmoji()
     {
         Bitmap? previous = this.emojiBitmap;
-        this.emojiBitmap = this.shownEmoji is Emoji emoji ? this.renderer.Render(this.ShownText(emoji), this.EmojiSize) : null;
+        this.emojiBitmap = this.shownEmoji is Emoji emoji ? this.renderer.Render(this.ShownText(emoji), this.EmojiSize, emoji.IsText) : null;
         previous?.Dispose();
     }
 

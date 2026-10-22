@@ -113,13 +113,16 @@ internal sealed class EmojiGrid : Control
         this.layout = this.CreateLayout();
         this.UpdateScrollBar();
 
-        // In grid order: the first screen is ready first — in yellow; the variants come after every emoji.
+        // In grid order: the first screen is ready first — in yellow; the variants come after every emoji. A special
+        // character is drawn as text, unless an emoji of the catalog has its text.
         List<Emoji> preRendered = [.. emojis];
+        HashSet<string> emojiTexts = [.. preRendered.Where(emoji => !emoji.IsText).Select(emoji => emoji.Text)];
         this.bitmaps = new EmojiBitmapCache(preRendered
             .Select(emoji => emoji.Text)
             .Concat(preRendered.SelectMany(emoji => emoji.Variants).Select(variant => variant.Text))
             .Distinct()
-            .ToList());
+            .ToList(),
+            preRendered.Where(emoji => emoji.IsText && !emojiTexts.Contains(emoji.Text)).Select(emoji => emoji.Text).ToHashSet());
         this.bitmaps.BitmapsReady += (_, _) => this.Invalidate();
         this.EnsureBitmapSize();
     }
