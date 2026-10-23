@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using static EmojiSelector.Drawing.Direct2DInterop;
@@ -9,6 +10,11 @@ namespace EmojiSelector.Drawing;
 /// Direct2D and DirectWrite, colour fonts enabled, onto a WIC bitmap whose pixels are then copied to a
 /// <see cref="Bitmap"/>. The WIC bitmap, render target, text formats and brush are built once per size and reused:
 /// they cost far more than drawing a glyph. Single-threaded: one instance per thread.
+/// <para>
+/// A flag Segoe UI Emoji cannot draw is drawn from its <b>flag image</b> instead (<see cref="FlagImages"/>), by
+/// Direct2D's SVG renderer, on the same square: the grid, the details panel and the tray icon get it alike. An image
+/// that fails to draw falls back to the font.
+/// </para>
 /// </summary>
 /// <remarks>
 /// A <b>special character</b> is drawn as text instead: monochrome, with <see cref="TextFontFamily"/>, smaller —
@@ -64,6 +70,11 @@ internal sealed class EmojiRenderer : IDisposable
     /// </summary>
     public Bitmap Render(string emoji, int size, bool asText = false)
     {
+        if (FlagImages.TryGet(emoji, out byte[] svg) && this.TryRenderSvg(svg, size) is Bitmap flag)
+        {
+            return flag;
+        }
+
         try
         {
             this.EnsureResources(size);
@@ -131,6 +142,50 @@ internal sealed class EmojiRenderer : IDisposable
         // ClearType needs an opaque background: on a transparent one, grayscale antialiasing.
         renderTarget.SetTextAntialiasMode(D2D1TextAntialiasModeGrayscale);
         this.size = size;
+    }
+
+    // Draws an SVG over the whole square (Twemoji's view box is square); null when Direct2D cannot — a device context
+    // older than Windows 10 1703, an SVG it refuses —, the render target then rebuilt for the font.
+    private Bitmap? TryRenderSvg(byte[] svg, int size)
+    {
+        IntPtr stream = IntPtr.Zero;
+        ID2D1SvgDocument? document = null;
+        try
+        {
+            this.EnsureResources(size);
+            if (this.renderTarget is not ID2D1DeviceContext5 deviceContext)
+            {
+                return null;
+            }
+
+            stream = SHCreateMemStream(svg, svg.Length);
+            if (stream == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            Marshal.ThrowExceptionForHR(deviceContext.CreateSvgDocument(stream, new D2DSizeF(size, size), out document));
+            ID2D1RenderTarget renderTarget = this.renderTarget;
+            renderTarget.BeginDraw();
+            renderTarget.Clear(new ColorF(0, 0, 0, 0));
+            deviceContext.DrawSvgDocument(document);
+            Marshal.ThrowExceptionForHR(renderTarget.EndDraw(IntPtr.Zero, IntPtr.Zero));
+            return this.CopyToBitmap(size);
+        }
+        catch (Exception exception) when (exception is COMException or ExternalException or InvalidCastException)
+        {
+            Debug.WriteLine($"EmojiRenderer: flag image not drawn — {exception.Message}");
+            this.ReleaseResources();
+            return null;
+        }
+        finally
+        {
+            Release(document);
+            if (stream != IntPtr.Zero)
+            {
+                Marshal.Release(stream);
+            }
+        }
     }
 
     // WIC's premultiplied BGRA is the memory layout of GDI+'s Format32bppPArgb: the pixels go straight in.

@@ -43,7 +43,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Acrylic veil ▸` | `10%` … `90%`, the one in use checked, greyed while `Acrylic` is off: the strength of the white veil over the blur, applied at once and saved (see *Acrylic* below); the window stays |
 | Settings button ⚙ → `Open app folder` | Opens the exe's folder in the File Explorer, the exe selected; the window stays |
 | Settings button ⚙ → `Start with Windows` | Checked while Windows starts this exe at sign-in: a click writes or deletes the **startup shortcut** (see *Start with Windows* below); the window stays |
-| Settings button ⚙ → `Check for emoji updates…` | The latest Emojibase version online; a newer one offered, downloaded, then a restart offered (see *Emoji Data* below) |
+| Settings button ⚙ → `Check for emoji updates…` | The latest Emojibase and Twemoji versions online; the newer ones offered, downloaded, then a restart offered (see *Emoji Data* and *Flag Images* below) |
 | Settings button ⚙ → `Reset all settings…` | After a confirmation, every file the app wrote deleted, then a restart (see *Reset All Settings* below) |
 | Tray icon, left click | Hidden → shown in the **corner** of the mouse's monitor (see *Corner* below); covered by another window → brought to the front, not moved; already in front → hidden |
 | Tray icon, right click → `Exit` | Ends the app |
@@ -71,7 +71,8 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   `ApplicationIcon` and `MainForm.Icon`, read from the embedded `.ico` with every size (Windows picks
   the small and the large one). `Use as tray icon` never changes it.
 - Emojis are drawn **in colour** by `Drawing/EmojiRenderer.cs` (Direct2D + DirectWrite): GDI and
-  GDI+ draw Segoe UI Emoji in monochrome.
+  GDI+ draw Segoe UI Emoji in monochrome. A flag Segoe cannot draw comes from its flag image (see
+  *Flag Images* below) — in the grid, the details panel and the tray icon alike.
 - The tooltip is the window's title, second title included.
 - An agent checking the close button from a script sends `WM_SYSCOMMAND` / `SC_CLOSE`: a plain
   `WM_CLOSE` counts as the Task Manager and ends the app.
@@ -348,9 +349,9 @@ launch the app at sign-in, hidden in the notification area. Off by default.
 
 ## Categories and Insertion
 
-- **Categories** come from `Data/EmojiCatalog.cs` only — the frequent, custom and special characters' tabs aside (see *Frequent Tab*, *Custom Tab*, *Special Characters Tab*): seven tabs in the Win+; order, the Emojibase
-  data of `emoji-data\` next to the exe (see *Emoji Data* below). Left out:
-  components, flags. The skin-tone variants are no emojis of their own: each one is kept on its
+- **Categories** come from `Data/EmojiCatalog.cs` only — the frequent, custom and special characters' tabs aside (see *Frequent Tab*, *Custom Tab*, *Special Characters Tab*): seven tabs in the Win+; order, then
+  **Flags** (a flag, `E7C1`) — the special characters' tab after it —, the Emojibase data of `emoji-data\` next to the exe (see *Emoji
+  Data* below). Left out: components. The skin-tone variants are no emojis of their own: each one is kept on its
   emoji (`Emoji.Variants`, see *Skin Tones*). An emoji newer than the system font is kept (a box).
 - The grid and the tab strip are **custom-drawn** (`UI/EmojiGrid.cs`, `UI/CategoryTabStrip.cs`);
   where things sit is computed by `UI/EmojiGridLayout.cs` alone. The tab glyphs are monochrome
@@ -361,7 +362,8 @@ launch the app at sign-in, hidden in the notification area. Off by default.
   **fluorescent green**, on purpose. A DPI change starts a new pre-render at the new size.
 - The pre-rendered emojis are saved in **`cache\` next to the exe** — one `emojis-{size}.png` atlas
   and its `emojis-{size}.key` per emoji size — and reloaded at the next launch while the key still
-  matches (size, Segoe UI Emoji's file, the emoji list, the renderer's parameters). A change to the
+  matches (size, Segoe UI Emoji's file, the emoji list, the renderer's parameters, the flag images in
+  use — `flags=<Twemoji version>;<downloaded image count>`). A change to the
   rendering that the key does not see **bumps `EmojiBitmapCache.FormatVersion`**. A folder that
   cannot be written is not an error: the emojis are rendered again at every launch.
 - One `EmojiRenderer` per thread, each with its own **isolated** DirectWrite factory: the shared
@@ -425,7 +427,7 @@ recreates it.
   | The folder | Does |
   |---|---|
   | Missing, or a file of the set missing | The whole set written from the embedded copy, then used |
-  | A JSON not parsing into a non-empty entry list (the English one with emojis in the seven tabs), a `version.txt` not a version | Rewritten from the embedded copy, then used |
+  | A JSON not parsing into a non-empty entry list (the English one with emojis in the eight tabs), a `version.txt` not a version | Rewritten from the embedded copy, then used |
   | Valid, older than the embedded copy (the exe was updated) | Rewritten from the embedded copy, then used |
   | Valid, same version or newer | Used as it is |
   | Cannot be written | The embedded copy used in memory — never an error |
@@ -437,26 +439,78 @@ recreates it.
   `FormatVersion` bump. Counters, custom groups and the tray emoji are kept by the emoji's text: an
   emoji the new list no longer has stays in their files and is not shown.
 - **`Check for emoji updates…`**, in the settings menu's *app* section, after `Start with Windows`
-  (`MainForm.CheckEmojiUpdatesAsync`, `Data/EmojiDataUpdate.cs`): the app's **only network access**,
-  on that click only — no check at launch, no setting. The item is greyed while it runs; one
+  (`MainForm.CheckEmojiUpdatesAsync`, `Data/EmojiDataUpdate.cs`, `Data/FlagImagesUpdate.cs`): the
+  app's **only network access**, on that click only — no check at launch, no setting. It checks the
+  emoji data and the flag images (see *Flag Images* below). The item is greyed while it runs; one
   `HttpClient`, 15 s timeout.
-  1. The latest version: `https://registry.npmjs.org/emojibase-data/latest`'s `version` (never a
-     pre-release).
-  2. Not newer than the version in use — or the one already downloaded this run → `Emoji data is up to
-     date`. A network, HTTP or parse failure → `Could not check for emoji updates`, a warning.
-  3. Newer → `Update the emoji list, names and keywords?`, Yes / No, *Yes* the default.
-  4. Yes → `en/compact.json`, `fr/compact.json`, `en/data.json`, `en/messages.json`,
+  1. The latest versions, together: `https://registry.npmjs.org/emojibase-data/latest`'s `version`
+     (never a pre-release), and Twemoji's from jsDelivr (see *Flag Images*).
+  2. Neither newer than the version in use — or the one already downloaded this run → `Emoji data is up
+     to date (Emojibase …, Twemoji flags …)`. A network, HTTP or parse failure of either →
+     `Could not check for emoji updates`, a warning.
+  3. Either newer → **one** question, a line per newer source (`The emoji list, names and keywords:
+     Emojibase … is available (in use: …)`, `The flag images: Twemoji … is available (in use: …)`),
+     then `Update now?`, Yes / No, *Yes* the default.
+  4. Yes → the emoji data first: `en/compact.json`, `fr/compact.json`, `en/data.json`, `en/messages.json`,
      `fr/messages.json` and `LICENSE` from `https://cdn.jsdelivr.net/npm/emojibase-data@<version>/`,
      `subgroups.json` derived from the three middle ones (`EmojiSubgroups.Derive`), parsed like the folder (any newer
      major accepted when it parses), then written as a set. Any failure → `Could not update the emoji
-     data`, the folder left as it was.
-  5. `Restart now to use it?`, Yes / No, *Yes* the default: Yes → the exe started again
+     data`, the folder left as it was. Then the flag images — when Twemoji is newer, or when the emoji
+     data was just written: its new flags get their images. Any failure → `Could not update the flag
+     images`, the folder left as it was. Each source on its own: a failure of one does not undo the
+     other.
+  5. Something written → `Updated to … Restart now to use it?`, Yes / No, *Yes* the default: Yes → the exe started again
      (`MainForm.Restart`), the same arguments, `--title` included, `--background` left out — the
      single instance released first (see *Start with Windows*); No → used at the next launch. A
      failed restart → `Could not restart the app`, a warning, the app kept running.
 - An agent checking the update cannot click the settings button from a script (custom-drawn, no
   accessibility): the network and the validation are checked by calling `EmojiDataUpdate` and
   `EmojiDataFolder.Parse` by reflection on the built dll.
+
+## Flag Images
+
+Segoe UI Emoji has **no flag glyphs**: it draws a country flag as two letters, a subdivision flag
+(England, Scotland, Wales) as a bare 🏴. Those flags are drawn from **flag images**, Twemoji's SVGs
+(CC-BY 4.0, [CONTRIBUTING.md § Flag images](CONTRIBUTING.md#flag-images)), by
+`Drawing/FlagImages.cs`. The other flags of the tab — 🏁 🚩 🎌 🏴 🏳️ 🏳️‍🌈 🏳️‍⚧️ 🏴‍☠️ — are Segoe's, as any
+emoji.
+
+- **Which ones** (`FlagImages.NeedsImage`): an emoji holding a regional indicator (`U+1F1E6`–`U+1F1FF`)
+  or a tag character (`U+E0020`–`U+E007F`). Its image is named as Twemoji names it: the code points in
+  lowercase hex, joined by `-`, `FE0F` left out (`FlagImages.FileNameOf`: `1f1eb-1f1f7.svg`).
+- **Drawn** at the top of `EmojiRenderer.Render`, by Direct2D's SVG renderer
+  (`ID2D1DeviceContext5`, queried from the WIC render target; Windows 10 1703+), over the whole square
+  — Twemoji's view box is square. One seam: the grid's pre-render, the details panel's 48 px and the
+  tray icon get it alike. No image, or an image Direct2D cannot draw → Segoe (two letters), never an
+  error. A flag is an emoji like any other: inserted, copied, searched, counted, put in a group or in
+  the tray by its text.
+- **Two layers**, read once, on first use:
+
+  | Layer | Holds |
+  |---|---|
+  | **`flag-images\` next to the exe** (`FlagImages.FolderName`) | Only the images a later Twemoji version **changed or added**, with its `version.txt` and `LICENSE-GRAPHICS` — written by `Check for emoji updates…`, never from the embedded copy |
+  | **Embedded** (`Drawing/Twemoji/`) | Every flag the embedded emoji data needs, at the exe's Twemoji version |
+
+  | The folder | Does |
+  |---|---|
+  | Missing, or its `version.txt` missing or not a version | The embedded images only |
+  | Older than the embedded images (the exe was updated) | Ignored, and deleted |
+  | Same version or newer | Its images first, the embedded ones for the rest |
+  | An image that cannot be read | Left out: the embedded one is used |
+
+- **The update's flag pass** (`FlagImagesUpdate`):
+  1. Twemoji's latest version: `https://data.jsdelivr.com/v1/packages/gh/jdecked/twemoji/resolved?specifier=latest`.
+  2. The version's file listing, `…/twemoji@<version>?structure=flat`: each file's SHA-256 in base64.
+  3. The flags to cover are those of the emoji list **in use after the update** that need an image;
+     only those whose published hash differs from the embedded image, or that the exe lacks, are
+     downloaded — from `https://cdn.jsdelivr.net/gh/jdecked/twemoji@<version>/assets/svg/` — each
+     checked against its hash. A flag the version does not publish keeps its image, or Segoe.
+  4. Written as a set (`FlagImages.Write`): `flag-images.new\` first, `version.txt` last, then put in
+     place of `flag-images\`. At the embedded version with nothing to add, nothing is written.
+- An agent checking the flag images cannot click the settings button: `FlagImages`, `FlagImagesUpdate`
+  and `EmojiRenderer` are called by reflection on the dll of a **copy** of the build folder, after
+  `AppContext.SetData("APP_CONTEXT_BASE_DIRECTORY", <copy>)`, one process per step — the images are
+  read once per process.
 
 ## Reset All Settings
 
@@ -467,13 +521,16 @@ Always enabled.
 - **Confirmation**: Yes / No, **No the default**, the warning icon, listing what is lost — the custom
   groups, the counters, the window size and opacity, the tray emoji and the details panel's settings, the
   skin tones, the special characters' list (back to the default one), Start with Windows, the downloaded emoji data (back to the **embedded** version, named:
-  `EmojiDataFolder.EmbeddedVersion`), the image cache — and saying the app restarts.
+  `EmojiDataFolder.EmbeddedVersion`), the downloaded flag images (back to the embedded Twemoji version,
+  `FlagImages.EmbeddedVersion`), the image cache — and saying the app restarts.
 - **What is deleted** (`AppReset.DeleteAll`), next to the exe: `settings.json`, `usage.json`,
-  `custom-groups.json`, `skin-tones.json`, `special-characters.json` and their temporary files (`TemporaryFileName`), the whole `cache\` and
-  `emoji-data\` folders; in the Startup folder, the **startup shortcut** and the Task Manager's value —
+  `custom-groups.json`, `skin-tones.json`, `special-characters.json` and their temporary files (`TemporaryFileName`), the whole
+  `cache\`, `emoji-data\`, `flag-images\` and `flag-images.new\` folders; in the Startup folder, the
+  **startup shortcut** and the Task Manager's value —
   **only when the shortcut targets this exe**, disabled or not (`StartupShortcut.DisableForThisExe`): a
   shortcut to another copy of the app is left alone. Nothing else, never the exe's folder itself.
-- **Each name comes from its owner's constant** (`FileName`, `TemporaryFileName`, `FolderName`): a
+- **Each name comes from its owner's constant** (`FileName`, `TemporaryFileName`, `FolderName`,
+  `NewFolderName`): a
   new file the app writes next to the exe gets its row in `AppReset`, or the reset leaves it behind.
 - **Order**:
   1. The disk cache stops being written (`EmojiGrid.StopCacheWriting` → `EmojiBitmapCache.StopWriting`),

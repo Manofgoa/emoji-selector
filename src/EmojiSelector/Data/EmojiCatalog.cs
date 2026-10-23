@@ -10,10 +10,11 @@ namespace EmojiSelector.Data;
 /// </summary>
 /// <remarks>
 /// The categories follow the Win+; panel: its order (Activities before Travel & Places, unlike Unicode's) and its
-/// Smileys & People, which merges two Unicode groups. Left out: the components (skin-tone and hair swatches), the
-/// flags (Segoe UI Emoji has no flag glyphs) and the entries without a group (the regional indicator letters). The
-/// skin-tone variants are not emojis of their own: each one is kept in its emoji's <see cref="Emoji.Variants"/>. An
-/// emoji newer than the system font is kept: it shows as a box.
+/// Smileys & People, which merges two Unicode groups; then the Flags, last as in Unicode. Left out: the components
+/// (skin-tone and hair swatches) and the entries without a group (the regional indicator letters). The skin-tone
+/// variants are not emojis of their own: each one is kept in its emoji's <see cref="Emoji.Variants"/>. An emoji newer
+/// than the system font is kept: it shows as a box. The flags Segoe UI Emoji cannot draw are drawn from their flag
+/// images (see Drawing/FlagImages).
 /// <para>
 /// The English data is the list; the French data, joined by hexcode, only adds <b>keywords</b> and the French name and
 /// tags the details panel shows — an emoji missing from it keeps its English ones.
@@ -30,6 +31,7 @@ internal static class EmojiCatalog
     private const int Activities = 6;
     private const int Objects = 7;
     private const int Symbols = 8;
+    private const int Flags = 9;
 
     // The tabs, in order: name, glyph, Emojibase groups.
     private static readonly (string Name, char Icon, int[] Groups)[] Tabs =
@@ -41,6 +43,7 @@ internal static class EmojiCatalog
         ("Travel & Places", '', [TravelPlaces]),
         ("Objects", '', [Objects]),
         ("Symbols", '', [Symbols]),
+        ("Flags", '', [Flags]),
     ];
 
     /// <summary>

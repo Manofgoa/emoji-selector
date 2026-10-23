@@ -31,4 +31,5 @@ each.
 | Default tone (*teinte par défaut*) | The **skin tone** of every emoji that has none of its own — both persons of a two-person one —, picked from the details panel's tone swatch |
 | Startup shortcut (*raccourci de démarrage*) | The `Emoji Selector.lnk` shortcut in the user's Startup folder that *Start with Windows* writes: Windows runs it at sign-in, the app starting hidden in the notification area — not the **shortcut** Win+; |
 | Tray icon (*icône de notification*) | The icon the app shows in the notification area, as long as it runs; it shows the emoji the user chose, 🙂 by default — not the **app icon** |
+| Flag image (*image de drapeau*) | A Twemoji picture drawing a flag Windows' emoji font cannot — a country flag, England's, Scotland's, Wales' —: carried by the exe, the ones a later Twemoji version changed or added downloaded by *Check for emoji updates…* to the `flag-images` folder next to the exe |
 | App icon (*icône de l'application*) | The 🙂 of the exe — in the File Explorer, the startup shortcut, the Task Manager — and of the window: Fluent Emoji's design, fixed, whatever emoji the **tray icon** shows |

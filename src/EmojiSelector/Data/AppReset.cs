@@ -5,9 +5,9 @@ namespace EmojiSelector.Data;
 
 /// <summary>
 /// <b>Reset all settings</b>: deletes everything the app wrote — the settings, the use counters, the custom groups, the
-/// emojis' own skin tones, the special characters the user edited, the render cache, the emoji data and the startup shortcut — so the next launch is a first
-/// launch. Each name comes from the constant of the code that owns it; nothing else is touched, never the exe's folder
-/// itself.
+/// emojis' own skin tones, the special characters the user edited, the render cache, the emoji data, the downloaded flag
+/// images and the startup shortcut — so the next launch is a first launch. Each name comes from the constant of the code
+/// that owns it; nothing else is touched, never the exe's folder itself.
 /// </summary>
 internal static class AppReset
 {
@@ -50,7 +50,8 @@ internal static class AppReset
             yield return (file, () => File.Delete(Path.Combine(AppContext.BaseDirectory, file)));
         }
 
-        foreach (string folder in new[] { EmojiBitmapCache.FolderName, EmojiDataFolder.FolderName })
+        foreach (string folder in new[]
+            { EmojiBitmapCache.FolderName, EmojiDataFolder.FolderName, FlagImages.FolderName, FlagImages.NewFolderName })
         {
             yield return (folder + Path.DirectorySeparatorChar, () => DeleteFolder(Path.Combine(AppContext.BaseDirectory, folder)));
         }

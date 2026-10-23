@@ -4,6 +4,7 @@ using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using EmojiSelector.Data;
+using EmojiSelector.Drawing;
 using EmojiSelector.Input;
 
 namespace EmojiSelector.UI;
@@ -80,18 +81,24 @@ internal sealed class MainForm : Form
 
     public const string CheckEmojiUpdatesText = "Check for emoji updates…";
 
-    public const string UpToDateText = "Emoji data is up to date (Emojibase {0}).";
+    public const string UpToDateText = "Emoji data is up to date (Emojibase {0}, Twemoji flags {1}).";
 
     public const string CheckFailedText = "Could not check for emoji updates: {0}";
 
-    public const string UpdateAvailableQuestion =
-        "Emojibase {0} is available (in use: {1}). Update the emoji list, names and keywords?";
+    public const string UpdateAvailableQuestion = "{0}\n\nUpdate now?";
+
+    public const string EmojiDataAvailableLine =
+        "The emoji list, names and keywords: Emojibase {0} is available (in use: {1}).";
+
+    public const string FlagImagesAvailableLine = "The flag images: Twemoji {0} is available (in use: {1}).";
 
     public const string UpdateFailedText = "Could not update the emoji data: {0}";
 
+    public const string FlagImagesUpdateFailedText = "Could not update the flag images: {0}";
+
     public const string InvalidDownloadText = "the downloaded files are not valid emoji data.";
 
-    public const string RestartQuestion = "Emoji data updated to Emojibase {0}. Restart now to use it?";
+    public const string RestartQuestion = "Updated to {0}. Restart now to use it?";
 
     public const string RestartFailedText = "Could not restart the app: {0}";
 
@@ -107,6 +114,7 @@ internal sealed class MainForm : Form
         + "• the special characters' list — back to the default one\n"
         + "• Start with Windows\n"
         + "• the downloaded emoji data — back to version {0}\n"
+        + "• the downloaded flag images — back to Twemoji {1}\n"
         + "• the emoji image cache\n\n"
         + "The app then restarts.";
 
@@ -215,6 +223,9 @@ internal sealed class MainForm : Form
 
     // The Emojibase version Check for emoji updates wrote to emoji-data\, used from the next launch; null until then.
     private Version? downloadedEmojiDataVersion;
+
+    // The Twemoji version Check for emoji updates wrote to flag-images\, used from the next launch; null until then.
+    private Version? downloadedFlagImagesVersion;
     private readonly Dictionary<string, Emoji> emojisByText;
     private readonly TableLayoutPanel searchBar;
     private readonly TextBox searchBox;
@@ -1042,19 +1053,26 @@ internal sealed class MainForm : Form
         }
     }
 
-    // Check for emoji updates: the latest emojibase-data on npm, compared with the version in use — or the one already
-    // downloaded. A newer one is offered, downloaded, validated, written to emoji-data\, then a restart is offered to use
-    // it. The item is greyed while it runs; every failure is said, the folder left as it was.
+    // Check for emoji updates: the latest emojibase-data on npm and the latest Twemoji on jsDelivr, each compared with the
+    // version in use — or the one already downloaded. One question names what is newer; each source is then downloaded,
+    // validated and written on its own — emoji-data\, flag-images\ —, a failure of one said without undoing the other,
+    // then a restart is offered to use them. The flag images follow the emoji list written in the same run: a new flag
+    // gets its image when Twemoji has it. The item is greyed while it runs.
     private async Task CheckEmojiUpdatesAsync(ToolStripItem item)
     {
         item.Enabled = false;
         try
         {
-            Version current = this.downloadedEmojiDataVersion ?? this.emojiDataVersion;
-            Version latest;
+            Version currentData = this.downloadedEmojiDataVersion ?? this.emojiDataVersion;
+            Version currentFlags = this.downloadedFlagImagesVersion ?? FlagImages.Version;
+            Version latestData;
+            Version latestFlags;
             try
             {
-                latest = await EmojiDataUpdate.GetLatestVersionAsync();
+                Task<Version> data = EmojiDataUpdate.GetLatestVersionAsync();
+                Task<Version> flags = FlagImagesUpdate.GetLatestVersionAsync();
+                latestData = await data;
+                latestFlags = await flags;
             }
             catch (Exception exception) when (EmojiDataUpdate.IsFailure(exception))
             {
@@ -1062,39 +1080,83 @@ internal sealed class MainForm : Form
                 return;
             }
 
-            if (latest <= current)
+            bool dataNewer = latestData > currentData;
+            bool flagsNewer = latestFlags > currentFlags;
+            if (!dataNewer && !flagsNewer)
             {
-                MessageBox.Show(this, string.Format(UpToDateText, current), AppTitle, MessageBoxButtons.OK,
+                MessageBox.Show(this, string.Format(UpToDateText, currentData, currentFlags), AppTitle, MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
             }
 
-            if (MessageBox.Show(this, string.Format(UpdateAvailableQuestion, latest, current), AppTitle,
+            var available = new List<string>();
+            if (dataNewer)
+            {
+                available.Add(string.Format(EmojiDataAvailableLine, latestData, currentData));
+            }
+
+            if (flagsNewer)
+            {
+                available.Add(string.Format(FlagImagesAvailableLine, latestFlags, currentFlags));
+            }
+
+            if (MessageBox.Show(this, string.Format(UpdateAvailableQuestion, string.Join("\n", available)), AppTitle,
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
             {
                 return;
             }
 
-            try
+            var updated = new List<string>();
+            IReadOnlyList<EmojiCategory> listInUse = this.categories;
+            if (dataNewer)
             {
-                EmojiDataFolder.FileSet files = await EmojiDataUpdate.DownloadAsync(latest);
-                if (EmojiDataFolder.Parse(files) is null)
+                try
                 {
-                    throw new InvalidDataException(InvalidDownloadText);
+                    EmojiDataFolder.FileSet files = await EmojiDataUpdate.DownloadAsync(latestData);
+                    EmojiDataFolder.EmojiData data = EmojiDataFolder.Parse(files)
+                        ?? throw new InvalidDataException(InvalidDownloadText);
+                    EmojiDataFolder.Write(files);
+                    this.downloadedEmojiDataVersion = latestData;
+                    listInUse = data.Categories;
+                    updated.Add($"Emojibase {latestData}");
                 }
-
-                EmojiDataFolder.Write(files);
+                catch (Exception exception) when (EmojiDataUpdate.IsFailure(exception)
+                    || exception is IOException or UnauthorizedAccessException)
+                {
+                    this.ShowWarning(string.Format(UpdateFailedText, exception.Message));
+                }
             }
-            catch (Exception exception) when (EmojiDataUpdate.IsFailure(exception)
-                || exception is IOException or UnauthorizedAccessException)
+
+            if (flagsNewer || updated.Count > 0)
             {
-                this.ShowWarning(string.Format(UpdateFailedText, exception.Message));
+                Version target = flagsNewer ? latestFlags : currentFlags;
+                try
+                {
+                    FlagImagesUpdate.Download download = await FlagImagesUpdate.DownloadAsync(target,
+                        listInUse.SelectMany(category => category.Emojis).Select(emoji => emoji.Text));
+
+                    // At the embedded version with nothing to add, the folder would only repeat the exe.
+                    if (download.Images.Count > 0 || target > FlagImages.EmbeddedVersion)
+                    {
+                        FlagImages.Write(target, download.Images, download.License);
+                        this.downloadedFlagImagesVersion = target;
+                        updated.Add($"Twemoji flags {target}");
+                    }
+                }
+                catch (Exception exception) when (EmojiDataUpdate.IsFailure(exception)
+                    || exception is IOException or UnauthorizedAccessException)
+                {
+                    this.ShowWarning(string.Format(FlagImagesUpdateFailedText, exception.Message));
+                }
+            }
+
+            if (updated.Count == 0)
+            {
                 return;
             }
 
-            this.downloadedEmojiDataVersion = latest;
-            if (MessageBox.Show(this, string.Format(RestartQuestion, latest), AppTitle, MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question) == DialogResult.Yes)
+            if (MessageBox.Show(this, string.Format(RestartQuestion, string.Join(", ", updated)), AppTitle,
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
                 // The app keeps running on a failure: the new emoji data is used at the next launch.
                 this.Restart(RestartFailedText, exitOnFailure: false);
@@ -1112,7 +1174,8 @@ internal sealed class MainForm : Form
     // since the app would write its old settings back from memory on the next action.
     private void ResetAllSettings()
     {
-        DialogResult answer = MessageBox.Show(this, string.Format(ResetAllQuestion, EmojiDataFolder.EmbeddedVersion()),
+        DialogResult answer = MessageBox.Show(this,
+            string.Format(ResetAllQuestion, EmojiDataFolder.EmbeddedVersion(), FlagImages.EmbeddedVersion),
             AppTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
         if (answer != DialogResult.Yes)
         {

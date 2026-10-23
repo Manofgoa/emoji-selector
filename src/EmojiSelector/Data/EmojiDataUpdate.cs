@@ -5,7 +5,8 @@ namespace EmojiSelector.Data;
 
 /// <summary>
 /// The app's only network access, on the user's click on <c>Check for emoji updates…</c>: the latest
-/// <c>emojibase-data</c> version published on npm, and its files from jsDelivr. Nothing is sent but the requests.
+/// <c>emojibase-data</c> version published on npm, and its files from jsDelivr — with the flag images' check
+/// (<see cref="FlagImagesUpdate"/>). Nothing is sent but the requests.
 /// </summary>
 internal static class EmojiDataUpdate
 {
@@ -15,7 +16,8 @@ internal static class EmojiDataUpdate
     // {0}: the version, {1}: the file's path in the package.
     private const string FileUrl = "https://cdn.jsdelivr.net/npm/emojibase-data@{0}/{1}";
 
-    private static readonly HttpClient Client = CreateClient();
+    // Shared with FlagImagesUpdate: the same click, the same timeout.
+    internal static readonly HttpClient Client = CreateClient();
 
     /// <summary>The latest published version. Throws on a network, HTTP or parse failure (see <see cref="IsFailure"/>).</summary>
     public static async Task<Version> GetLatestVersionAsync()

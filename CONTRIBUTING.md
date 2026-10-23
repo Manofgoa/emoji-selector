@@ -78,6 +78,35 @@ pwsh src/EmojiSelector/AppIcon/New-AppIcon.ps1
 The tray icon is not this file: it is drawn at run time from Windows' emoji font, and shows the
 emoji the user chose.
 
+## Flag images
+
+Windows' emoji font has no country flags. The country flags and the subdivision flags (England,
+Scotland, Wales) are drawn from [Twemoji](https://github.com/jdecked/twemoji)'s SVGs, **version
+17.0.3** — graphics by Twitter, Inc and other contributors, licensed under
+[CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) (see
+[its LICENSE-GRAPHICS](src/EmojiSelector/Drawing/Twemoji/LICENSE-GRAPHICS)), kept as published, unchanged,
+in `src/EmojiSelector/Drawing/Twemoji/` and embedded in the exe:
+
+| File | Is |
+|---|---|
+| `<code points>.svg` | One flag, `assets/svg/` of the Twemoji repository: `1f1eb-1f1f7.svg` for 🇫🇷 |
+| `LICENSE-GRAPHICS` | Twemoji's graphics license |
+| `version.txt` | The Twemoji version |
+| `Update-FlagImages.ps1` | The script downloading them |
+
+Only the flags the embedded emoji data needs and Windows' font cannot draw are there
+(`Drawing/FlagImages.NeedsImage`); the other flags (🏁, 🏳️‍🌈…) are the font's. The files are committed:
+the build downloads nothing. After updating the embedded emoji data (see *Emoji data*) or to move to
+another Twemoji version, run the script — it downloads from jsDelivr, a failure leaves the files as
+they were — then update the version above:
+
+```powershell
+pwsh src/EmojiSelector/Drawing/Twemoji/Update-FlagImages.ps1 -Version <version>
+```
+
+At run time, *Check for emoji updates…* downloads the flag images a later Twemoji version changed or
+added to `flag-images\` next to the exe (`Data/FlagImagesUpdate`), read on top of the embedded ones.
+
 ## Before changing the code
 
 - [RULES.md](RULES.md) holds the rules every change follows. A change that breaks one of them
