@@ -14,7 +14,7 @@ the tabs, the search box, the headers and the sub-category labels keep their siz
 
 - **Where it is set**: a numeric box with its ▲▼ arrows, in the settings menu, right under `Highlight color…`.
 - **Ctrl+wheel** over the grid changes it too.
-- **Range**: 80 % to 200 %, step 10 %, 100 % by default.
+- **Range**: 70 % to 400 %, step 10 %, 100 % by default.
 
 Components: `UI/MainForm.cs` (settings menu, setting, wiring), `UI/EmojiGrid.cs` (cell and emoji sizes, the wheel),
 `UI/EmojiGridLayout.cs` (unchanged: it already takes the cell size as an input), `Drawing/EmojiBitmapCache.cs`
@@ -24,8 +24,10 @@ Components: `UI/MainForm.cs` (settings menu, setting, wiring), `UI/EmojiGrid.cs`
 
 ## The Setting
 
-- **`Emoji zoom`**, a percentage: 80, 90, … 200 (`MainForm.ZoomPercents`, or min / max / step constants).
+- **`Emoji zoom`**, a percentage: 70, 80, … 400 (`MainForm.MinZoom`, `MaxZoom`, `ZoomStep`, `DefaultZoom`).
   100 % = today's sizes.
+- The nearest step to an integer (`MainForm.NearestZoom`): a tie goes to the step nearer 100 % — `85` → 90,
+  `115` → 110, `450` → 400.
 - **Saved** as `emojiZoom` in `settings.json`, the percentage (`SettingsFile.ReadEmojiZoom` / `WriteEmojiZoom`), at
   each change. Missing or not an integer → 100 %. An integer that is not a step (written by hand) → the **nearest**
   step, clamped to the range — the key left as it is until the next change, as `opacity` does.
@@ -36,9 +38,9 @@ Components: `UI/MainForm.cs` (settings menu, setting, wiring), `UI/EmojiGrid.cs`
 
 ## Settings Menu
 
-- A **`ToolStripControlHost`** hosting a `NumericUpDown` (80–200, increment 10, the `%` shown), labelled
-  `Emoji zoom` — one menu row, the label then the box —, placed in the *details panel* section **right after
-  `Highlight color…`** (before `Always show skin tone`), as the user asked.
+- A **`ToolStripControlHost`** hosting a `FlowLayoutPanel` — the label `Emoji zoom`, then a `UI/PercentUpDown.cs`
+  box (a `NumericUpDown` showing `130%`, reading a typed value's digits; 70–400, increment 10) —, placed in the
+  *details panel* section **right after `Highlight color…`** (before `Always show skin tone`), as the user asked.
 - **Live**: each ▲▼ click, each arrow key / wheel notch inside the box applies the zoom at once; a typed value
   applies on Enter or when the box loses the focus. The menu **stays open** while the box is used.
 - The box shows the zoom in use at each opening of the menu (Ctrl+wheel may have changed it).
@@ -51,22 +53,27 @@ Components: `UI/MainForm.cs` (settings menu, setting, wiring), `UI/EmojiGrid.cs`
 
 - **Over the grid only** (`EmojiGrid.OnMouseWheel`): Ctrl held → one notch = one step up (wheel away) or down,
   clamped to the range; the grid does **not** scroll. Without Ctrl, the wheel scrolls as today.
-- The grid raises an event (`ZoomRequested`, the new percentage); `MainForm` applies and saves it — the same path as
-  the menu's box.
+- The grid raises an event (`ZoomRequested`: the steps and the mouse's position); `MainForm.SetEmojiZoom` applies
+  and saves it — the same path as the menu's box.
 - High-resolution wheels (deltas under 120) accumulate until a whole notch.
-- **Anchor**: the emoji **under the mouse** keeps its place on screen, as far as the scroll allows — like an image
-  viewer. Over no emoji (a header, a gap), the point under the mouse keeps its relative place in the content.
-- The menu's box keeps the **selection** in view instead (the least scroll that shows it).
+- **Anchor**: the emoji **under the mouse** keeps its **vertical** place on screen, as far as the scroll allows —
+  the columns reflow, so it may move sideways. Over no emoji (a header, a gap), the point under the mouse keeps its
+  relative place in the content.
+- The menu's box keeps the **selection** at its place on screen, then scrolls it into view if needed.
+- While a search is shown, the categories' saved scroll position is scaled with their height.
 - **No keyboard shortcut** (Ctrl+`+` / Ctrl+`-` / Ctrl+`0`): not asked, out of scope.
 
 ---
 
 ## Zoom Indicator
 
-- While the zoom changes — Ctrl+wheel or the menu's box —, the details panel shows the **zoom value** (`120 %`)
-  **under the tone swatch**, in the right column (the swatch under the copy button).
-- It **disappears 2 seconds** after the last change (a `System.Windows.Forms.Timer` restarted at each change);
-  a change while it shows updates it and restarts the delay.
+- While the zoom changes — Ctrl+wheel or the menu's box, even at an end of the range —, the details panel shows the
+  **zoom value** (`120%`) **under the tone swatch**, in the right column (the swatch under the copy button)
+  (`EmojiDetailsPanel.ShowZoom`).
+- **During the scroll**: the grid and the panel are painted at once after each change (`Update`) — Windows paints
+  only once no message waits, and every notch brings one.
+- It **disappears 2 sliding seconds** after the last change (a `System.Windows.Forms.Timer` restarted at each
+  change); a change while it shows updates it and restarts the delay.
 - **Its line is always reserved**: the right column's height (`RightColumnHeight`, so `HeightFor`) counts it, so
   the panel never changes height — nor the grid moves — when the value appears or goes.
 - Swatch not shown (`Always show skin tone` off, the selection without variants): the value at the swatch's place.
@@ -99,13 +106,20 @@ Components: `UI/MainForm.cs` (settings menu, setting, wiring), `UI/EmojiGrid.cs`
   like a DPI change. The disk cache already keeps one atlas per size (`cache\emojis-{size}.png`): each zoom level
   visited gets its own, reloaded at once the next time. **All kept**: no atlas deleted on a zoom change — the folder
   is disposable, `Reset all settings…` empties it.
-- **Transition**: today `EmojiBitmapCache.Start` drops the previous size's bitmaps, every cell fluorescent green
-  until the new ones are ready. From now on the **previous run is kept as a fallback**: a cell whose emoji the new
-  run has not reached yet draws the previous size's bitmap **stretched** to the new size (slightly blurry for a
-  moment). The fallback is released once the new run has finished. Fluorescent green stays for a cell no size has
-  yet (first launch). A DPI change gets the same fallback.
-- Several quick zoom changes (Ctrl+wheel notches): each starts a new run, the previous one cancelled; the fallback
-  is the last run that holds bitmaps.
+- **Transition**: the **previous run is kept as a fallback**: a cell whose emoji the new run has not reached yet
+  draws the previous size's bitmap **stretched** to the new size (slightly blurry for a moment). The fallback is
+  released once the new run has finished. Fluorescent green stays for a cell no size has yet (first launch). A DPI
+  change gets the same fallback.
+- Several quick zoom changes (Ctrl+wheel notches): each starts a new run, the previous one stopped; the fallback is
+  the previous run holding the **most bitmaps** — the last complete one survives a burst of notches.
+- **On demand** — the large sizes: a size whose bitmaps, every emoji's, would exceed 100 MB (`CompleteMaxBytes`,
+  about 82 px: 300 % at 100 % scaling, 200 % at 150 %) is not pre-rendered. A background thread renders what the grid
+  asks for at each paint (`EmojiGrid.RequestVisibleBitmaps`): the cells in view, then the next screen, then the
+  previous one — starting over as soon as the list changes. Bitmaps beyond 150 MB (`OnDemandMaxBytes`) no longer
+  asked for are freed, on the UI thread. **No atlas** is written for those sizes.
+- On demand, the **100 % size stands in**, complete: pre-rendered (its atlas usually on disk) when no complete run is
+  at hand — none, an on-demand one, or one stopped before its end. Back to the 100 % size while that stand-in is
+  still running, it becomes the run.
 - The details panel renders its emoji on demand with its own renderer: no cache involved.
 
 ---
@@ -171,6 +185,46 @@ in a worktree, once the session implementing the "near" mode — working in the 
 The indicator's open questions answered: it disappears 2 seconds after the last change, and its line is always
 reserved in the details panel's right column. Section *Zoom Indicator* updated.
 
+### Iteration 5 — 2026-11-05 — ✅ Implemented
+
+Go given: code, tests and documentation, in a worktree (`.claude/worktrees/emoji-zoom`, branch
+`feature/emoji-zoom`), started once the "near" mode session had finished and been merged into `main`.
+
+### Iteration 6 — 2026-11-05 — ⚙️ Post-implementation — Range 70–400 %, indicator during the scroll
+
+The user, testing the check instance mid-run:
+- The zoom's value showed only once Ctrl+wheel stopped: it must show **during** the scroll, 2 sliding seconds after
+  the last notch. Cause: each notch lays the grid and the panel out again, and Windows paints only once the message
+  queue is empty — the panel is now painted at once after each change.
+- The range becomes **70 % → 400 %**, step 10 %.
+- Asked how to draw the large sizes — at 400 % on a 150 % screen an emoji is 168 px: pre-rendering the ~3,700 emojis
+  and variants would take ~420 MB, and the disk atlas would be an image GDI+ refuses. Answer: **visible first** — the
+  small sizes pre-rendered completely as before; beyond, a background thread renders the cells in view first, then
+  their neighbours, in a bounded set; a cell not ready shows the largest complete size, stretched; no disk atlas for
+  those sizes.
+
+### Iteration 7 — 2026-11-05 — 🧭 Implementation choices
+
+- **On-demand threshold by memory, not by zoom**: "up to 200 %" depends on the screen's scale — an emoji at 200 % is
+  56 px at 100 % scaling, 112 px at 200 %. A size is pre-rendered completely while every emoji's bitmap fits in
+  100 MB (~82 px), on demand beyond; on demand keeps ~150 MB of bitmaps at most.
+- **The stand-in on demand is the 100 % size**, not "the largest complete size": the cache does not know the zoom
+  steps, and the 100 % atlas is the one almost always on disk. Of the previous runs, the one holding the most bitmaps
+  stands in otherwise.
+- **Indicator format** `130%`, without a space — the app's English UI writes `100%` in *Window opacity* too.
+- **Anchor**: the emoji under the mouse keeps its vertical place; the columns reflow, so it can move sideways. The
+  menu's box keeps the selection at its place on screen, then scrolls it into view.
+- **A tie between two steps** (`85`, `115`, written by hand) goes to the step nearer 100 %.
+- **The value shows even at an end of the range**, where Ctrl+wheel changes nothing: the user sees why.
+- **`PercentUpDown`**, a small `NumericUpDown` subclass, for the `%` in the box.
+- **Reset all settings…**' confirmation now names the emoji zoom among what is lost.
+- **A check instance and the in-process checks**: Ctrl+wheel and the menu cannot be driven from a script; `MainForm`
+  was run inside `pwsh -Sta` (PowerShell 7 on .NET 10) on a copy of the build, `SetEmojiZoom` called by reflection
+  — written into RULES.md for the next agents.
+- Noted, not changed (scope frozen): at 400 % the details panel's emoji is 192 logical pixels, and the panel takes
+  most of a default-size window — the user chose "grid + panel".
+- No rule broken.
+
 ---
 
 ## Implementation Log
@@ -180,9 +234,9 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | Not applicable: no test project in the repository |
-| README | | | `README.md` / `README.fr.md`, `RULES.md` (*Window and Tray Icon* table, settings menu sections, `settings.json` keys), `GLOSSARY.md` / `GLOSSARY.fr.md` (*Zoom*) |
+| Code | Iterations 5, 6 | 2026-11-05 | Setting, cache stand-in, grid zoom and Ctrl+wheel, details panel and indicator, menu box; then 70–400 %, on-demand rendering, paint during the scroll |
+| Unit tests | 5 | 2026-11-05 | Not applicable: no test project in the repository. Checked by a launched instance at 150 % and by `MainForm` run in-process (nearest step, anchor, box, clamp, 400 % on demand, 70 %) |
+| README | Iterations 5, 6 | 2026-11-05 | `README.md` / `README.fr.md` (*Zoom*, the gear's menu), `GLOSSARY.md` / `GLOSSARY.fr.md` (*Zoom*), `RULES.md` (*Emoji Zoom*, the table, the menu's sections, `settings.json`, the reset, the cache, the details panel) |
 
 ---
 
@@ -201,6 +255,8 @@ Questions asked by the agent during design, with user responses.
 | 7 | The six open questions (transition, anchor, default window size, shortcuts, label, cache growth) | Every proposal accepted: stretched previous bitmaps, anchor on the emoji under the mouse, default size at 100 %, no shortcut, `Emoji zoom`, keep every atlas | 2026-11-05 |
 | 8 | Go: scope and where? | Where: a worktree, once the session implementing the "near" mode has finished. Scope not given yet. Then a new request: the zoom indicator under the tone swatch | 2026-11-05 |
 | 9 | The indicator's delay and its room in the details panel | 2 seconds; the line always reserved | 2026-11-05 |
+| 10 | Go: scope? | Code, tests and documentation | 2026-11-05 |
+| 11 | Up to 400 %: how to draw the large sizes — visible first, everything pre-rendered (~420 MB), or capped at 200 % and enlarged? | Visible first | 2026-11-05 |
 
 ---
 
