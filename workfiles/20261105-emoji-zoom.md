@@ -65,8 +65,10 @@ Components: `UI/MainForm.cs` (settings menu, setting, wiring), `UI/EmojiGrid.cs`
 
 - While the zoom changes — Ctrl+wheel or the menu's box —, the details panel shows the **zoom value** (`120 %`)
   **under the tone swatch**, in the right column (the swatch under the copy button).
-- It **disappears a few seconds** after the last change (a `System.Windows.Forms.Timer` restarted at each change);
+- It **disappears 2 seconds** after the last change (a `System.Windows.Forms.Timer` restarted at each change);
   a change while it shows updates it and restarts the delay.
+- **Its line is always reserved**: the right column's height (`RightColumnHeight`, so `HeightFor`) counts it, so
+  the panel never changes height — nor the grid moves — when the value appears or goes.
 - Swatch not shown (`Always show skin tone` off, the selection without variants): the value at the swatch's place.
 - Drawn in the panel's text font, grey (`SystemColors.GrayText`, `Glass.GrayText` on Acrylic), centred under the
   swatch; not zoomed itself.
@@ -129,11 +131,8 @@ on the built dll and by launching the app, as the other features' checks do (RUL
 - [x] ~~Keyboard shortcuts Ctrl+`+` / Ctrl+`-` / Ctrl+`0`?~~ → No, out of scope.
 - [x] ~~Menu label?~~ → `Emoji zoom`.
 - [x] ~~Disk cache growth: keep every zoom level's atlas?~~ → Keep them all.
-- [ ] **Indicator's delay**: how long the zoom value stays after the last change? Proposal: 2 seconds.
-- [ ] **Indicator's room**: the right column (copy button, swatch) may be too short for one more line — at 80 %
-  the panel is as high as that column. Reserve the line **always** (the panel a line taller, the grid never moving
-  when the value appears), or let the value **overlap** the panel's bottom padding / spill over the tags when there
-  is no room? Proposal: reserve it always.
+- [x] ~~Indicator's delay?~~ → 2 seconds after the last change.
+- [x] ~~Indicator's room: reserved always, or overlapping?~~ → Reserved always: the panel never changes height for it.
 
 ---
 
@@ -167,6 +166,11 @@ The user's request: while the zoom changes, show its value under the tone swatch
 section *Zoom Indicator*; two open questions (the delay, the room in the panel). The implementation itself will run
 in a worktree, once the session implementing the "near" mode — working in the main checkout — has finished.
 
+### Iteration 4 — 2026-11-05
+
+The indicator's open questions answered: it disappears 2 seconds after the last change, and its line is always
+reserved in the details panel's right column. Section *Zoom Indicator* updated.
+
 ---
 
 ## Implementation Log
@@ -196,7 +200,7 @@ Questions asked by the agent during design, with user responses.
 | 6 | Range and step | 80 → 200 %, step 10 | 2026-11-05 |
 | 7 | The six open questions (transition, anchor, default window size, shortcuts, label, cache growth) | Every proposal accepted: stretched previous bitmaps, anchor on the emoji under the mouse, default size at 100 %, no shortcut, `Emoji zoom`, keep every atlas | 2026-11-05 |
 | 8 | Go: scope and where? | Where: a worktree, once the session implementing the "near" mode has finished. Scope not given yet. Then a new request: the zoom indicator under the tone swatch | 2026-11-05 |
-| 9 | The indicator's delay and its room in the details panel | | 2026-11-05 |
+| 9 | The indicator's delay and its room in the details panel | 2 seconds; the line always reserved | 2026-11-05 |
 
 ---
 
