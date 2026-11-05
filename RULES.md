@@ -807,7 +807,7 @@ The **search box** sits above the tab strip (`UI/MainForm.cs`); the matching and
   top on its first emoji (see *Keyboard*). The placeholder is the native
   cue banner shown while focused (`EM_SETCUEBANNER`): `PlaceholderText` hides on focus, and the box
   always has it.
-- **Search mode** (non-blank text): the tab strip is `Greyed` (clicks ignored), the grid shows one
+- **Search mode** (non-blank text, not near mode — see *Near Mode* below): the tab strip is `Greyed` (clicks ignored), the grid shows one
   `Search results` section (`No emoji found` when empty) and raises no `ActiveCategoryChanged`.
   Emptying the box while the window stays open brings the categories back at their previous scroll
   position; a show brings them back at the top.
@@ -815,6 +815,32 @@ The **search box** sits above the tab strip (`UI/MainForm.cs`); the matching and
 - An agent checking the search from a script sends `WM_SETTEXT` / `WM_KEYDOWN` to the box itself,
   never global keystrokes (`SendKeys`, `SendInput`): the window may not be in front, and the keys
   would land in another app.
+
+### Near Mode
+
+A text starting with **`n:`** or **`near:`** selects without filtering (origin:
+`workfiles/20261105-near-mode.md`): `n:chien`, then ← / → to the other animals.
+
+- **The prefix** (`EmojiSearch.NearTerm`): case ignored, the spaces before it and after the colon
+  ignored; the **term** is the rest, trimmed. Any other text is a normal search. `MainForm.IsNearMode`
+  / `IsFiltering` tell the two apart — every "is a search shown" test reads `IsFiltering`.
+- **The grid stays in the category view**: no `Search results` section, the tab strip not greyed, its
+  active tab following the scroll. The details panel highlights the term, the prefix left out.
+- **The matches** (`MainForm.nearMatches`): the term searched as a normal search — same sections
+  (special characters while shown, then the catalog), same ranking. On every change of the text the
+  selection goes to the **first** one (`MainForm.SelectNearMatch`), on its cell in the catalog's or the
+  special characters' section — never a copy in the frequent section or a group —, its row brought to
+  the **middle of the viewport**, clamped at the grid's ends (`EmojiGrid.SelectCentered`).
+- **No match**, or an empty term (`n:`): the selection stays where it is, the grid does not move.
+  Emptying the box from near mode leaves it there too — the categories were already shown.
+- **F3 / Shift+F3** (`MainForm.StepNearMatch`): the next / previous match, **wrapping around**, from
+  the box and the grid alike, counted from the last match jumped to — the arrows moving the selection
+  away do not reset it. Outside near mode they do nothing.
+- **Keys**: the box hands every navigation key to the grid at the first press, as an empty box does
+  (see *Keyboard*). A character typed in the grid goes back to the box: the term changes, the
+  selection jumps to its new first match.
+- A section change while in near mode — sections rebuilt, sub-categories toggled — finds the match
+  again where it now is.
 
 ## Keyboard
 
@@ -835,6 +861,7 @@ routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
 | Search box, with text | ↓ | As in the grid, from the selection — one row down —, and the grid gets the keyboard — even when the selection cannot move; no result → nothing, the keyboard stays in the box |
 | Search box, with text | Page Up / Page Down, Tab / Shift+Tab | Ignored |
 | Search box, empty | ← / →, ↑ / ↓, Home / End, Ctrl+Home / Ctrl+End, Page Up / Page Down, Tab / Shift+Tab | As in the grid, from the selection, and the grid gets the keyboard — even when the selection cannot move. ↑ on the grid's first row → nothing, the keyboard stays in the box |
+| Search box, near mode (`n:` / `near:`) | ← / →, ↑ / ↓, Home / End, Ctrl+Home / Ctrl+End, Page Up / Page Down, Tab / Shift+Tab | As with an empty box: in the grid, from the selection, and the grid gets the keyboard (see *Search Box* § *Near Mode*) |
 | Search box | Menu key, Shift+F10 | The box's own menu (Cut, Copy, Paste…) |
 | Grid | ← / → | Previous / next emoji, across rows and categories |
 | Grid | ↑ / ↓ | One row up / down, same column, across categories; a shorter row → its last emoji. ↑ on the grid's first row → back to the search box |
@@ -846,6 +873,7 @@ routes the keys; the target cells are computed by `UI/EmojiGridLayout.cs` alone.
 | Grid | Menu key, Shift+F10 | The selection's right-click menu, under its cell (scrolled into view first), its first enabled item highlighted (`EmojiGrid.OpenSelectionMenu`) |
 | Both | Enter | Inserts the selection (nothing when there is none, or when it is in the group in reorder mode) |
 | Both | Ctrl+Enter | As Enter, the window kept open, the keyboard staying where it is (see *Keep-Open Insertion*) |
+| Both, near mode | F3 / Shift+F3 | The next / previous match, wrapping around (see *Search Box* § *Near Mode*) |
 | Both | Esc | Ends the reorder mode; otherwise clears the box; already empty → hides the window |
 
 - **Empty** means no character at all (`TextLength == 0`): a box holding only spaces is *with text*,
