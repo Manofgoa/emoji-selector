@@ -91,8 +91,8 @@ The user then asked for the choices to be taken by the agent and the implementat
 | Highlight color… | its swatch — unchanged |
 | Emoji zoom (hosted box) | 🔍 — drawn in the image margin, see § *Emoji Zoom Row* |
 | Always show skin tone ▢ | 🎨 |
-| Reset window size | 📐 |
-| Window opacity ▸ | 🌫️ |
+| Reset window size | 🪟 |
+| Window opacity ▸ | 🔅 |
 | Acrylic veil ▸ | 🧊 |
 | Open app folder | 📂 |
 | Start with Windows ▢ | 🚀 |
@@ -174,6 +174,8 @@ capture.
   opening, kept in memory; no new file next to the exe (decided by the agent)
 - [x] ~~The submenus' values (percentages, group names, tones)?~~ → No icon, as Image Grid Fusion (decided by the
   agent)
+- [ ] The `Emoji zoom` row's label is a point larger than the other entries (the window's 10-point font, not the
+  menu's): align it on the menu's font? (seen during the run, Iteration 3)
 
 ---
 
@@ -196,6 +198,28 @@ the image margin for the zoom row, a memory cache only, no icon on submenu value
 
 Go given (Q&A 5): code, unit tests and documentation, in a worktree (`feature/menu-icons`).
 
+### Iteration 3 — 2026-11-06 — 🧭 Implementation choices
+
+- **Rule breaches**: none.
+- **🪟 and 🔅 in place of 📐 and 🌫️** (`Reset window size`, `Window opacity ▸`): at 16 px, both designed icons came out
+  pale grey, hard to see on the menu's background (capture of the settings menu). § *Entries* updated.
+- **`MenuIcons` API**: `Get(emoji, size)` (the shared, cached bitmap), `Set(item, emoji, size)` (a copy on the item,
+  `ImageScaling = None`, disposed with it; nothing redone when the emoji and size have not changed), `SizeFor(control)`,
+  `SetHostIcon(host, emoji, size)` and `MenuRenderer`, a `ToolStripProfessionalRenderer` — the look WinForms already
+  used — set on the settings menu only. The emoji constants live in `MenuIcons`, one per meaning.
+- **The settings menu's icons** are collected while it is built (a local `WithIcon`) and set in its `Opening`, next to
+  the swatch.
+- **Tests**: no test project, as § *Test Impact* says. Checked by reflection on a copy of the build in a `pwsh -Sta`
+  process: `MenuIcons.Get` gives 24 × 24 for 24, 16 × 16 for 16, the same bitmap twice for the same emoji and size; the
+  settings menu, an emoji's menu and a group's menu opened by reflection and drawn with `DrawToBitmap`: every action and
+  toggle has its colour icon, the checked toggles framed, the disabled ones greyed (`Acrylic veil ▸`, `Move up` /
+  `Move down`), the highlight colour's swatch kept, 🔍 in the image margin on the zoom row's centre, aligned with the
+  other icons. A screen capture showed only the wallpaper (session locked): `RULES.md` says so.
+- **Seen, not changed** (out of the frozen scope): the `Emoji zoom` row's label is drawn in the window's 10-point font,
+  a point larger than the menu's other entries — offered as an Open Question.
+- **`RULES.md`**: a new section `## Icons`, before *Repository Docs*. **README**: one clause in the *Window* bullet of
+  both READMEs. No glossary term.
+
 ---
 
 ## Implementation Log
@@ -205,10 +229,10 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | |
-| RULES.md | | | |
-| README | | | |
+| Code | 3 | 2026-11-06 | `UI/MenuIcons.cs`; icons set in `MainForm` (settings, emoji, skin tone, section and group menus) and `TrayIcon` |
+| Unit tests | 3 | 2026-11-06 | No test project — reflection check of `MenuIcons.Get` and `DrawToBitmap` captures of three menus instead |
+| RULES.md | 3 | 2026-11-06 | New section *Icons* |
+| README | 3 | 2026-11-06 | `README.md` / `README.fr.md`: the *Window* bullet |
 
 ---
 
