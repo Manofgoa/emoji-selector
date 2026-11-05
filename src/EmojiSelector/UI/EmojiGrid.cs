@@ -55,6 +55,12 @@ internal sealed class EmojiGrid : Control
     // One notch of the mouse wheel scrolls this many rows.
     private const int RowsPerWheelNotch = 2;
 
+    // The emojis' zoom, percent: the cells and the emojis scaled by it, nothing else.
+    private int zoomPercent;
+
+    // The wheel's movement with Ctrl held not yet turned into zoom steps: a high-resolution wheel sends less than a notch.
+    private int zoomWheelDelta;
+
     private readonly List<EmojiCategory> categories;
     private readonly VScrollBar scrollBar = new() { Dock = DockStyle.Right };
     private readonly EmojiBitmapCache bitmaps;
@@ -105,8 +111,10 @@ internal sealed class EmojiGrid : Control
     /// A section built from others (the frequent emojis) leaves this list — and so the disk cache's key — unchanged, and
     /// so does a change of tone: every variant is pre-rendered.
     /// </param>
-    public EmojiGrid(IReadOnlyList<EmojiCategory> categories, IEnumerable<Emoji> emojis)
+    /// <param name="zoomPercent">The emojis' zoom, percent: the first pre-render starts at its size.</param>
+    public EmojiGrid(IReadOnlyList<EmojiCategory> categories, IEnumerable<Emoji> emojis, int zoomPercent)
     {
+        this.zoomPercent = zoomPercent;
         this.categories = [.. categories];
         this.sections = this.categories;
         this.DoubleBuffered = true;
@@ -138,6 +146,12 @@ internal sealed class EmojiGrid : Control
 
     /// <summary>An emoji was right-clicked.</summary>
     public event EventHandler<EmojiRightClick>? EmojiRightClicked;
+
+    /// <summary>
+    /// The mouse wheel turned over the grid with Ctrl held: zoom steps — positive away from the user, to zoom in — and
+    /// the mouse's position, the point the zoom keeps in place. The grid does not scroll.
+    /// </summary>
+    public event EventHandler<ZoomRequest>? ZoomRequested;
 
     /// <summary>A section's "…" button was clicked.</summary>
     public event EventHandler<SectionMenuRequest>? SectionMenuClicked;
@@ -183,11 +197,87 @@ internal sealed class EmojiGrid : Control
 
     private int ViewportHeight => Math.Max(1, this.ClientSize.Height);
 
-    private int EmojiSize => this.LogicalToDeviceUnits(LogicalEmojiSize);
+    private int EmojiSize => this.Zoomed(LogicalEmojiSize);
+
+    private int CellSize => this.Zoomed(LogicalCellSize);
+
+    // A captioned cell: its top margin and the caption's band keep their size, the emoji between them is zoomed — at
+    // 100 %, LogicalCaptionedCellHeight.
+    private int CaptionedCellHeight => this.zoomPercent == 100
+        ? this.LogicalToDeviceUnits(LogicalCaptionedCellHeight)
+        : this.LogicalToDeviceUnits(LogicalCaptionedCellHeight - LogicalEmojiSize) + this.EmojiSize;
+
+    /// <summary>The emojis' zoom, percent: see <see cref="SetZoom"/>.</summary>
+    public int ZoomPercent => this.zoomPercent;
+
+    // A logical size at the control's DPI, then zoomed: the cells and the emojis only.
+    private int Zoomed(int logical) => (int)Math.Round(this.LogicalToDeviceUnits(logical) * this.zoomPercent / 100.0);
+
+    /// <summary>
+    /// Zooms the cells and the emojis to <paramref name="percent"/> — the headers, labels and captions keep their size —,
+    /// the emojis pre-rendered at the new size, the previous size's bitmaps standing in meanwhile. What stays in place:
+    /// with an <paramref name="anchor"/> — the mouse, in the grid's coordinates —, the emoji under it, or the point of
+    /// the content under it when there is no emoji there; without one, the selection, then scrolled into view.
+    /// </summary>
+    public void SetZoom(int percent, Point? anchor)
+    {
+        if (percent == this.zoomPercent)
+        {
+            return;
+        }
+
+        EmojiGridLayout before = this.layout;
+        int offset = this.Offset;
+        (int Section, int Index)? cell = anchor is Point point ? this.HitTest(point) : this.selection;
+        int screenY = anchor?.Y ?? 0;
+        double fraction = 0.5;
+        if (cell is (int section, int index))
+        {
+            Rectangle bounds = before.CellBounds(section, index);
+            if (anchor is null)
+            {
+                screenY = bounds.Top + bounds.Height / 2 - offset;
+            }
+
+            fraction = (screenY + offset - bounds.Top) / (double)Math.Max(1, bounds.Height);
+        }
+
+        // The search's results replace the categories: the offset they come back to scales with them.
+        int? categoriesHeightBefore = this.categoriesOffset is not null ? this.CreateLayout(this.categories).ContentHeight : null;
+
+        this.zoomPercent = percent;
+        this.EnsureBitmapSize();
+        this.Relayout();
+
+        if (cell is (int kept, int keptIndex))
+        {
+            Rectangle bounds = this.layout.CellBounds(kept, keptIndex);
+            this.SetOffset(bounds.Top + (int)Math.Round(fraction * bounds.Height) - screenY);
+        }
+        else if (anchor is Point mouse)
+        {
+            this.SetOffset((int)Math.Round((offset + mouse.Y) * (double)this.layout.ContentHeight / Math.Max(1, before.ContentHeight)) - mouse.Y);
+        }
+        else
+        {
+            this.SetOffset((int)Math.Round(offset * (double)this.layout.ContentHeight / Math.Max(1, before.ContentHeight)));
+        }
+
+        if (categoriesHeightBefore is int heightBefore && this.categoriesOffset is int saved)
+        {
+            this.categoriesOffset = (int)Math.Round(saved * (double)this.CreateLayout(this.categories).ContentHeight / Math.Max(1, heightBefore));
+        }
+
+        if (anchor is null)
+        {
+            this.SetSelection(this.selection, ensureVisible: true);
+        }
+    }
 
     /// <summary>
     /// The client size holding exactly <paramref name="columns"/> columns, and a section's header followed by
-    /// <paramref name="rows"/> full rows when that section is scrolled to the top — device pixels, at the current DPI.
+    /// <paramref name="rows"/> full rows when that section is scrolled to the top — device pixels, at the current DPI and
+    /// at 100 % whatever the zoom: the window's default size does not follow it.
     /// </summary>
     public Size SizeFor(int columns, int rows)
     {
@@ -662,6 +752,26 @@ internal sealed class EmojiGrid : Control
     protected override void OnMouseWheel(MouseEventArgs e)
     {
         base.OnMouseWheel(e);
+        if ((ModifierKeys & Keys.Control) != 0)
+        {
+            // Whole notches only: the rest waits for the next turn, in the same direction.
+            if (Math.Sign(this.zoomWheelDelta) != Math.Sign(e.Delta))
+            {
+                this.zoomWheelDelta = 0;
+            }
+
+            this.zoomWheelDelta += e.Delta;
+            int steps = this.zoomWheelDelta / SystemInformation.MouseWheelScrollDelta;
+            if (steps != 0)
+            {
+                this.zoomWheelDelta -= steps * SystemInformation.MouseWheelScrollDelta;
+                this.ZoomRequested?.Invoke(this, new ZoomRequest(steps, e.Location));
+            }
+
+            return;
+        }
+
+        this.zoomWheelDelta = 0;
         this.SetOffset(this.Offset - e.Delta * RowsPerWheelNotch * this.layout.CellSize / SystemInformation.MouseWheelScrollDelta);
     }
 
@@ -808,11 +918,11 @@ internal sealed class EmojiGrid : Control
     private EmojiGridLayout CreateLayout(IReadOnlyList<EmojiCategory> sections) => new(
         sections.Select(section => new EmojiGridLayout.Section(
             section.Emojis.Count, MinRows: section.EmptyText is null ? 0 : 1, section.MaxRows,
-            section.Captions is null ? null : this.LogicalToDeviceUnits(LogicalCaptionedCellHeight),
+            section.Captions is null ? null : this.CaptionedCellHeight,
             section.SubCategories?.Select(subCategory => subCategory.Start).ToList(), this.LabelWidth(section))).ToList(),
         this.ClientSize.Width - this.scrollBar.Width,
         this.ViewportHeight,
-        this.LogicalToDeviceUnits(LogicalCellSize),
+        this.CellSize,
         this.LogicalToDeviceUnits(LogicalHeaderHeight),
         this.LogicalToDeviceUnits(LogicalPadding));
 
@@ -1052,6 +1162,9 @@ internal sealed class EmojiGrid : Control
             this.Invalidate();
         }
     }
+
+    /// <summary>Ctrl+wheel over the grid: zoom steps, positive to zoom in, and the mouse's position in the grid.</summary>
+    public readonly record struct ZoomRequest(int Steps, Point Anchor);
 
     /// <summary>An emoji clicked, and whether with Ctrl alone: inserted, the window kept open.</summary>
     public readonly record struct EmojiClick(Emoji Emoji, bool KeepOpen);

@@ -377,7 +377,7 @@ internal sealed class MainForm : Form
             .. this.specialCategory.Emojis];
         this.grid = new EmojiGrid(
             [.. this.CreateFrequentSections(), .. customSections, .. this.ShownCatalogSections(), .. this.ShownSpecialSections()],
-            offered)
+            offered, 100)
         {
             Dock = DockStyle.Fill,
             ShownText = this.ShownText,
