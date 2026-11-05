@@ -894,40 +894,53 @@ internal sealed class MainForm : Form
     // characters, details panel, window, app.
     private ContextMenuStrip CreateSettingsMenu()
     {
-        var menu = new ContextMenuStrip();
-        var showFrequentItem = new ToolStripMenuItem(ShowFrequentText);
+        // The renderer draws the zoom row's icon: a hosted control has no image of its own.
+        var menu = new ContextMenuStrip { Renderer = new MenuIcons.MenuRenderer() };
+        // Each action and toggle with its icon, set at each opening: at the window's DPI.
+        var icons = new List<(ToolStripItem Item, string Emoji)>();
+        T WithIcon<T>(T item, string emoji)
+            where T : ToolStripItem
+        {
+            icons.Add((item, emoji));
+            return item;
+        }
+
+        var showFrequentItem = WithIcon(new ToolStripMenuItem(ShowFrequentText), MenuIcons.Frequent);
         showFrequentItem.Click += (_, _) => this.SetShowFrequent(!this.showFrequent);
         menu.Items.Add(showFrequentItem);
-        ToolStripItem clearFrequent = menu.Items.Add(ClearFrequentText, image: null, (_, _) => this.ClearFrequent());
+        ToolStripItem clearFrequent = WithIcon(menu.Items.Add(ClearFrequentText, image: null, (_, _) => this.ClearFrequent()),
+            MenuIcons.Clear);
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(NewGroupText, image: null, (_, _) => this.NewGroup());
-        var showGroups = new ToolStripMenuItem(ShowGroupsText);
+        WithIcon(menu.Items.Add(NewGroupText, image: null, (_, _) => this.NewGroup()), MenuIcons.NewGroup);
+        var showGroups = WithIcon(new ToolStripMenuItem(ShowGroupsText), MenuIcons.CustomGroups);
         menu.Items.Add(showGroups);
         menu.Items.Add(new ToolStripSeparator());
-        var showEmojiSubcategoriesItem = new ToolStripMenuItem(ShowEmojiSubcategoriesText);
+        var showEmojiSubcategoriesItem = WithIcon(new ToolStripMenuItem(ShowEmojiSubcategoriesText), MenuIcons.SubCategories);
         showEmojiSubcategoriesItem.Click += (_, _) => this.SetShowEmojiSubcategories(!this.showEmojiSubcategories);
         menu.Items.Add(showEmojiSubcategoriesItem);
         menu.Items.Add(new ToolStripSeparator());
-        var showSpecialItem = new ToolStripMenuItem(ShowSpecialText);
+        var showSpecialItem = WithIcon(new ToolStripMenuItem(ShowSpecialText), MenuIcons.SpecialCharacters);
         showSpecialItem.Click += (_, _) => this.SetShowSpecial(!this.showSpecial);
         menu.Items.Add(showSpecialItem);
-        var showSpecialSubcategoriesItem = new ToolStripMenuItem(ShowSpecialSubcategoriesText);
+        var showSpecialSubcategoriesItem = WithIcon(new ToolStripMenuItem(ShowSpecialSubcategoriesText), MenuIcons.SubCategories);
         showSpecialSubcategoriesItem.Click += (_, _) => this.SetShowSpecialSubcategories(!this.showSpecialSubcategories);
         menu.Items.Add(showSpecialSubcategoriesItem);
         menu.Items.Add(new ToolStripSeparator());
-        var showFrenchItem = new ToolStripMenuItem(ShowFrenchText);
+        var showFrenchItem = WithIcon(new ToolStripMenuItem(ShowFrenchText), MenuIcons.French);
         showFrenchItem.Click += (_, _) => this.SetShowFrench(!this.detailsPanel.ShowFrench);
         menu.Items.Add(showFrenchItem);
+        // A colour item: its swatch is its icon.
         var highlightColorItem = new ToolStripMenuItem(HighlightColorText);
         highlightColorItem.Click += (_, _) => this.ChooseHighlightColor();
         menu.Items.Add(highlightColorItem);
-        menu.Items.Add(this.CreateZoomItem());
-        var alwaysShowSkinToneItem = new ToolStripMenuItem(AlwaysShowSkinToneText);
+        ToolStripControlHost zoomItem = this.CreateZoomItem();
+        menu.Items.Add(zoomItem);
+        var alwaysShowSkinToneItem = WithIcon(new ToolStripMenuItem(AlwaysShowSkinToneText), MenuIcons.Tone);
         alwaysShowSkinToneItem.Click += (_, _) => this.SetAlwaysShowSkinTone(!this.detailsPanel.AlwaysShowTone);
         menu.Items.Add(alwaysShowSkinToneItem);
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize());
-        var windowOpacity = new ToolStripMenuItem(WindowOpacityText);
+        WithIcon(menu.Items.Add(ResetWindowSizeText, image: null, (_, _) => this.ResetWindowSize()), MenuIcons.WindowSize);
+        var windowOpacity = WithIcon(new ToolStripMenuItem(WindowOpacityText), MenuIcons.Opacity);
         foreach (int percent in OpacityPercents)
         {
             var item = new ToolStripMenuItem($"{percent}%") { Tag = percent };
@@ -942,7 +955,7 @@ internal sealed class MainForm : Form
         windowOpacity.DropDownItems.Add(acrylicItem);
         menu.Items.Add(windowOpacity);
         // The veil's strength, greyed while the backdrop is off.
-        var acrylicVeil = new ToolStripMenuItem(AcrylicVeilText);
+        var acrylicVeil = WithIcon(new ToolStripMenuItem(AcrylicVeilText), MenuIcons.AcrylicVeil);
         foreach (int percent in VeilPercents)
         {
             var item = new ToolStripMenuItem($"{percent}%") { Tag = percent };
@@ -952,13 +965,13 @@ internal sealed class MainForm : Form
 
         menu.Items.Add(acrylicVeil);
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder());
-        var startWithWindowsItem = new ToolStripMenuItem(StartWithWindowsText);
+        WithIcon(menu.Items.Add(OpenAppFolderText, image: null, (_, _) => OpenAppFolder()), MenuIcons.AppFolder);
+        var startWithWindowsItem = WithIcon(new ToolStripMenuItem(StartWithWindowsText), MenuIcons.StartWithWindows);
         startWithWindowsItem.Click += (_, _) => this.SetStartWithWindows(!startWithWindowsItem.Checked);
         menu.Items.Add(startWithWindowsItem);
-        ToolStripItem checkEmojiUpdates = menu.Items.Add(CheckEmojiUpdatesText, image: null, null);
+        ToolStripItem checkEmojiUpdates = WithIcon(menu.Items.Add(CheckEmojiUpdatesText, image: null, null), MenuIcons.EmojiUpdates);
         checkEmojiUpdates.Click += async (_, _) => await this.CheckEmojiUpdatesAsync(checkEmojiUpdates);
-        menu.Items.Add(ResetAllText, image: null, (_, _) => this.ResetAllSettings());
+        WithIcon(menu.Items.Add(ResetAllText, image: null, (_, _) => this.ResetAllSettings()), MenuIcons.ResetAll);
         // Hidden, the frequent tab still counts: its counters can still be cleared.
         menu.Opening += (_, _) =>
         {
@@ -982,6 +995,13 @@ internal sealed class MainForm : Form
             }
 
             this.SetSwatch(highlightColorItem, this.detailsPanel.HighlightColor);
+            int iconSize = MenuIcons.SizeFor(this);
+            foreach ((ToolStripItem item, string emoji) in icons)
+            {
+                MenuIcons.Set(item, emoji, iconSize);
+            }
+
+            MenuIcons.SetHostIcon(zoomItem, MenuIcons.Zoom, iconSize);
             this.UpdateZoomBox();
             // Read from the Startup folder each time: the user may delete the shortcut, or disable it in the Task
             // Manager.
@@ -1848,11 +1868,14 @@ internal sealed class MainForm : Form
     private void ShowEmojiMenu(EmojiGrid.EmojiRightClick click)
     {
         var menu = new ContextMenuStrip();
+        int iconSize = MenuIcons.SizeFor(this);
         // A special character is no tray icon: its menu starts with Add to.
         if (!click.Emoji.IsText)
         {
             string shownText = this.ShownText(click.Emoji);
             var useAsTrayIcon = new ToolStripMenuItem(UseAsTrayIconText) { Checked = this.trayIcon.Emoji == shownText };
+            // Its icon is the emoji itself, as the tray icon would show it.
+            MenuIcons.Set(useAsTrayIcon, shownText, iconSize);
             useAsTrayIcon.Click += (_, _) => this.UseAsTrayIcon(shownText);
             menu.Items.Add(useAsTrayIcon);
             if (click.Emoji.Variants.Count > 0)
@@ -1865,6 +1888,7 @@ internal sealed class MainForm : Form
         }
 
         var addTo = new ToolStripMenuItem(AddToText) { Enabled = this.customGroups.Groups.Count > 0 };
+        MenuIcons.Set(addTo, MenuIcons.CustomGroups, iconSize);
         for (int group = 0; group < this.customGroups.Groups.Count; group++)
         {
             int target = group;
@@ -1879,11 +1903,13 @@ internal sealed class MainForm : Form
         menu.Items.Add(addTo);
         if (this.GroupOf(click.Section) is int shownIn)
         {
-            menu.Items.Add(RemoveText, image: null, (_, _) => this.RemoveFromGroup(shownIn, click.Emoji.Text));
+            MenuIcons.Set(menu.Items.Add(RemoveText, image: null, (_, _) => this.RemoveFromGroup(shownIn, click.Emoji.Text)),
+                MenuIcons.Remove, iconSize);
         }
         else if (this.IsFrequentSection(click.Section))
         {
-            menu.Items.Add(RemoveFrequentText, image: null, (_, _) => this.RemoveFromFrequent(click.Emoji.Text));
+            MenuIcons.Set(menu.Items.Add(RemoveFrequentText, image: null, (_, _) => this.RemoveFromFrequent(click.Emoji.Text)),
+                MenuIcons.Remove, iconSize);
         }
 
         ShowOnce(menu, this.grid, click.Location, ToolStripDropDownDirection.Default);
@@ -1901,6 +1927,8 @@ internal sealed class MainForm : Form
     {
         SkinTonePair? own = this.skinToneChoices.Get(emoji.Text);
         var skinTone = new ToolStripMenuItem(SkinToneText);
+        int iconSize = MenuIcons.SizeFor(this);
+        MenuIcons.Set(skinTone, MenuIcons.Tone, iconSize);
         var useDefault = new ToolStripMenuItem(UseDefaultToneText) { Checked = own is null };
         useDefault.Click += (_, _) => this.SetOwnTone(emoji, null);
         this.PreviewWhileHighlighted(useDefault, item => new OwnTonePreview(item, emoji.Text, null));
@@ -1915,6 +1943,7 @@ internal sealed class MainForm : Form
             foreach ((string text, bool first) in new[] { (FirstPersonText, true), (SecondPersonText, false) })
             {
                 var person = new ToolStripMenuItem(text);
+                MenuIcons.Set(person, MenuIcons.Person, iconSize);
                 foreach (SkinTone tone in SkinTones.Modifiers)
                 {
                     // The other person keeps the tone shown now, or takes this one while the emoji is yellow.
@@ -2086,7 +2115,8 @@ internal sealed class MainForm : Form
         if (this.showFrequent && request.Section == 0)
         {
             menu = new ContextMenuStrip();
-            menu.Items.Add(HideFrequentText, image: null, (_, _) => this.SetShowFrequent(false));
+            MenuIcons.Set(menu.Items.Add(HideFrequentText, image: null, (_, _) => this.SetShowFrequent(false)),
+                MenuIcons.Hide, MenuIcons.SizeFor(this));
         }
         else if (this.GroupOf(request.Section) is int group)
         {
@@ -2106,16 +2136,23 @@ internal sealed class MainForm : Form
     {
         int shown = this.shownGroups.IndexOf(group);
         var menu = new ContextMenuStrip();
-        menu.Items.Add(RenameGroupText, image: null, (_, _) => this.RenameGroup(group));
+        ToolStripItem rename = menu.Items.Add(RenameGroupText, image: null, (_, _) => this.RenameGroup(group));
         ToolStripItem reorder = menu.Items.Add(ReorderText, image: null, (_, _) => this.grid.StartReorder(section));
         reorder.Enabled = this.ShownEmojis(this.customGroups.Groups[group]).Count > 1;
         ToolStripItem moveUp = menu.Items.Add(MoveUpText, image: null, (_, _) => this.MoveGroup(group, this.shownGroups[shown - 1]));
         moveUp.Enabled = shown > 0;
         ToolStripItem moveDown = menu.Items.Add(MoveDownText, image: null, (_, _) => this.MoveGroup(group, this.shownGroups[shown + 1]));
         moveDown.Enabled = shown < this.shownGroups.Count - 1;
-        menu.Items.Add(HideGroupText, image: null, (_, _) => this.SetGroupHidden(group, true));
+        ToolStripItem hide = menu.Items.Add(HideGroupText, image: null, (_, _) => this.SetGroupHidden(group, true));
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(DeleteGroupText, image: null, (_, _) => this.DeleteGroup(group));
+        ToolStripItem delete = menu.Items.Add(DeleteGroupText, image: null, (_, _) => this.DeleteGroup(group));
+        int iconSize = MenuIcons.SizeFor(this);
+        MenuIcons.Set(rename, MenuIcons.Rename, iconSize);
+        MenuIcons.Set(reorder, MenuIcons.Reorder, iconSize);
+        MenuIcons.Set(moveUp, MenuIcons.MoveUp, iconSize);
+        MenuIcons.Set(moveDown, MenuIcons.MoveDown, iconSize);
+        MenuIcons.Set(hide, MenuIcons.Hide, iconSize);
+        MenuIcons.Set(delete, MenuIcons.Delete, iconSize);
         return menu;
     }
 
