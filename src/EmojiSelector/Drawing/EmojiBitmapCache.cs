@@ -28,6 +28,13 @@ internal sealed class EmojiBitmapCache : IDisposable
     // Bumped whenever the atlas or the rendering changes in a way the rest of the key does not tell.
     private const int FormatVersion = 2;
 
+    // A size whose bitmaps, every emoji's, would take more memory than this is rendered on demand (see Request): at
+    // 400 % on a 150 % screen, an emoji is 168 px, ~110 KB — the whole list ~420 MB, its atlas an image GDI+ refuses.
+    private const long CompleteMaxBytes = 100L * 1024 * 1024;
+
+    // On demand, the bitmaps kept: about this much memory, never fewer than the ones asked for.
+    private const long OnDemandMaxBytes = 150L * 1024 * 1024;
+
     private readonly IReadOnlyList<string> emojis;
 
     // The texts drawn as special characters, monochrome with the text font (see EmojiRenderer).
@@ -60,12 +67,19 @@ internal sealed class EmojiBitmapCache : IDisposable
     public int Size => this.run?.Size ?? 0;
 
     /// <summary>
-    /// Starts pre-rendering every emoji at <paramref name="size"/> pixels — from the disk cache when it holds them. The
-    /// previous size's pre-render stops; its bitmaps stand in for the new ones until the new run has finished (see
-    /// <see cref="TryGet"/>) — of the previous runs, the one holding the most bitmaps, so quick changes of size keep the
-    /// last complete one.
+    /// Whether the size is rendered <b>on demand</b>: only the emojis <see cref="Request"/> asks for, in its order.
     /// </summary>
-    public void Start(int size)
+    public bool IsOnDemand => this.run?.OnDemand ?? false;
+
+    /// <summary>
+    /// Starts pre-rendering every emoji at <paramref name="size"/> pixels — from the disk cache when it holds them —, or,
+    /// for a size too large to hold them all, rendering on demand (see <see cref="Request"/>), nothing written to disk.
+    /// The previous size's pre-render stops; its bitmaps stand in for the new ones until the new run has finished (see
+    /// <see cref="TryGet"/>) — of the previous runs, the one holding the most bitmaps, so quick changes of size keep the
+    /// last complete one. On demand, a complete size always stands in: <paramref name="baseSize"/>'s — the 100 % size,
+    /// its atlas on disk —, pre-rendered too when no complete run is at hand.
+    /// </summary>
+    public void Start(int size, int baseSize)
     {
         if (this.run is Run previous)
         {
@@ -81,13 +95,69 @@ internal sealed class EmojiBitmapCache : IDisposable
             }
         }
 
-        var run = new Run(size);
+        // Back to the size the stand-in is still pre-rendering — on demand, the base size —: it becomes the run.
+        if (this.fallback is { OnDemand: false, IsCancelled: false } running && running.Size == size)
+        {
+            this.run = running;
+            this.fallback = null;
+            return;
+        }
+
+        var run = new Run(size, onDemand: (long)size * size * 4 * this.emojis.Count > CompleteMaxBytes);
         this.run = run;
+        // A stand-in that will never be complete — on demand, or stopped before the end by a quick change of size —
+        // leaves cells green: the base size is pre-rendered in its place.
+        if (run.OnDemand && (this.fallback is null or { OnDemand: true }
+            || this.fallback.IsCancelled && this.fallback.Bitmaps.Count < this.emojis.Count))
+        {
+            this.fallback?.Release();
+            this.fallback = new Run(baseSize, onDemand: false);
+            this.StartThread(this.fallback);
+        }
+
+        this.StartThread(run);
+    }
+
+    /// <summary>
+    /// On demand: the emojis to render, the first ones first — the cells in view, then their neighbours. Asked again,
+    /// the list replaces the previous one. Beyond about <see cref="OnDemandMaxBytes"/>, the bitmaps of emojis no longer
+    /// asked for are freed. Called on the UI thread, before the cells are drawn. Nothing for a complete pre-render.
+    /// </summary>
+    public void Request(IReadOnlyList<string> emojis)
+    {
+        if (this.run is not { OnDemand: true } run || !run.SetWanted(emojis))
+        {
+            return;
+        }
+
+        int capacity = (int)Math.Max(emojis.Count, OnDemandMaxBytes / (4L * run.Size * run.Size));
+        if (run.Bitmaps.Count <= capacity)
+        {
+            return;
+        }
+
+        // Freed here, on the UI thread, the one drawing them: never one being drawn.
+        HashSet<string> wanted = [.. emojis];
+        foreach (string emoji in run.Bitmaps.Keys)
+        {
+            if (!wanted.Contains(emoji) && run.Bitmaps.TryRemove(emoji, out Bitmap? bitmap))
+            {
+                bitmap.Dispose();
+                if (run.Bitmaps.Count <= capacity)
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    private void StartThread(Run run)
+    {
         var thread = new Thread(() => this.PreRender(run))
         {
             IsBackground = true,
             Priority = ThreadPriority.BelowNormal,
-            Name = "Emoji pre-render",
+            Name = run.OnDemand ? "Emoji on-demand render" : "Emoji pre-render",
         };
         thread.Start();
     }
@@ -125,6 +195,20 @@ internal sealed class EmojiBitmapCache : IDisposable
 
     private void PreRender(Run run)
     {
+        if (run.OnDemand)
+        {
+            try
+            {
+                this.RenderOnDemand(run);
+            }
+            finally
+            {
+                run.Finish();
+            }
+
+            return;
+        }
+
         var stopwatch = Stopwatch.StartNew();
         string atlasPath = Path.Combine(CacheFolder, $"emojis-{run.Size}.png");
         string keyPath = Path.Combine(CacheFolder, $"emojis-{run.Size}.key");
@@ -243,6 +327,39 @@ internal sealed class EmojiBitmapCache : IDisposable
         return atlas;
     }
 
+    // On demand: waits for a list of emojis, renders the ones it lacks in its order, and starts over as soon as another
+    // list comes — until stopped.
+    private void RenderOnDemand(Run run)
+    {
+        using var renderer = new EmojiRenderer();
+        while (!run.IsCancelled)
+        {
+            run.Signal.WaitOne();
+            (int version, IReadOnlyList<string> wanted) = run.Wanted;
+            foreach (string emoji in wanted)
+            {
+                if (run.IsCancelled || run.Wanted.Version != version)
+                {
+                    break;
+                }
+
+                if (run.Bitmaps.ContainsKey(emoji))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    this.Publish(run, emoji, renderer.Render(emoji, run.Size, this.characters.Contains(emoji)));
+                }
+                catch (Exception exception) when (exception is COMException or ExternalException)
+                {
+                    Debug.WriteLine($"EmojiBitmapCache: {emoji} not rendered — {exception.Message}");
+                }
+            }
+        }
+    }
+
     private void Publish(Run run, string emoji, Bitmap bitmap)
     {
         if (!run.Bitmaps.TryAdd(emoji, bitmap))
@@ -359,21 +476,61 @@ internal sealed class EmojiBitmapCache : IDisposable
     // One pre-render at one size. Stopped, its thread publishes no more bitmaps, but the ones it has may still stand in
     // for another size's. Its bitmaps are disposed exactly once: by whoever comes second between the thread finishing
     // and the run being released — never while the thread may still publish, nor while the UI thread may still read them.
-    private sealed class Run(int size)
+    private sealed class Run(int size, bool onDemand)
     {
         private readonly object gate = new();
         private bool stopped;
         private bool released;
         private bool finished;
 
+        // On demand: the emojis asked for last, and how many lists came before.
+        private (int Version, IReadOnlyList<string> Emojis) wanted = (0, []);
+
         public int Size { get; } = size;
+
+        public bool OnDemand { get; } = onDemand;
 
         public ConcurrentDictionary<string, Bitmap> Bitmaps { get; } = new();
 
         public bool IsCancelled => Volatile.Read(ref this.stopped);
 
+        // On demand: set when a list comes, or the run stops — the thread wakes up.
+        public AutoResetEvent Signal { get; } = new(false);
+
+        public (int Version, IReadOnlyList<string> Emojis) Wanted
+        {
+            get
+            {
+                lock (this.gate)
+                {
+                    return this.wanted;
+                }
+            }
+        }
+
+        // A new list for the thread; false, and the thread left alone, when it is the same as the last one.
+        public bool SetWanted(IReadOnlyList<string> emojis)
+        {
+            lock (this.gate)
+            {
+                if (this.wanted.Emojis.SequenceEqual(emojis))
+                {
+                    return false;
+                }
+
+                this.wanted = (this.wanted.Version + 1, [.. emojis]);
+            }
+
+            this.Signal.Set();
+            return true;
+        }
+
         // The thread stops at its next emoji; the bitmaps stay.
-        public void Stop() => Volatile.Write(ref this.stopped, true);
+        public void Stop()
+        {
+            Volatile.Write(ref this.stopped, true);
+            this.Signal.Set();
+        }
 
         // Stopped, and no longer read: the bitmaps go once the thread has finished.
         public void Release()
@@ -381,6 +538,7 @@ internal sealed class EmojiBitmapCache : IDisposable
             lock (this.gate)
             {
                 Volatile.Write(ref this.stopped, true);
+                this.Signal.Set();
                 this.released = true;
                 if (this.finished)
                 {
@@ -400,6 +558,8 @@ internal sealed class EmojiBitmapCache : IDisposable
                 }
             }
         }
+
+        public override string ToString() => $"{this.Size} px{(this.OnDemand ? ", on demand" : "")}, {this.Bitmaps.Count} bitmaps";
 
         private void DisposeBitmaps()
         {

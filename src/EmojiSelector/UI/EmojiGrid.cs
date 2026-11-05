@@ -613,6 +613,12 @@ internal sealed class EmojiGrid : Control
 
     private void PaintContent(Graphics graphics, Rectangle clip)
     {
+        // What is drawn now is what the on-demand rendering does first.
+        if (this.bitmaps.IsOnDemand)
+        {
+            this.RequestVisibleBitmaps();
+        }
+
         int offset = this.Offset;
         int width = this.ClientSize.Width - this.scrollBar.Width;
 
@@ -1153,14 +1159,37 @@ internal sealed class EmojiGrid : Control
         this.Capture = false;
     }
 
-    // Pre-renders the emojis at the current DPI's size, unless that is already the size being pre-rendered.
+    // Pre-renders the emojis at the current DPI's and zoom's size, unless that is already the size being pre-rendered —
+    // a large size on demand, the 100 % size standing in meanwhile.
     private void EnsureBitmapSize()
     {
         if (this.bitmaps.Size != this.EmojiSize)
         {
-            this.bitmaps.Start(this.EmojiSize);
+            this.bitmaps.Start(this.EmojiSize, this.LogicalToDeviceUnits(LogicalEmojiSize));
             this.Invalidate();
         }
+    }
+
+    // A size rendered on demand: the emojis in view first, then the next screen's, then the previous one's — each once.
+    private void RequestVisibleBitmaps()
+    {
+        int offset = this.Offset;
+        int height = this.ViewportHeight;
+        List<string> wanted = [];
+        HashSet<string> added = [];
+        foreach ((int top, int bottom) in new[] { (offset, offset + height), (offset + height, offset + 2 * height), (offset - height, offset) })
+        {
+            foreach ((int section, int index) in this.layout.CellsIn(Math.Max(0, top), bottom))
+            {
+                string text = this.ShownText(this.sections[section].Emojis[index]);
+                if (added.Add(text))
+                {
+                    wanted.Add(text);
+                }
+            }
+        }
+
+        this.bitmaps.Request(wanted);
     }
 
     /// <summary>Ctrl+wheel over the grid: zoom steps, positive to zoom in, and the mouse's position in the grid.</summary>
