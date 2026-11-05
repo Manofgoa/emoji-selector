@@ -10,7 +10,7 @@ namespace EmojiSelector.Data;
 /// The app's settings, in <see cref="FileName"/> next to the exe: the size the user resized the window to, its client
 /// area in logical pixels (96 DPI), the window's opacity, the emoji the user chose for the tray icon, whether the
 /// frequent tab is shown, the details panel's French row and highlight colour, whether it always shows the tone swatch,
-/// and the default skin tone.
+/// the default skin tone, and the emojis' zoom.
 /// A write keeps the keys it does not know, should later settings add some.
 /// </summary>
 /// <remarks>
@@ -38,6 +38,7 @@ internal static class SettingsFile
     private const string AcrylicValue = "acrylic";
     private const string AcrylicVeilKey = "acrylicVeil";
     private const string SkinToneKey = "skinTone";
+    private const string EmojiZoomKey = "emojiZoom";
 
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, FileName);
 
@@ -214,6 +215,18 @@ internal static class SettingsFile
     {
         JsonObject settings = Read() ?? [];
         settings[AcrylicVeilKey] = percent;
+        Write(settings);
+    }
+
+    /// <summary>The emojis' zoom, percent, as saved — any integer; null when there is none, or none that can be read.</summary>
+    public static int? ReadEmojiZoom() =>
+        Read()?[EmojiZoomKey] is JsonValue value && value.TryGetValue(out int percent) ? percent : null;
+
+    /// <summary>Saves the emojis' zoom, percent.</summary>
+    public static void WriteEmojiZoom(int percent)
+    {
+        JsonObject settings = Read() ?? [];
+        settings[EmojiZoomKey] = percent;
         Write(settings);
     }
 
