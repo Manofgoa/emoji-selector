@@ -275,6 +275,12 @@ internal sealed class MainForm : Form
     // group, none — and no custom tab — while every group is hidden.
     private int customSectionCount;
 
+    // Near mode: the matches of the term, most relevant first — empty outside near mode —, and the one F3 / Shift+F3
+    // last jumped to.
+    private IReadOnlyList<Emoji> nearMatches = [];
+
+    private int nearIndex;
+
     // The groups shown, in the user's order: the group of each custom section.
     private List<int> shownGroups = [];
     private readonly ForegroundTracker foregroundTracker = new();
@@ -514,8 +520,8 @@ internal sealed class MainForm : Form
         {
             // An empty box has no caret to move: the navigation keys act as if the grid had the keyboard, from the
             // selection, and hand it over — even when the selection cannot move. ↑ on the grid's first row would hand it
-            // back to the box: it stays there.
-            if (this.searchBox.TextLength == 0 && EmojiGrid.IsNavigationKey(keyData))
+            // back to the box: it stays there. Near mode alike: its arrows walk from the match to its neighbours.
+            if ((this.searchBox.TextLength == 0 || this.IsNearMode) && EmojiGrid.IsNavigationKey(keyData))
             {
                 if (this.grid.MoveSelection(keyData))
                 {
@@ -551,6 +557,13 @@ internal sealed class MainForm : Form
 
         if (this.grid.Focused || this.searchBox.Focused)
         {
+            // Near mode: F3 / Shift+F3 jump to the next / previous match, wrapping around — from the box and the grid.
+            if (keyData is Keys.F3 or (Keys.Shift | Keys.F3) && this.IsNearMode)
+            {
+                this.StepNearMatch(keyData == Keys.F3 ? 1 : -1);
+                return true;
+            }
+
             // Enter inserts the selection: the first result while searching, unless the arrows moved it. Never an emoji
             // of the group in reorder mode. Ctrl+Enter inserts it too, the window kept open.
             if (keyData is Keys.Enter or (Keys.Control | Keys.Enter))
@@ -1379,6 +1392,11 @@ internal sealed class MainForm : Form
         {
             this.grid.ResetToTop();
         }
+        else if (this.IsNearMode)
+        {
+            // The sections before the catalog changed: the match found again where it now is.
+            this.SelectNearMatch();
+        }
 
         this.tabStrip.ActiveTab = this.TabOf(this.grid.ActiveCategory);
     }
@@ -1447,16 +1465,21 @@ internal sealed class MainForm : Form
         return bar;
     }
 
-    // Blank → the category view, tabs enabled. Otherwise → the results alone, tabs greyed.
+    // Blank → the category view, tabs enabled. Near mode (n: / near:) → the category view too, the selection on the
+    // term's first match. Otherwise → the results alone, tabs greyed.
     private void OnSearchTextChanged()
     {
         string text = this.searchBox.Text;
+        string? nearTerm = EmojiSearch.NearTerm(text);
         this.clearButton.Visible = text.Length > 0;
-        this.detailsPanel.SearchText = text;
-        if (string.IsNullOrWhiteSpace(text))
+        this.detailsPanel.SearchText = nearTerm ?? text;
+        this.nearMatches = nearTerm is null ? [] : EmojiSearch.Find([.. this.ShownSpecialSections(), .. this.categories], nearTerm);
+        this.nearIndex = 0;
+        if (nearTerm is not null || string.IsNullOrWhiteSpace(text))
         {
             this.grid.ShowCategories();
             this.tabStrip.Greyed = false;
+            this.SelectNearMatch();
         }
         else
         {
@@ -1464,6 +1487,63 @@ internal sealed class MainForm : Form
             this.grid.ShowSearchResults(EmojiSearch.Find([.. this.ShownSpecialSections(), .. this.categories], text));
             this.tabStrip.Greyed = true;
         }
+    }
+
+    // Whether the search box holds a near mode text (n: / near:): the categories shown, unfiltered.
+    private bool IsNearMode => EmojiSearch.NearTerm(this.searchBox.Text) is not null;
+
+    // Whether the grid shows the search results in place of the categories: a text that is neither blank nor near mode.
+    private bool IsFiltering => !string.IsNullOrWhiteSpace(this.searchBox.Text) && !this.IsNearMode;
+
+    // Near mode: the match nearIndex points at selected in its catalog or special characters' section — never a copy
+    // in the frequent section or a custom group —, its row in the middle of the view. No match: the selection stays.
+    private void SelectNearMatch()
+    {
+        if (this.nearIndex >= this.nearMatches.Count)
+        {
+            return;
+        }
+
+        Emoji match = this.nearMatches[this.nearIndex];
+        int firstCatalog = this.FirstCustomSection + this.customSectionCount;
+        for (int category = 0; category < this.categories.Count; category++)
+        {
+            if (IndexOf(this.categories[category].Emojis, match) is int index and >= 0)
+            {
+                this.grid.SelectCentered(firstCatalog + category, index);
+                return;
+            }
+        }
+
+        if (this.SpecialSectionCount > 0 && IndexOf(this.specialCategory.Emojis, match) is int special and >= 0)
+        {
+            this.grid.SelectCentered(this.FirstSpecialSection, special);
+        }
+    }
+
+    // Near mode's F3 / Shift+F3: the next / previous match, wrapping around at the ends.
+    private void StepNearMatch(int step)
+    {
+        if (this.nearMatches.Count == 0)
+        {
+            return;
+        }
+
+        this.nearIndex = (this.nearIndex + step + this.nearMatches.Count) % this.nearMatches.Count;
+        this.SelectNearMatch();
+    }
+
+    private static int IndexOf(IReadOnlyList<Emoji> emojis, Emoji emoji)
+    {
+        for (int i = 0; i < emojis.Count; i++)
+        {
+            if (ReferenceEquals(emojis[i], emoji))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     // A character typed while the grid has the keyboard goes back to the box, typed at the end of its text. Backspace
@@ -1608,9 +1688,9 @@ internal sealed class MainForm : Form
     }
 
     // Whether a section is the frequent one: the first while shown — never in search mode, whose results are the
-    // first section too.
+    // first section too; near mode shows the categories, the frequent one included.
     private bool IsFrequentSection(int section) =>
-        this.showFrequent && section == 0 && string.IsNullOrWhiteSpace(this.searchBox.Text);
+        this.showFrequent && section == 0 && !this.IsFiltering;
 
     // The section showing a group; null while it is hidden.
     private int? SectionOfGroup(int group) =>
@@ -1636,7 +1716,7 @@ internal sealed class MainForm : Form
 
         this.customGroups.Add(name);
         this.RefreshCustomSections();
-        if (string.IsNullOrWhiteSpace(this.searchBox.Text) && this.SectionOfGroup(this.customGroups.Groups.Count - 1) is int section)
+        if (!this.IsFiltering && this.SectionOfGroup(this.customGroups.Groups.Count - 1) is int section)
         {
             this.grid.SelectCategory(section);
         }
