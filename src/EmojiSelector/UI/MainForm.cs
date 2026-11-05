@@ -124,6 +124,7 @@ internal sealed class MainForm : Form
         + "• the window size and opacity, the emoji zoom, the tray emoji, the details panel's settings\n"
         + "• the skin tones, the default ones and the emojis' own\n"
         + "• the special characters' list — back to the default one\n"
+        + "• the search synonyms — back to the default list\n"
         + "• Start with Windows\n"
         + "• the downloaded emoji data — back to version {0}\n"
         + "• the downloaded flag images — back to Twemoji {1}\n"
@@ -277,6 +278,11 @@ internal sealed class MainForm : Form
     // Why special-characters.json is not valid, told once on the window's first show; null when there is nothing to tell.
     private string? specialCharactersError;
 
+    // The search's synonyms — from synonyms.json, or the embedded default while that file is not valid —, and why that
+    // file is not valid, told once on the window's first show like the special characters'.
+    private readonly SearchSynonyms synonyms;
+    private string? synonymsError;
+
     // The window's opacity, percent: one of OpacityPercents, 100 when nothing is saved.
     private int opacityPercent = NearestOpacity(SettingsFile.ReadOpacity() ?? 100);
 
@@ -383,6 +389,9 @@ internal sealed class MainForm : Form
         SpecialCharacters.LoadResult special = SpecialCharacters.Load(SpecialHeader, SpecialIcon);
         this.specialCategory = special.Category;
         this.specialCharactersError = special.Error;
+        SearchSynonyms.LoadResult synonymsLoad = SearchSynonyms.Load();
+        this.synonyms = synonymsLoad.Synonyms;
+        this.synonymsError = synonymsLoad.Error;
         // A special character whose text the catalog has is the catalog's emoji there: the custom groups find either.
         this.emojisByText = this.categories.SelectMany(category => category.Emojis).ToDictionary(emoji => emoji.Text);
         foreach (Emoji character in this.specialCategory.Emojis)
@@ -415,6 +424,7 @@ internal sealed class MainForm : Form
             ShownText = this.ShownText,
             DefaultTone = this.skinTone,
             ZoomPercent = this.emojiZoom,
+            Synonyms = this.synonyms,
         };
 
         // Never narrower than the tab strip needs, its side resize borders added. Never lower than the details panel
@@ -659,12 +669,31 @@ internal sealed class MainForm : Form
             SetWindowPos(this.Handle, IntPtr.Zero, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
         }
 
-        // An invalid special-characters.json, told once, over the window — posted, so the window is drawn first.
-        if (this.specialCharactersError is string error)
+        // An invalid special-characters.json or synonyms.json, told once, over the window — posted, so the window is
+        // drawn first; one after the other, never two boxes at once.
+        List<(string File, string Error)> invalidFiles = [];
+        if (this.specialCharactersError is string specialError)
         {
-            this.specialCharactersError = null;
-            this.BeginInvoke(() => MessageBox.Show(this, string.Format(CultureInfo.CurrentCulture, InvalidSpecialText,
-                SpecialCharacters.FileName, error), AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning));
+            invalidFiles.Add((SpecialCharacters.FileName, specialError));
+        }
+
+        if (this.synonymsError is string synonymsError)
+        {
+            invalidFiles.Add((SearchSynonyms.FileName, synonymsError));
+        }
+
+        this.specialCharactersError = null;
+        this.synonymsError = null;
+        if (invalidFiles.Count > 0)
+        {
+            this.BeginInvoke(() =>
+            {
+                foreach ((string file, string error) in invalidFiles)
+                {
+                    MessageBox.Show(this, string.Format(CultureInfo.CurrentCulture, InvalidSpecialText, file, error),
+                        AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            });
         }
     }
 
@@ -1592,7 +1621,7 @@ internal sealed class MainForm : Form
         string? nearTerm = EmojiSearch.NearTerm(text);
         this.clearButton.Visible = text.Length > 0;
         this.detailsPanel.SearchText = nearTerm ?? text;
-        this.nearMatches = nearTerm is null ? [] : EmojiSearch.Find([.. this.ShownSpecialSections(), .. this.categories], nearTerm);
+        this.nearMatches = nearTerm is null ? [] : EmojiSearch.Find([.. this.ShownSpecialSections(), .. this.categories], nearTerm, this.synonyms);
         this.nearIndex = 0;
         if (nearTerm is not null || string.IsNullOrWhiteSpace(text))
         {
@@ -1603,7 +1632,7 @@ internal sealed class MainForm : Form
         else
         {
             // The special characters before the catalog: on a tie, tm gives ™ before the emoji ™️.
-            this.grid.ShowSearchResults(EmojiSearch.Find([.. this.ShownSpecialSections(), .. this.categories], text));
+            this.grid.ShowSearchResults(EmojiSearch.Find([.. this.ShownSpecialSections(), .. this.categories], text, this.synonyms));
             this.tabStrip.Greyed = true;
         }
     }

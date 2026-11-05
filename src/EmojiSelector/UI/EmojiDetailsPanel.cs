@@ -95,6 +95,7 @@ internal sealed class EmojiDetailsPanel : Control
     private Emoji? shownEmoji;
     private Bitmap? emojiBitmap;
     private string searchText = "";
+    private SearchSynonyms synonyms = SearchSynonyms.Empty;
     private bool showFrench = true;
     private Color highlightColor = DefaultHighlightColor;
     private SkinTone defaultTone;
@@ -224,6 +225,18 @@ internal sealed class EmojiDetailsPanel : Control
                 this.searchText = value;
                 this.Invalidate();
             }
+        }
+    }
+
+    /// <summary>The search's synonyms: the words they add to the search text are highlighted too, as whole words.</summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public SearchSynonyms Synonyms
+    {
+        get => this.synonyms;
+        set
+        {
+            this.synonyms = value;
+            this.Invalidate();
         }
     }
 
@@ -665,7 +678,7 @@ internal sealed class EmojiDetailsPanel : Control
         Font font = isName ? this.nameFont : this.Font;
         Color color = isName ? SystemColors.ControlText : SystemColors.GrayText;
         int lineHeight = this.LineHeight(font);
-        IReadOnlyList<(int Start, int Length)> matches = EmojiSearch.MatchSpans(text, this.searchText);
+        IReadOnlyList<(int Start, int Length)> matches = EmojiSearch.MatchSpans(text, this.searchText, this.synonyms);
         using var highlight = new SolidBrush(this.highlightColor);
         int y = top;
         foreach (List<(int Start, int Length, int X)> line in this.Wrap(text, isName, width))
@@ -698,7 +711,7 @@ internal sealed class EmojiDetailsPanel : Control
         int left = (this.TextLeft - MeasureWidth(emoticons, this.emoticonFont)) / 2;
         int lineHeight = this.LineHeight(this.emoticonFont);
         using var highlight = new SolidBrush(this.highlightColor);
-        foreach ((int start, int length) in EmojiSearch.MatchSpans(emoticons, this.searchText))
+        foreach ((int start, int length) in EmojiSearch.MatchSpans(emoticons, this.searchText, this.synonyms))
         {
             int offset = MeasureWidth(emoticons[..start], this.emoticonFont);
             graphics.FillRectangle(highlight, left + offset, top, MeasureWidth(emoticons.Substring(start, length), this.emoticonFont),
