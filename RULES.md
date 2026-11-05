@@ -37,6 +37,8 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
 | Settings button ⚙ → `Show special character sub-categories` | Checked while the special characters show their families as sub-categories — on by default: a click shows or hides them (see *Sub-Categories* below) |
 | Settings button ⚙ → `Show French names` | Checked while the details panel shows its French row: a click hides it or shows it again (see *Details Panel* below) |
 | Settings button ⚙ → `Highlight color…` | Windows' colour dialog: the colour highlighting the search's matches in the details panel (see *Details Panel* below) |
+| Settings button ⚙ → `Emoji zoom` | A numeric box with its arrows, `70%` … `400%`: each change zooms the emojis at once and is saved; the menu stays open (see *Emoji Zoom* below) |
+| Ctrl+wheel over the grid | One notch, one zoom step up (away from the user) or down, the emoji under the mouse kept in place; the grid does not scroll (see *Emoji Zoom* below) |
 | Settings button ⚙ → `Always show skin tone` | Checked while the details panel's tone swatch shows whatever the selection: a click turns it off — the swatch only on an emoji with variants — or on again (see *Skin Tones* below); the window stays |
 | Settings button ⚙ → `Reset window size` | Back to the **default size** right away, the top-left corner kept — moved only as far as needed to stay inside the working area —, and the saved size removed (see *Size* and *Corner* below); the window stays |
 | Settings button ⚙ → `Window opacity ▸` | `100%`, `98%`, `96%`, `94%`, `92%`, then `Acrylic` — Windows' blurred background —, the one in use checked: a click applies it to the whole window at once and saves it (see *Opacity* and *Acrylic* below); the window stays |
@@ -106,7 +108,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   `Clear frequently used`), *custom groups* (`New group…`, `Show groups ▸`), *emoji categories* (`Show
   emoji sub-categories`), *special characters* (`Show special characters`, `Show special character
   sub-categories`), *details panel* (`Show
-  French names`, `Highlight color…`, `Always show skin tone`), *window* (`Reset window size`, `Window opacity ▸`, `Acrylic veil ▸`), *app* (`Open app folder`,
+  French names`, `Highlight color…`, `Emoji zoom`, `Always show skin tone`), *window* (`Reset window size`, `Window opacity ▸`, `Acrylic veil ▸`), *app* (`Open app folder`,
   `Start with Windows`, `Check for emoji updates…`, `Reset all settings…`). A new item joins the section of its feature; the labels say their
   subject on their own.
 - A **colour item** shows the colour in use as its image (`MainForm.SetSwatch`): a rounded square of
@@ -119,7 +121,8 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   then **8 full rows** when that section is scrolled to the top (`MainForm.DefaultColumns` /
   `DefaultRows`). Computed in `MainForm.OnLoad`, before the window is placed, from the grid's metrics
   at the window's DPI (`EmojiGrid.SizeFor`) and the heights of the search bar, the tab strip and the
-  details panel (`EmojiDetailsPanel.HeightFor`) — never a hard-coded pixel size.
+  details panel (`EmojiDetailsPanel.HeightFor`) — never a hard-coded pixel size. Always **at 100 %**,
+  whatever the emoji zoom (see *Emoji Zoom*): the default size does not follow it.
 - The window is sized through **`MainForm.SetClientArea`**, never the `ClientSize` setter: that one
   counts a caption, which is client area here (see *Frame*) — the window would come out a caption too
   tall. The borders are read from the window itself (`GetWindowRect` / `GetClientRect`).
@@ -129,7 +132,7 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   without running its code. A move, or a drag to a monitor of another scale, saves nothing.
 - `settings.json` is the app's **shared settings file** (`Data/SettingsFile.cs`): `{ "windowWidth":
   …, "windowHeight": …, "trayEmoji": …, "showFrequent": …, "showSpecial": …, "showEmojiSubcategories": …, "showSpecialSubcategories": …, "showFrench": …, "highlightColor": …, "opacity": …,
-  "acrylicVeil": …, "skinTone": …, "alwaysShowSkinTone": … }`;
+  "acrylicVeil": …, "skinTone": …, "alwaysShowSkinTone": …, "emojiZoom": … }`;
   a write keeps the keys it does not
   know. Written through `settings.json.new` then a replace, the emojis as themselves
   (`EmojiUsage.ReadableEmojis`).
@@ -258,6 +261,52 @@ The app is resident: it lives in the notification area as long as it runs (`UI/T
   `EmojiDetailsPanel.EmoticonFontShrink`). The icon glyphs — tabs, ⚙, ✕, copy — keep their sizes in
   pixels.
 
+### Emoji Zoom
+
+The **zoom** scales the emojis only — the grid's cells and emojis, the details panel's large emoji —,
+never the texts, the tabs, the headers, the sub-category labels, the use counts nor the window (origin:
+`workfiles/20261105-emoji-zoom.md`).
+
+- **Range**: `70%` to `400%` by steps of 10 (`MainForm.MinZoom`, `MaxZoom`, `ZoomStep`), `100%` by
+  default. **Saved** as `emojiZoom` in `settings.json` at each change (`SettingsFile.ReadEmojiZoom` /
+  `WriteEmojiZoom`); missing or not an integer → 100 %; another integer → the nearest step in the range,
+  a tie toward 100 % (`MainForm.NearestZoom`: `85` → 90, `450` → 400), the key left as it is.
+  `Reset all settings…` brings it back to 100 %; `Reset window size` leaves it alone.
+- **`Emoji zoom`**, in the settings menu's *details panel* section right after `Highlight color…`: a
+  `ToolStripControlHost` holding the label and a `UI/PercentUpDown.cs` box (`130%`). Its arrows, the
+  arrow keys and the wheel in it apply each step at once; a typed value applies on Enter or when the
+  box loses the focus, taken to the nearest step. Clicking in it leaves the menu open. It shows the zoom
+  in use at each opening of the menu. It keeps the **selection** in view.
+- **Ctrl+wheel over the grid** (`EmojiGrid.OnMouseWheel` → `ZoomRequested` → `MainForm.SetEmojiZoom`):
+  one whole notch, one step — a high-resolution wheel's deltas accumulated —; the grid does not scroll.
+  The **emoji under the mouse** keeps its vertical place on screen, as far as the scroll allows — the
+  columns reflow, so it may move sideways; over no emoji, the point of the content under the mouse.
+- **Sizes**: a logical size at the DPI, times the zoom, rounded (`EmojiGrid.Zoomed`): the cell
+  (`LogicalCellSize` 40) and the emoji (`LogicalEmojiSize` 28); a captioned cell keeps its top margin
+  and caption band, its emoji zoomed. The details panel's emoji (48) likewise: the panel's height
+  follows, taking its room from the grid. The default window size is computed at 100 %.
+- **The zoom's value**: on every change — the box or Ctrl+wheel, even at an end of the range — the
+  details panel shows `130%` under the tone swatch — at its place while the swatch does not show —,
+  for **2 sliding seconds** after the last change (`EmojiDetailsPanel.ShowZoom`). Its line is always
+  kept in the panel's height. The grid and the panel are **painted at once** after each change
+  (`Update`): Windows paints only once no message waits, and a Ctrl+wheel brings one per notch.
+- **Rendering** (`Drawing/EmojiBitmapCache.cs`): a zoom change is a new emoji size, like a DPI change
+  (see *Categories and Insertion*). Each size's atlas is kept in `cache\`: a zoom level visited reloads
+  at once. While the new size is not ready, the previous size's bitmaps stand in, stretched — of the
+  previous runs, the one holding the most bitmaps, released once the new run has finished.
+- **On demand**: a size whose bitmaps, every emoji's, would exceed `CompleteMaxBytes` (100 MB — about
+  82 px: 300 % at 100 % scaling, 200 % at 150 %) is not pre-rendered: a background thread renders the
+  emojis `EmojiGrid.RequestVisibleBitmaps` asks for at each paint — the cells in view, then the next
+  screen, then the previous one —, starting over as soon as the list changes; bitmaps beyond
+  `OnDemandMaxBytes` (150 MB) not asked for any more are freed on the UI thread. No atlas is written.
+  The 100 % size stands in, complete — pre-rendered when no complete run is at hand.
+- An agent checking it cannot click the settings button nor send Ctrl+wheel from a script (Ctrl is read
+  from the keyboard's state): it writes `emojiZoom` in the build's `settings.json` and captures the
+  window, or runs `MainForm` **in its own process** — `pwsh -Sta` (PowerShell 7 on .NET 10), the dll of a
+  **copy** of the build folder loaded after `AppContext.SetData("APP_CONTEXT_BASE_DIRECTORY", <copy>)`,
+  `ApplicationConfiguration.Initialize` called — and calls `SetEmojiZoom` by reflection, capturing with
+  `PrintWindow`.
+
 ## Start with Windows
 
 **`Start with Windows`**, in the settings menu's *app* section after `Open app folder`, has Windows
@@ -359,7 +408,9 @@ launch the app at sign-in, hidden in the notification area. Off by default.
 - **The grid never renders an emoji on the UI thread.** `Drawing/EmojiBitmapCache.cs` pre-renders
   every emoji at launch, on a background thread with its own `EmojiRenderer`, in grid order, then
   every skin-tone variant (see *Skin Tones*); a cell whose emoji is not ready yet is filled with
-  **fluorescent green**, on purpose. A DPI change starts a new pre-render at the new size.
+  **fluorescent green**, on purpose. A DPI change or a zoom change (see *Emoji Zoom*) starts a new
+  pre-render at the new size; meanwhile, the **previous size's bitmaps stand in**, stretched — green
+  only where no size has the emoji yet.
 - The pre-rendered emojis are saved in **`cache\` next to the exe** — one `emojis-{size}.png` atlas
   and its `emojis-{size}.key` per emoji size — and reloaded at the next launch while the key still
   matches (size, Segoe UI Emoji's file, the emoji list, the renderer's parameters, the flag images in
@@ -519,7 +570,7 @@ updates…` (`MainForm.ResetAllSettings`, `Data/AppReset.cs`), puts the app back
 Always enabled.
 
 - **Confirmation**: Yes / No, **No the default**, the warning icon, listing what is lost — the custom
-  groups, the counters, the window size and opacity, the tray emoji and the details panel's settings, the
+  groups, the counters, the window size and opacity, the emoji zoom, the tray emoji and the details panel's settings, the
   skin tones, the special characters' list (back to the default one), Start with Windows, the downloaded emoji data (back to the **embedded** version, named:
   `EmojiDataFolder.EmbeddedVersion`), the downloaded flag images (back to the embedded Twemoji version,
   `FlagImages.EmbeddedVersion`), the image cache — and saying the app restarts.
@@ -903,8 +954,8 @@ Docked at the bottom of the window, under the grid (`UI/EmojiDetailsPanel.cs`), 
 the grid's **selection**: `EmojiGrid.SelectedEmojiChanged` tells `MainForm`, raised whenever the
 selected emoji changes — the same cell may hold another emoji once the sections change.
 
-- **Left**: the emoji at 48 logical pixels, through the panel's own `EmojiRenderer` (the grid's cache
-  renders at the grid's size only); under it its **emoticons** (Emojibase `emoticon`, a string or an
+- **Left**: the emoji at 48 logical pixels times the emoji zoom (see *Emoji Zoom*), through the panel's
+  own `EmojiRenderer` (the grid's cache renders at the grid's size only); under it its **emoticons** (Emojibase `emoticon`, a string or an
   array), only for the few emojis that have some.
 - **Middle**: one **row per language**, a thin line between them — the English row always, the
   French one while `showFrench` (settings menu, `Show French names`; default on). A row: the flag,
@@ -928,7 +979,8 @@ selected emoji changes — the same cell may hold another emoji once the section
 - **Height**: fixed, the one the emoji with the **most text** needs at the window's width, French row
   included while shown (`EmojiDetailsPanel.HeightFor`, over the whole catalog, word widths cached),
   and at least the right column's — the button, then the tone swatch when the catalog has variants or
-  `Always show skin tone` is on:
+  `Always show skin tone` is on, then the zoom's line, always kept (see *Emoji Zoom*) — and the emoji's,
+  zoomed:
   moving the selection never moves the grid. `MainForm.OnLayout` fits it **before** the docking
   places the controls — set during it, the grid would keep the old space. The window's minimum
   height is 240 logical pixels plus the panel's height.
