@@ -998,7 +998,15 @@ internal sealed class MainForm : Form
     // value on Enter or when the box loses the focus; one between two steps goes to the nearest.
     private ToolStripControlHost CreateZoomItem()
     {
-        var label = new Label { Text = EmojiZoomText, AutoSize = true, Anchor = AnchorStyles.Left, BackColor = Color.Transparent };
+        // No left margin: the label starts where the other items' texts do.
+        var label = new Label
+        {
+            Text = EmojiZoomText,
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0, 3, 6, 3),
+        };
         this.zoomBox = new PercentUpDown
         {
             Minimum = MinZoom,
