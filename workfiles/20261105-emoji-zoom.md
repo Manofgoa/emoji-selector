@@ -176,6 +176,19 @@ reserved in the details panel's right column. Section *Zoom Indicator* updated.
 Go given: code, tests and documentation, in a worktree (`.claude/worktrees/emoji-zoom`, branch
 `feature/emoji-zoom`), started once the "near" mode session had finished and been merged into `main`.
 
+### Iteration 6 — 2026-11-05 — ⚙️ Post-implementation — Range 70–400 %, indicator during the scroll
+
+The user, testing the check instance mid-run:
+- The zoom's value showed only once Ctrl+wheel stopped: it must show **during** the scroll, 2 sliding seconds after
+  the last notch. Cause: each notch lays the grid and the panel out again, and Windows paints only once the message
+  queue is empty — the panel is now painted at once after each change.
+- The range becomes **70 % → 400 %**, step 10 %.
+- Asked how to draw the large sizes — at 400 % on a 150 % screen an emoji is 168 px: pre-rendering the ~3,700 emojis
+  and variants would take ~420 MB, and the disk atlas would be an image GDI+ refuses. Answer: **visible first** — the
+  small sizes pre-rendered completely as before; beyond, a background thread renders the cells in view first, then
+  their neighbours, in a bounded set; a cell not ready shows the largest complete size, stretched; no disk atlas for
+  those sizes.
+
 ---
 
 ## Implementation Log
