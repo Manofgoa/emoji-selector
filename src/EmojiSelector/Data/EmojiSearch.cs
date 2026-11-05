@@ -26,6 +26,28 @@ internal static class EmojiSearch
     private const int Start = 2;
     private const int Inside = 3;
 
+    // The prefixes of near mode, case ignored.
+    private static readonly string[] NearPrefixes = ["near:", "n:"];
+
+    /// <summary>
+    /// The term of a <b>near mode</b> text — one starting with <c>n:</c> or <c>near:</c>, case and the spaces before the
+    /// prefix ignored —: what follows the prefix, trimmed (<c>  N: chien</c> → <c>chien</c>, <c>n:</c> → empty). Null
+    /// for any other text: a normal search.
+    /// </summary>
+    public static string? NearTerm(string text)
+    {
+        string trimmed = text.TrimStart();
+        foreach (string prefix in NearPrefixes)
+        {
+            if (trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return trimmed[prefix.Length..].Trim();
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>The emojis matching <paramref name="text"/>, most relevant first; none for a blank text.</summary>
     public static IReadOnlyList<Emoji> Find(IReadOnlyList<EmojiCategory> categories, string text)
     {
