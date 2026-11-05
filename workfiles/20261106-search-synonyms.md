@@ -31,9 +31,11 @@ default), `Data/EmojiSearch.cs` (`Find`, `MatchSpans`), `UI/MainForm.cs` (loadin
 - **`synonyms.json`, next to the exe** (`SearchSynonyms.FileName`): `{ "groups": [ ["car", "auto", "voiture",
   "bagnole"], … ] }` — a group is an array of words, English and French mixed: the keywords are both languages at
   once. Comments and trailing commas are read, like `special-characters.json`.
-- **Its default** is embedded (`Data/Synonyms.json`, `EmbeddedResource`, `WithCulture="false"`): common words
-  Emojibase lacks — familiar French and English (`bagnole`, `mdr`, `lol`, `kiffer`), feelings (`heureux` / `content` /
-  `joyeux`), frequent abbreviations (`ok`, `thx` / `merci`).
+- **Its default** is embedded (`Data/Synonyms.json`, `EmbeddedResource`, `WithCulture="false"`): **83 groups** of
+  everyday words Emojibase lacks or spreads over other emojis — familiar French and English (`bagnole`, `mdr`, `lol`,
+  `kiffer`, `osef`), feelings (`heureux` / `content` / `joyeux`), abbreviations (`ok`, `thx` / `merci`), everyday
+  things, animals, weather. Every group holds at least one word some emoji has as a keyword word (checked against the
+  embedded catalog).
 - **At launch** (`SearchSynonyms.Load`), exactly as the special characters:
 
   | The file | Does |
@@ -44,7 +46,9 @@ default), `Data/EmojiSearch.cs` (`Find`, `MatchSpans`), `UI/MainForm.cs` (loadin
   | Unreadable, or a folder that cannot be written | The embedded default used in memory — never an error |
 
 - **The warning**: the same text as the special characters' (`MainForm.InvalidSpecialText`, the file's name in it),
-  `synonyms.json is not valid: … The default list is used until it is fixed.` — once, from `OnShown`.
+  `synonyms.json is not valid: … The default list is used until it is fixed.` — once, from `OnShown`. Both files
+  invalid → one posted call showing the two boxes **one after the other**, the special characters' first.
+- A UTF-8 byte order mark (Notepad's) is skipped before parsing.
 - **Lenient inside a valid file**: a group that is not an array of strings is left out; an entry is **one word**
   once normalized (`EmojiSearch.Words`: letters and digits, case and diacritics ignored) — an entry giving none or
   several (`pomme de terre`, `:)`) is left out; a group left with fewer than two words is left out; a word given twice
@@ -68,7 +72,8 @@ default), `Data/EmojiSearch.cs` (`Find`, `MatchSpans`), `UI/MainForm.cs` (loadin
 - **Everywhere `Find` runs**: the search results, near mode (`n:` / `near:`), the special characters' search — all
   through `EmojiSearch.Find`, given the loaded `SearchSynonyms`.
 - **Highlight** (details panel): the alternatives of each typed word are highlighted too, **as whole words**, in the
-  names, tags and emoticons (`EmojiSearch.MatchSpans` given the synonyms) — so `bagnole` on 🚗 highlights `car`.
+  names, tags and emoticons (`EmojiSearch.MatchSpans` given the synonyms, `EmojiDetailsPanel.Synonyms`) — so `bagnole`
+  on 🚗 highlights `car`. Always, even on an emoji the typed word matched on its own.
 
 ---
 
@@ -128,6 +133,25 @@ editable file with an embedded default in `SpecialCharacters`. The remaining que
 The go given with the delegation (Q&A 5): *Code, unit tests and documentation*, in a **worktree**
 (`.claude/worktrees/search-synonyms`, branch `feature/search-synonyms`).
 
+### Iteration 3 — 2026-11-06 — 🧭 Implementation choices
+
+No rule broken. Choices the frozen design did not state:
+
+- **Scope of the go**: "start the development" read as *Code, unit tests and documentation* — the scope every run of
+  this app has taken (RULES.md, README and GLOSSARY in both languages).
+- **Tests**: no test project — 27 reflection checks on a copy of the build folder (`Parse`, `Load`, `Find`,
+  `MatchSpans`, `AppReset`), all passing; the README's examples spot-checked (`mdr` → 😂, `thx` → 🙏, `bagnole` → 🚗).
+- **Warnings**: the special characters' warning and the synonyms' are shown from one posted call, one box after the
+  other — two separate posts would stack two boxes at once. `MainForm.InvalidSpecialText` reused, its name kept.
+- **BOM**: a UTF-8 byte order mark is skipped before parsing (`JsonDocument` is given the bytes after it).
+- **Default list**: 83 groups; checked against the catalog, none useless; groups whose every word is already some
+  emoji's keyword are kept — they still cross-link emojis (`chut` finds those tagged `secret`).
+- **Highlight**: the alternatives are highlighted on every emoji, the ones matched directly included — the simplest
+  rule, and what the search sees.
+- **Lookup**: `SearchSynonyms.AlternativesOf(word)` on the typed word's folded form, only for a word without symbol;
+  `EmojiSearch.Find` and `MatchSpans` take the synonyms as an optional last argument (`null` → no synonym).
+- **End of run**: no merge question — the user asked for no interaction; the branch waits for the user's word.
+
 ---
 
 ## Implementation Log
@@ -137,11 +161,11 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | | | |
-| Unit tests | | | |
-| RULES.md | | | |
-| README | | | |
-| GLOSSARY | | | |
+| Code | 3 | 2026-11-06 | `Data/SearchSynonyms.cs`, `Data/Synonyms.json`, `EmojiSearch` (`Find`, `MatchSpans`), `MainForm`, `EmojiDetailsPanel`, `AppReset` |
+| Unit tests | 3 | 2026-11-06 | No test project — 27 reflection checks on a copy of the build folder, all passing |
+| RULES.md | 3 | 2026-11-06 | *Search Box* § *Synonyms*, the ranking and highlight bullets, *Reset All Settings* |
+| README | 3 | 2026-11-06 | `README.md` / `README.fr.md`: the *Synonyms* bullet, the reset's file list |
+| GLOSSARY | 3 | 2026-11-06 | `GLOSSARY.md` / `GLOSSARY.fr.md`: *Synonym* (*synonyme*) |
 
 ---
 
