@@ -571,11 +571,11 @@ Always enabled.
 
 - **Confirmation**: Yes / No, **No the default**, the warning icon, listing what is lost — the custom
   groups, the counters, the window size and opacity, the emoji zoom, the tray emoji and the details panel's settings, the
-  skin tones, the special characters' list (back to the default one), Start with Windows, the downloaded emoji data (back to the **embedded** version, named:
+  skin tones, the special characters' list (back to the default one), the search synonyms (back to the default list), Start with Windows, the downloaded emoji data (back to the **embedded** version, named:
   `EmojiDataFolder.EmbeddedVersion`), the downloaded flag images (back to the embedded Twemoji version,
   `FlagImages.EmbeddedVersion`), the image cache — and saying the app restarts.
 - **What is deleted** (`AppReset.DeleteAll`), next to the exe: `settings.json`, `usage.json`,
-  `custom-groups.json`, `skin-tones.json`, `special-characters.json` and their temporary files (`TemporaryFileName`), the whole
+  `custom-groups.json`, `skin-tones.json`, `special-characters.json`, `synonyms.json` and their temporary files (`TemporaryFileName`), the whole
   `cache\`, `emoji-data\`, `flag-images\` and `flag-images.new\` folders; in the Startup folder, the
   **startup shortcut** and the Task Manager's value —
   **only when the shortcut targets this exe**, disabled or not (`StartupShortcut.DisableForThisExe`): a
@@ -854,6 +854,7 @@ The **search box** sits above the tab strip (`UI/MainForm.cs`); the matching and
   the whole word → its start → anywhere else; then the share of the word covered; then a name before
   a tag. Several typed words: the worst tier, then the lowest coverage, then the most name matches.
   Ties keep the catalog order. `caca` → 💩 before 🥜 *cacahuète*; `1` → 1️⃣ first, `:)` → 🙂 first.
+  An emoji found through a **synonym** comes after all of them (see *Synonyms* below).
 - **Every show** clears the box and focuses it (`OnVisibleChanged`), and brings the grid back to the
   top on its first emoji (see *Keyboard*). The placeholder is the native
   cue banner shown while focused (`EM_SETCUEBANNER`): `PlaceholderText` hides on focus, and the box
@@ -892,6 +893,43 @@ A text starting with **`n:`** or **`near:`** selects without filtering (origin:
   selection jumps to its new first match.
 - A section change while in near mode — sections rebuilt, sub-categories toggled — finds the match
   again where it now is.
+
+### Synonyms
+
+**Groups of equivalent words** widen the search (origin: `workfiles/20261106-search-synonyms.md`): a typed word
+belonging to a group also looks for the other words of that group — `bagnole` finds 🚗 through `car`, `mdr` 😂 through
+`laugh`.
+
+- **`synonyms.json`, next to the exe** (`Data/SearchSynonyms.cs`), **the user's to edit**: `{ "groups": [ ["car",
+  "auto", "voiture", "bagnole"], … ] }`, a group an array of words, English and French mixed — the keywords are both
+  at once. Comments and trailing commas are read.
+- **Its default** is embedded (`Data/Synonyms.json`, `EmbeddedResource`): 83 groups of everyday words Emojibase lacks
+  or spreads over other emojis — familiar French and English, feelings, abbreviations (`mdr`, `thx`, `bagnole`, `osef`).
+- **At launch** (`SearchSynonyms.Load`), exactly as `special-characters.json` (see *Special Characters Tab*): missing →
+  written from the default (`.tmp` then a replace), then used; valid → used as it is, **never rewritten**; invalid —
+  not JSON, or no `groups` list — → **kept as it is**, the default used in memory, a **warning** on the window's first
+  show (`MainForm.InvalidSpecialText`, the file's name in it; after the special characters' when both are invalid, one
+  box after the other); unreadable, or a folder that cannot be written → the default in memory, never an error.
+- **Lenient inside a valid file**: a group that is not an array, or an entry that is not a string, is left out; an
+  entry is **one word** once normalized (`EmojiSearch.Words`: letters and digits, case and diacritics ignored) — an
+  entry giving none or several (`pomme de terre`, `:)`) is left out; a group left with fewer than two words is left
+  out; a word given twice counts once.
+- An edit is read at the **next launch**; `Open app folder` finds the file. No settings item. `Reset all settings…`
+  deletes it: the default comes back at the restart (see *Reset All Settings*).
+- **The trigger** (`SearchSynonyms.AlternativesOf`): a typed word **without symbol**, folded, **equal** to a word of a
+  group — whole: `bagn` expands nothing. Its **alternatives** are the other words of every group holding it — a word in
+  two groups gets both —, not transitive beyond that.
+- **Matching** (`EmojiSearch.Find`, given the loaded `SearchSynonyms`): a typed word's own match first — characters,
+  symbols, keywords, as above —; **none** → an alternative equal to a **whole keyword word** (`car` never finds
+  `cardigan`), counted as a tag's whole word. An emoji is a result when every typed word matches, on its own or through
+  a synonym.
+- **Ranking**: every emoji whose typed words all match on their own first; then those with a typed word matched only
+  through a synonym; inside each, the keys above. The search results, near mode and the special characters' search
+  alike: all go through `Find`.
+- **Highlight** (`EmojiSearch.MatchSpans`, `EmojiDetailsPanel.Synonyms`): the alternatives of each typed word are
+  highlighted as **whole words** in the names, tags and emoticons, next to what the typed text matches.
+- An agent checking them calls `SearchSynonyms.Parse` / `Load`, `EmojiSearch.Find` / `MatchSpans` and `AppReset` by
+  reflection on the dll of a **copy** of the build folder (`APP_CONTEXT_BASE_DIRECTORY`, see *Reset All Settings*).
 
 ## Keyboard
 
@@ -990,7 +1028,8 @@ selected emoji changes — the same cell may hold another emoji once the section
   colour. Exactly the
   matched characters, every occurrence, matched as the search matches (`EmojiSearch.MatchSpans`:
   accents and case ignored, inside one word). A typed word holding a symbol is highlighted whole
-  where the text holds it (`?`, `d’or`), its letters-and-digits parts elsewhere.
+  where the text holds it (`?`, `d’or`), its letters-and-digits parts elsewhere. The **synonyms** of each typed word are
+  highlighted too, as whole words (see *Search Box* § *Synonyms*).
 - **No selection** (a search with no result): the panel stays, empty, at the same height.
 - The panel is not selectable: a click on it leaves the keyboard where it was.
 
