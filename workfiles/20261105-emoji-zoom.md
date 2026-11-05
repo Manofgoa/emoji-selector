@@ -171,6 +171,11 @@ in a worktree, once the session implementing the "near" mode — working in the 
 The indicator's open questions answered: it disappears 2 seconds after the last change, and its line is always
 reserved in the details panel's right column. Section *Zoom Indicator* updated.
 
+### Iteration 5 — 2026-11-05 — ✅ Implemented
+
+Go given: code, tests and documentation, in a worktree (`.claude/worktrees/emoji-zoom`, branch
+`feature/emoji-zoom`), started once the "near" mode session had finished and been merged into `main`.
+
 ---
 
 ## Implementation Log
