@@ -9,6 +9,7 @@ Les mots utilisés dans le code, la documentation, les workfiles et la conversat
 | Émoji (*emoji*) | Un pictogramme proposé par l'application, inséré sous forme de sa séquence de caractères Unicode — variante de teinte de peau ou de genre comprise |
 | Zone de recherche (*search box*) | Le champ de texte en haut de la fenêtre où l'on tape des **mots-clés** pour filtrer les émojis |
 | Mot-clé (*keyword*) | Un mot par lequel on trouve un émoji dans la zone de recherche — son nom ou l'une de ses étiquettes, en anglais ou en français |
+| Mode near (*near mode*) | Un texte de la zone de recherche qui commence par `n:` ou `near:` : la grille n'est pas filtrée, la **sélection** saute sur la meilleure correspondance du reste du texte, ses voisins autour d'elle — F3 / Maj+F3 vers la correspondance suivante / précédente |
 | Caractère (*character*) | Le texte qu'un émoji montre, tel qu'on le tape — `1` pour 1️⃣, `?` pour ❓, `OK` pour 🆗 : tapé dans la zone de recherche, il trouve l'émoji en premier ; listé à la main dans l'application, et affiché parmi ses étiquettes |
 | Catégorie (*category*) | Un groupe d'émojis par thème (Smileys & People, Animals & Nature, Food & Drink…), que l'on parcourt sans rien taper : un onglet et une section de la grille chacune |
 | Fenêtre précédente (*previous window*) | La fenêtre d'une autre application qui était devant avant celle de l'application — celle où un émoji cliqué est inséré |

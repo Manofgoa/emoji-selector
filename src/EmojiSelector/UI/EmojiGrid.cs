@@ -204,6 +204,17 @@ internal sealed class EmojiGrid : Control
         this.SetSelection(this.layout.FirstOf(category), ensureVisible: false);
     }
 
+    /// <summary>
+    /// Selects the emoji at <paramref name="index"/> of <paramref name="section"/> and scrolls its row to the middle of
+    /// the viewport — clamped at the grid's top and bottom —, its neighbours above and below in view: near mode's jump.
+    /// </summary>
+    public void SelectCentered(int section, int index)
+    {
+        Rectangle bounds = this.layout.CellBounds(section, index);
+        this.SetOffset(bounds.Top + bounds.Height / 2 - this.ViewportHeight / 2);
+        this.SetSelection((section, index), ensureVisible: true);
+    }
+
     /// <summary>Scrolls back to the top and selects the first emoji: the state the window opens in.</summary>
     public void ResetToTop()
     {

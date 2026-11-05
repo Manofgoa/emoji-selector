@@ -10,6 +10,7 @@ each.
 | Emoji (*émoji*) | One pictograph the app offers, inserted as its Unicode character sequence — a skin tone or a gender variant included |
 | Search box (*zone de recherche*) | The text field at the top of the window where **keywords** are typed to filter the emojis |
 | Keyword (*mot-clé*) | A word an emoji is found by in the search box — its name or one of its tags, in English or in French |
+| Near mode (*mode near*) | A search box text starting with `n:` or `near:`: the grid is not filtered, the **selection** jumps to the best match of the rest of the text, its neighbours around it — F3 / Shift+F3 to the next / previous match |
 | Character (*caractère*) | The text an emoji shows, as one types it — `1` for 1️⃣, `?` for ❓, `OK` for 🆗: typed in the search box, it finds the emoji first; listed by hand in the app, and shown among its tags |
 | Category (*catégorie*) | A group of emojis by theme (Smileys & People, Animals & Nature, Food & Drink…), browsed without typing: one tab and one section of the grid each |
 | Previous window (*fenêtre précédente*) | The window of another app that was in front before the app's window — the one a clicked emoji is inserted into |
