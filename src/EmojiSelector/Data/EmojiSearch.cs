@@ -17,6 +17,11 @@ namespace EmojiSelector.Data;
 /// name's word before a tag's. Each typed word keeps its best match in the emoji. The results are ranked by the worst
 /// tier among the typed words, then the lowest coverage, then the number of typed words matched in a name; ties keep
 /// the catalog order.
+/// <para>
+/// A typed word matching nothing in an emoji may match through its <b>synonyms</b> (see <see cref="SearchSynonyms"/>):
+/// another word of its group, equal to a whole keyword word. Such an emoji ranks after every emoji whose typed words
+/// all match on their own; among them, the same keys, a synonym counting as a tag's whole word.
+/// </para>
 /// </remarks>
 internal static class EmojiSearch
 {
@@ -48,8 +53,12 @@ internal static class EmojiSearch
         return null;
     }
 
-    /// <summary>The emojis matching <paramref name="text"/>, most relevant first; none for a blank text.</summary>
-    public static IReadOnlyList<Emoji> Find(IReadOnlyList<EmojiCategory> categories, string text)
+    /// <summary>
+    /// The emojis matching <paramref name="text"/>, most relevant first; none for a blank text. A typed word matching
+    /// nothing in an emoji may match through its <paramref name="synonyms"/> — another word of its group, as a whole
+    /// keyword word —: such an emoji ranks after every emoji whose typed words all match on their own.
+    /// </summary>
+    public static IReadOnlyList<Emoji> Find(IReadOnlyList<EmojiCategory> categories, string text, SearchSynonyms? synonyms = null)
     {
         TypedWord[] typed = TypedWords(text);
         if (typed.Length == 0)
@@ -57,13 +66,16 @@ internal static class EmojiSearch
             return [];
         }
 
+        IReadOnlyList<string>[] alternatives = AlternativesOf(typed, synonyms);
+
         // OrderBy is a stable sort: equal ranks keep the catalog order.
         return categories
             .SelectMany(category => category.Emojis)
-            .Select(emoji => (Emoji: emoji, Rank: RankOf(emoji, typed)))
+            .Select(emoji => (Emoji: emoji, Rank: RankOf(emoji, typed, alternatives)))
             .Where(result => result.Rank is not null)
             .Select(result => (result.Emoji, Rank: result.Rank!.Value))
-            .OrderBy(result => result.Rank.WorstTier)
+            .OrderBy(result => result.Rank.ViaSynonym)
+            .ThenBy(result => result.Rank.WorstTier)
             .ThenByDescending(result => result.Rank.LowestCoverage)
             .ThenByDescending(result => result.Rank.NameMatches)
             .Select(result => result.Emoji)
@@ -120,9 +132,10 @@ internal static class EmojiSearch
     /// <paramref name="text"/>, as the search matches them: every occurrence of every typed word inside a word, case
     /// and diacritics ignored — a typed word holding a symbol with its symbols, or its letters-and-digits parts when
     /// <paramref name="raw"/> does not hold it whole. Positions in <paramref name="raw"/> as written, overlapping
-    /// matches merged, in order; none for a blank text.
+    /// matches merged, in order; none for a blank text. The <paramref name="synonyms"/> of each typed word are matched
+    /// too, as whole words only — as the search matches them.
     /// </summary>
-    public static IReadOnlyList<(int Start, int Length)> MatchSpans(string raw, string text)
+    public static IReadOnlyList<(int Start, int Length)> MatchSpans(string raw, string text, SearchSynonyms? synonyms = null)
     {
         TypedWord[] typed = TypedWords(text);
         if (typed.Length == 0)
@@ -130,11 +143,18 @@ internal static class EmojiSearch
             return [];
         }
 
+        IReadOnlyList<string>[] alternatives = AlternativesOf(typed, synonyms);
         var normalized = new MappedText(raw, Normalize);
         var folded = new MappedText(raw, Fold);
         var spans = new List<(int Start, int End)>();
-        foreach (TypedWord word in typed)
+        for (int index = 0; index < typed.Length; index++)
         {
+            foreach (string alternative in alternatives[index])
+            {
+                normalized.AddMatches(alternative, spans, wholeWord: true);
+            }
+
+            TypedWord word = typed[index];
             if (word.HasSymbol && folded.AddMatches(word.Folded, spans))
             {
                 continue;
@@ -182,15 +202,28 @@ internal static class EmojiSearch
         .Where(word => word.Folded.Length > 0)
         .ToArray();
 
-    // Null when a typed word matches nothing in the emoji.
-    private static Rank? RankOf(Emoji emoji, TypedWord[] typed)
+    // The synonyms of each typed word, in the same order: only a word without symbol has some — typed whole, its
+    // folded form is its normalized word.
+    private static IReadOnlyList<string>[] AlternativesOf(TypedWord[] typed, SearchSynonyms? synonyms) =>
+        [.. typed.Select(word => synonyms is null || word.HasSymbol ? [] : synonyms.AlternativesOf(word.Folded))];
+
+    // Null when a typed word matches nothing in the emoji, neither on its own nor through one of its synonyms.
+    private static Rank? RankOf(Emoji emoji, TypedWord[] typed, IReadOnlyList<string>[] alternatives)
     {
         int worstTier = Character;
         double lowestCoverage = 1;
         int nameMatches = 0;
-        foreach (TypedWord word in typed)
+        bool viaSynonym = false;
+        for (int index = 0; index < typed.Length; index++)
         {
-            if (MatchesOf(emoji, word) is not Match[] matches)
+            Match[]? matches = MatchesOf(emoji, typed[index]);
+            if (matches is null && SynonymMatch(emoji, alternatives[index]) is Match synonym)
+            {
+                matches = [synonym];
+                viaSynonym = true;
+            }
+
+            if (matches is null)
             {
                 return null;
             }
@@ -206,7 +239,22 @@ internal static class EmojiSearch
             }
         }
 
-        return new Rank(worstTier, lowestCoverage, nameMatches);
+        return new Rank(viaSynonym, worstTier, lowestCoverage, nameMatches);
+    }
+
+    // A synonym against the emoji's keywords: a whole keyword word only (car must not find cardigan), counted as a
+    // tag's whole word. Null when none of them is one.
+    private static Match? SynonymMatch(Emoji emoji, IReadOnlyList<string> alternatives)
+    {
+        foreach (string alternative in alternatives)
+        {
+            if (emoji.Keywords.Any(keyword => keyword.Word == alternative))
+            {
+                return new Match(Exact, 1, IsName: false);
+            }
+        }
+
+        return null;
     }
 
     // One typed word against the emoji: one match — or, for a word holding a symbol that no symbol keyword holds, one
@@ -283,8 +331,8 @@ internal static class EmojiSearch
     // A typed word against one keyword word.
     private readonly record struct Match(int Tier, double Coverage, bool IsName);
 
-    // An emoji against every typed word.
-    private readonly record struct Rank(int WorstTier, double LowestCoverage, int NameMatches);
+    // An emoji against every typed word. ViaSynonym: a typed word matched only through one of its synonyms.
+    private readonly record struct Rank(bool ViaSynonym, int WorstTier, double LowestCoverage, int NameMatches);
 
     // A raw text normalized one character at a time, each normalized character remembering the raw characters it
     // stands for: œ gives two (oe), so a match on either covers the whole œ; a combining mark gives none and joins the
@@ -322,14 +370,22 @@ internal static class EmojiSearch
             this.text = normalized.ToString();
         }
 
-        // Adds every occurrence of word, as positions in the raw text; false when there is none.
-        public bool AddMatches(string word, List<(int Start, int End)> spans)
+        // Adds every occurrence of word, as positions in the raw text — only those standing as a whole word, between
+        // two non-letters, with wholeWord —; false when there is none.
+        public bool AddMatches(string word, List<(int Start, int End)> spans, bool wholeWord = false)
         {
             bool found = false;
             for (int at = this.text.IndexOf(word, StringComparison.Ordinal); at >= 0;
                 at = this.text.IndexOf(word, at + 1, StringComparison.Ordinal))
             {
-                spans.Add((this.starts[at], this.ends[at + word.Length - 1]));
+                int end = at + word.Length;
+                if (wholeWord && ((at > 0 && char.IsLetterOrDigit(this.text[at - 1]))
+                    || (end < this.text.Length && char.IsLetterOrDigit(this.text[end]))))
+                {
+                    continue;
+                }
+
+                spans.Add((this.starts[at], this.ends[end - 1]));
                 found = true;
             }
 
