@@ -61,6 +61,11 @@ internal sealed class EmojiDetailsPanel : Control
     // How long the check mark replaces the copy glyph after a copy.
     private const int CopiedMilliseconds = 1000;
 
+    // How long the zoom's value stays under the tone swatch after the last change.
+    private const int ZoomShownMilliseconds = 2000;
+
+    private const string ZoomText = "{0}%";
+
     private const string TagSeparator = ", ";
 
     private const string ToneToolTip = "Skin tone: {0}";
@@ -74,6 +79,7 @@ internal sealed class EmojiDetailsPanel : Control
     private readonly EmojiRenderer renderer = new();
     private readonly ToolTip toolTip = new();
     private readonly System.Windows.Forms.Timer copiedTimer = new() { Interval = CopiedMilliseconds };
+    private readonly System.Windows.Forms.Timer zoomShownTimer = new() { Interval = ZoomShownMilliseconds };
     private readonly Flag usFlag = new("us", LogicalUsFlagWidth);
     private readonly Flag frenchFlag = new("fr", LogicalFrenchFlagWidth);
 
@@ -93,6 +99,10 @@ internal sealed class EmojiDetailsPanel : Control
     private Color highlightColor = DefaultHighlightColor;
     private SkinTone defaultTone;
     private bool alwaysShowTone = true;
+    private int zoomPercent = 100;
+
+    // The zoom's value shows under the tone swatch, for a moment after a change.
+    private bool showsZoom;
 
     // The part under the mouse, and the one the left button went down on.
     private Part hovered;
@@ -114,6 +124,49 @@ internal sealed class EmojiDetailsPanel : Control
         this.emoticonFont = new Font(this.Font.FontFamily, this.Font.Size - EmoticonFontShrink);
         this.iconFont = this.CreateIconFont();
         this.copiedTimer.Tick += (_, _) => this.EndCopied();
+        this.zoomShownTimer.Tick += (_, _) => this.EndZoomShown();
+    }
+
+    /// <summary>
+    /// The emojis' zoom, percent: the emoji drawn large follows it, and so does the panel's height. The texts, the copy
+    /// button and the tone swatch keep their size.
+    /// </summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public int ZoomPercent
+    {
+        get => this.zoomPercent;
+        set
+        {
+            if (value != this.zoomPercent)
+            {
+                this.zoomPercent = value;
+                this.RenderEmoji();
+                this.RequestHeight();
+                this.Invalidate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Shows the zoom's value under the tone swatch — at its place while the swatch does not show —, gone
+    /// <see cref="ZoomShownMilliseconds"/> after the last call. Its line is always kept: the panel never moves for it.
+    /// </summary>
+    public void ShowZoom()
+    {
+        this.showsZoom = true;
+        this.zoomShownTimer.Stop();
+        this.zoomShownTimer.Start();
+        this.Invalidate(this.ZoomBounds);
+    }
+
+    private void EndZoomShown()
+    {
+        this.zoomShownTimer.Stop();
+        if (this.showsZoom)
+        {
+            this.showsZoom = false;
+            this.Invalidate(this.ZoomBounds);
+        }
     }
 
     /// <summary>The emoji shown: the grid's selection; null shows an empty panel.</summary>
@@ -232,12 +285,17 @@ internal sealed class EmojiDetailsPanel : Control
 
     private int PanelPadding => this.LogicalToDeviceUnits(LogicalPadding);
 
-    private int EmojiSize => this.LogicalToDeviceUnits(LogicalEmojiSize);
+    private int EmojiSize => this.EmojiSizeAt(this.zoomPercent);
 
     private int ButtonSize => this.LogicalToDeviceUnits(LogicalButtonSize);
 
     // Where the rows start: right of the emoji.
-    private int TextLeft => this.PanelPadding + this.EmojiSize + this.PanelPadding;
+    private int TextLeft => this.TextLeftAt(this.EmojiSize);
+
+    // The emoji drawn large at a zoom, percent.
+    private int EmojiSizeAt(int zoomPercent) => (int)Math.Round(this.LogicalToDeviceUnits(LogicalEmojiSize) * zoomPercent / 100.0);
+
+    private int TextLeftAt(int emojiSize) => this.PanelPadding + emojiSize + this.PanelPadding;
 
     // A name starts after the widest flag: the names of both rows line up.
     private int NameIndent => this.LogicalToDeviceUnits(LogicalUsFlagWidth + LogicalFlagGap);
@@ -248,22 +306,46 @@ internal sealed class EmojiDetailsPanel : Control
     private Rectangle ToneBounds => new(this.ButtonBounds.X, this.ButtonBounds.Bottom + this.LogicalToDeviceUnits(LogicalToneGap),
         this.ButtonSize, this.ButtonSize);
 
-    // The copy button, then the tone swatch under it when the catalog has variants or the swatch always shows.
+    // Whether the panel keeps the tone swatch's room: the catalog has variants, or the swatch always shows.
+    private bool HasToneRoom => this.hasVariants || this.alwaysShowTone;
+
+    // The zoom's value: under the tone swatch while it shows, at its place otherwise; centred on the right column, as
+    // wide as it and its paddings — "200%" is wider than the button.
+    private Rectangle ZoomBounds
+    {
+        get
+        {
+            int top = this.ShowsTone ? this.ToneBounds.Bottom + this.LogicalToDeviceUnits(LogicalToneGap) : this.ToneBounds.Y;
+            Rectangle button = this.ButtonBounds;
+            return new Rectangle(button.X - this.PanelPadding, top, button.Width + 2 * this.PanelPadding, this.LineHeight(this.Font));
+        }
+    }
+
+    // The copy button, then the tone swatch under it when the panel keeps its room, then the zoom's line — always kept.
     private int RightColumnHeight =>
-        this.hasVariants || this.alwaysShowTone ? this.ToneBounds.Bottom - this.PanelPadding : this.ButtonSize;
+        (this.HasToneRoom ? this.ToneBounds.Bottom : this.ButtonBounds.Bottom) - this.PanelPadding
+            + this.LogicalToDeviceUnits(LogicalToneGap) + this.LineHeight(this.Font);
 
     // Whether the tone swatch shows: always, or while the shown emoji has variants.
     private bool ShowsTone => this.alwaysShowTone || this.shownEmoji is { Variants.Count: > 0 };
 
     /// <summary>
     /// The panel's height at <paramref name="width"/>: the emoji with the most text, the French row included while
-    /// shown, fits, and so do the copy button and the tone swatch — device pixels, at the current DPI.
+    /// shown, fits, and so do the copy button, the tone swatch and the zoom's line — device pixels, at the current DPI
+    /// and zoom.
     /// </summary>
-    public int HeightFor(int width)
+    public int HeightFor(int width) => this.HeightFor(width, this.zoomPercent);
+
+    /// <summary>
+    /// <see cref="HeightFor(int)"/> at another zoom, percent — 100 for the window's default size, which does not follow
+    /// the zoom.
+    /// </summary>
+    public int HeightFor(int width, int zoomPercent)
     {
-        int textWidth = this.TextWidthFor(width);
+        int emojiSize = this.EmojiSizeAt(zoomPercent);
+        int textWidth = this.TextWidthFor(width, this.TextLeftAt(emojiSize));
         int text = this.catalog.Count == 0 ? 0 : this.catalog.Max(emoji => this.TextHeight(emoji, textWidth));
-        int emojiColumn = this.EmojiSize + (this.catalog.Any(emoji => emoji.Emoticons.Count > 0) ? this.LineHeight(this.emoticonFont) : 0);
+        int emojiColumn = emojiSize + (this.catalog.Any(emoji => emoji.Emoticons.Count > 0) ? this.LineHeight(this.emoticonFont) : 0);
         return 2 * this.PanelPadding + Math.Max(Math.Max(emojiColumn, this.RightColumnHeight), text);
     }
 
@@ -368,6 +450,13 @@ internal sealed class EmojiDetailsPanel : Control
             this.PaintTone(graphics);
         }
 
+        // A moment after a zoom change, an empty panel included.
+        if (this.showsZoom)
+        {
+            UI.Glass.DrawText(graphics, this.glass, string.Format(ZoomText, this.zoomPercent), this.Font, this.ZoomBounds,
+                SystemColors.GrayText, TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFlags);
+        }
+
         if (this.shownEmoji is not Emoji emoji)
         {
             return;
@@ -468,6 +557,7 @@ internal sealed class EmojiDetailsPanel : Control
             this.renderer.Dispose();
             this.toolTip.Dispose();
             this.copiedTimer.Dispose();
+            this.zoomShownTimer.Dispose();
             this.usFlag.Dispose();
             this.frenchFlag.Dispose();
             this.emojiBitmap?.Dispose();
@@ -490,7 +580,9 @@ internal sealed class EmojiDetailsPanel : Control
     }
 
     // Between the emoji and the button.
-    private int TextWidthFor(int width) => Math.Max(1, width - this.TextLeft - this.PanelPadding - this.ButtonSize - this.PanelPadding);
+    private int TextWidthFor(int width) => this.TextWidthFor(width, this.TextLeft);
+
+    private int TextWidthFor(int width, int textLeft) => Math.Max(1, width - textLeft - this.PanelPadding - this.ButtonSize - this.PanelPadding);
 
     private int TextHeight(Emoji emoji, int textWidth)
     {
