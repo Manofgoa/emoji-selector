@@ -54,6 +54,10 @@ Components: `UI/MainForm.cs` (settings menu, setting, wiring), `UI/EmojiGrid.cs`
 - The grid raises an event (`ZoomRequested`, the new percentage); `MainForm` applies and saves it — the same path as
   the menu's box.
 - High-resolution wheels (deltas under 120) accumulate until a whole notch.
+- **Anchor**: the emoji **under the mouse** keeps its place on screen, as far as the scroll allows — like an image
+  viewer. Over no emoji (a header, a gap), the point under the mouse keeps its relative place in the content.
+- The menu's box keeps the **selection** in view instead (the least scroll that shows it).
+- **No keyboard shortcut** (Ctrl+`+` / Ctrl+`-` / Ctrl+`0`): not asked, out of scope.
 
 ---
 
@@ -63,7 +67,7 @@ Components: `UI/MainForm.cs` (settings menu, setting, wiring), `UI/EmojiGrid.cs`
 |---|---|---|
 | Grid | Cell size (`LogicalCellSize` 40), emoji size (`LogicalEmojiSize` 28), the captioned cell's emoji part | Header height, padding, sub-category labels and their gap, the use counts' font, the selection frame's width, the insertion bar |
 | Details panel | The large emoji (`LogicalEmojiSize` 48) — so the panel's height (`HeightFor`) | The names, tags, flags, emoticons' font, copy button, tone swatch |
-| Window | — | Its size: the window keeps its size, the grid gets more or fewer columns |
+| Window | — | Its size: the window keeps its size, the grid gets more or fewer columns. The **default size** (16 columns × 8 rows, `Reset window size` included) is computed **at 100 %** whatever the zoom (`EmojiGrid.SizeFor`, `EmojiDetailsPanel.HeightFor` given the unzoomed sizes) |
 | Tray icon, tabs, search box | — | Everything |
 
 - The zoomed sizes are rounded to whole device pixels: `LogicalToDeviceUnits(logical) × zoom / 100`.
@@ -78,9 +82,15 @@ Components: `UI/MainForm.cs` (settings menu, setting, wiring), `UI/EmojiGrid.cs`
 
 - A zoom change is a new **emoji size**: the grid's `EnsureBitmapSize` starts a pre-render at that size, exactly
   like a DPI change. The disk cache already keeps one atlas per size (`cache\emojis-{size}.png`): each zoom level
-  visited gets its own, reloaded at once the next time.
-- Today `EmojiBitmapCache.Start` **drops the previous size's bitmaps**: until the new ones are ready, every cell is
-  fluorescent green. See Open Questions for the transition.
+  visited gets its own, reloaded at once the next time. **All kept**: no atlas deleted on a zoom change — the folder
+  is disposable, `Reset all settings…` empties it.
+- **Transition**: today `EmojiBitmapCache.Start` drops the previous size's bitmaps, every cell fluorescent green
+  until the new ones are ready. From now on the **previous run is kept as a fallback**: a cell whose emoji the new
+  run has not reached yet draws the previous size's bitmap **stretched** to the new size (slightly blurry for a
+  moment). The fallback is released once the new run has finished. Fluorescent green stays for a cell no size has
+  yet (first launch). A DPI change gets the same fallback.
+- Several quick zoom changes (Ctrl+wheel notches): each starts a new run, the previous one cancelled; the fallback
+  is the last run that holds bitmaps.
 - The details panel renders its emoji on demand with its own renderer: no cache involved.
 
 ---
@@ -98,19 +108,14 @@ on the built dll and by launching the app, as the other features' checks do (RUL
 
 ## Open Questions
 
-- [ ] **Transition while re-rendering**: on a zoom change, until the new size is pre-rendered, show the **previous
-  size's bitmaps stretched** (slightly blurry for a moment) instead of fluorescent green? Proposal: yes — the
-  previous run kept as a fallback until the new one has the emoji; green stays for a cell no size has yet.
-- [ ] **Anchor**: Ctrl+wheel keeps **the emoji under the mouse** at its place on screen (as far as the scroll
-  allows), like an image viewer? Proposal: yes. The menu's box keeps the **selection** in view instead.
-- [ ] **Default window size** (16 columns × 8 rows, also used by `Reset window size`): computed at 100 % whatever
-  the zoom, or at the zoom in use (at 200 % the default window would be twice as wide and tall)? Proposal: at 100 %.
-- [ ] **Keyboard shortcuts** Ctrl+`+` / Ctrl+`-` / Ctrl+`0` (reset to 100 %)? Proposal: no, out of scope — not
-  asked.
-- [ ] **Menu label**: `Emoji zoom` (the box showing `100 %`)? Proposal: yes.
-- [ ] **Disk cache growth**: 13 zoom levels × each DPI → up to 13 atlases per monitor scale in `cache\` (a few MB
-  each at 200 %). Keep them all, or keep only the atlases of the current zoom? Proposal: keep them all — the folder
-  is disposable and `Reset all settings…` empties it.
+- [x] ~~Transition while re-rendering: previous size's bitmaps stretched, or fluorescent green?~~ → The previous
+  size's bitmaps stretched, until the new run has the emoji; green only where no size has it yet.
+- [x] ~~Anchor of Ctrl+wheel?~~ → The emoji under the mouse keeps its place on screen; the menu's box keeps the
+  selection in view.
+- [x] ~~Default window size at 100 % or at the zoom in use?~~ → At 100 %, whatever the zoom.
+- [x] ~~Keyboard shortcuts Ctrl+`+` / Ctrl+`-` / Ctrl+`0`?~~ → No, out of scope.
+- [x] ~~Menu label?~~ → `Emoji zoom`.
+- [x] ~~Disk cache growth: keep every zoom level's atlas?~~ → Keep them all.
 
 ---
 
@@ -129,6 +134,14 @@ and the details panel's large emoji zoomed, Ctrl+wheel over the grid only, 80–
 findings: the grid's cell and emoji sizes are two constants scaled by the DPI, the layout takes the cell size as an
 input, the bitmap cache already pre-renders and stores per size — a zoom change is handled like a DPI change. Six
 open questions with proposals.
+
+### Iteration 2 — 2026-11-05
+
+The six open questions answered, every proposal accepted: the previous size's bitmaps shown stretched while the new
+size is pre-rendered (instead of fluorescent green); Ctrl+wheel anchored on the emoji under the mouse, the menu's
+box keeping the selection in view; the default window size computed at 100 %; no keyboard shortcut; the label
+`Emoji zoom`; every zoom level's atlas kept in `cache\`. Sections *Ctrl+Wheel*, *What the Zoom Scales* and
+*Pre-render and Cache* updated.
 
 ---
 
@@ -157,7 +170,7 @@ Questions asked by the agent during design, with user responses.
 | 4 | Is the subject straightforward or tricky / long? | Straightforward — a single exploration pass | 2026-11-05 |
 | 5 | Where the numeric box goes (clarified: a real `NumericUpDown` in the menu) | Settings menu, under `Highlight color…` | 2026-11-05 |
 | 6 | Range and step | 80 → 200 %, step 10 | 2026-11-05 |
-| 7 | The six open questions (transition, anchor, default window size, shortcuts, label, cache growth) | | 2026-11-05 |
+| 7 | The six open questions (transition, anchor, default window size, shortcuts, label, cache growth) | Every proposal accepted: stretched previous bitmaps, anchor on the emoji under the mouse, default size at 100 %, no shortcut, `Emoji zoom`, keep every atlas | 2026-11-05 |
 
 ---
 
