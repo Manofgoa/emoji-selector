@@ -1106,6 +1106,39 @@ tone of the highlighted item, live, before anything is chosen (origin:
 - An agent cannot check the preview from a script: the menus open from the custom-drawn grid and
   details panel (see *Own tone* above). It is checked by hand.
 
+## Icons
+
+Every **action and toggle** of every menu shows an icon in front of its text, a **colour emoji** (origin:
+`workfiles/20261106-menu-icons.md`, modelled on Image Grid Fusion's), one definition, `UI/MenuIcons.cs`.
+
+- **Which entries**: the actions and toggles of the settings menu, an emoji's right-click menu, the "…" menus of the
+  frequent section and of a group, the tray icon's menu — and every submenu naming a subject (`Show groups ▸`,
+  `Window opacity ▸`, `Acrylic veil ▸`, `Add to ▸`, `Skin tone ▸`, `First person ▸` / `Second person ▸`) —, a new one
+  included. Never a submenu's **values** (the percentages, `Acrylic`, the group names, `Use default tone`, the tones).
+  A **colour item** keeps its swatch (shared RULES.md § Colour Items), the tones theirs.
+- **One meaning, one icon**: a `MenuIcons` constant per meaning, shared by every entry showing it — the frequent tab's
+  star ⭐ for `Show frequently used`, the custom tab's heart ❤️ for `Show groups ▸` and `Add to ▸`, 🎨 for both skin-tone
+  entries, 🗂️ for both sub-category toggles, 🙈 for both `Hide …`, ➖ for both `Remove …`. A new entry takes the
+  constant of its meaning, or adds one. **`Use as tray icon`** shows the right-clicked emoji itself, as shown — what
+  the tray icon would show.
+- **Drawn in colour by Direct2D** (`EmojiRenderer`, flag images included — `Show French names` 🇫🇷): GDI draws Segoe UI
+  Emoji in one colour. Rendered at **four times** the icon's side, then scaled down to **16 logical pixels in device
+  pixels** (`MenuIcons.Get`) — never a 16 px bitmap stretched —, each (emoji, size) once, kept in memory for the app's
+  life, on the UI thread. Nothing written on the disk.
+- **Set on an item** with `MenuIcons.Set`: `ImageScaling = None`, a copy of the icon disposed with the item; set again
+  with the same emoji and size, nothing changes. A menu built for one show sets its icons when it is built, at the
+  window's DPI (`MenuIcons.SizeFor(this)`); the settings menu at each opening, as its swatch, so it follows the
+  monitor; the tray icon's menu at each opening, at the small-icon size, as the tray icon itself.
+- **A hosted control** (`Emoji zoom`, a `ToolStripControlHost`) has no image: `MenuIcons.SetHostIcon` registers its
+  icon, drawn in the image margin, centred on its row, by the menu's renderer `MenuIcons.MenuRenderer` — WinForms'
+  default renderer otherwise.
+- **Checked toggles**: WinForms' default look — the icon framed in place of the ✓. **Disabled** entries: their icon
+  greyed by WinForms.
+- An agent checking the icons cannot click the settings button nor the grid: it runs `MainForm` in its own `pwsh -Sta`
+  process on a **copy** of the build folder (see *Emoji Zoom*), opens the menus by reflection (`settingsMenu.Show`,
+  `EmojiGrid.OpenSelectionMenu`, `ShowSectionMenu`) and draws each one with `DrawToBitmap` — a screen capture shows
+  nothing while the session is locked.
+
 ## Repository Docs
 
 The repository's docs — the French versions (`README.fr.md`, `GLOSSARY.fr.md`) kept in step with
