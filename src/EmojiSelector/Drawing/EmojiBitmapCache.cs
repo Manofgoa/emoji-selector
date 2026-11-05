@@ -37,6 +37,10 @@ internal sealed class EmojiBitmapCache : IDisposable
     // Held while an atlas is written, so StopWriting returns only once no write is under way.
     private readonly object writeGate = new();
     private Run? run;
+
+    // A run of a previous size, kept while the current one has not finished: its bitmaps stand in, stretched, for the
+    // ones the current run has not reached yet. Null when none.
+    private Run? fallback;
     private int notificationPending;
     private bool writingStopped;
 
@@ -56,12 +60,27 @@ internal sealed class EmojiBitmapCache : IDisposable
     public int Size => this.run?.Size ?? 0;
 
     /// <summary>
-    /// Drops the bitmaps of the previous size, if any, and starts pre-rendering every emoji at
-    /// <paramref name="size"/> pixels — from the disk cache when it holds them.
+    /// Starts pre-rendering every emoji at <paramref name="size"/> pixels — from the disk cache when it holds them. The
+    /// previous size's pre-render stops; its bitmaps stand in for the new ones until the new run has finished (see
+    /// <see cref="TryGet"/>) — of the previous runs, the one holding the most bitmaps, so quick changes of size keep the
+    /// last complete one.
     /// </summary>
     public void Start(int size)
     {
-        this.run?.Cancel();
+        if (this.run is Run previous)
+        {
+            previous.Stop();
+            if (previous.Bitmaps.Count > (this.fallback?.Bitmaps.Count ?? 0))
+            {
+                this.fallback?.Release();
+                this.fallback = previous;
+            }
+            else
+            {
+                previous.Release();
+            }
+        }
+
         var run = new Run(size);
         this.run = run;
         var thread = new Thread(() => this.PreRender(run))
@@ -73,9 +92,14 @@ internal sealed class EmojiBitmapCache : IDisposable
         thread.Start();
     }
 
-    /// <summary>The emoji's bitmap, or null while the pre-render has not reached it.</summary>
+    /// <summary>
+    /// The emoji's bitmap at <see cref="Size"/>; while the pre-render has not reached it, the previous size's bitmap,
+    /// which the caller draws stretched; null when no size has it yet.
+    /// </summary>
     public Bitmap? TryGet(string emoji) =>
-        this.run is Run run && run.Bitmaps.TryGetValue(emoji, out Bitmap? bitmap) ? bitmap : null;
+        this.run is Run run && run.Bitmaps.TryGetValue(emoji, out Bitmap? bitmap) ? bitmap
+        : this.fallback is Run fallback && fallback.Bitmaps.TryGetValue(emoji, out bitmap) ? bitmap
+        : null;
 
     /// <summary>
     /// No atlas written to <see cref="FolderName"/> from now on — the bitmaps keep being pre-rendered and shown. Waits
@@ -91,8 +115,10 @@ internal sealed class EmojiBitmapCache : IDisposable
 
     public void Dispose()
     {
-        this.run?.Cancel();
+        this.run?.Release();
         this.run = null;
+        this.fallback?.Release();
+        this.fallback = null;
     }
 
     private static string CacheFolder => Path.Combine(AppContext.BaseDirectory, FolderName);
@@ -127,6 +153,19 @@ internal sealed class EmojiBitmapCache : IDisposable
         finally
         {
             run.Finish();
+            this.uiContext?.Post(_ => this.ReleaseFallback(run), null);
+        }
+    }
+
+    // The current run finished: the previous size's bitmaps are no longer needed. On the UI thread, the one reading them.
+    private void ReleaseFallback(Run finished)
+    {
+        if (finished == this.run && this.fallback is Run fallback)
+        {
+            this.fallback = null;
+            fallback.Release();
+            // An emoji the run could not render showed the previous size's bitmap: it shows green now.
+            this.BitmapsReady?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -317,25 +356,32 @@ internal sealed class EmojiBitmapCache : IDisposable
         }
     }
 
-    // One pre-render at one size. Its bitmaps are disposed exactly once: by whoever comes second between the thread
-    // finishing and the run being cancelled — never while the thread may still publish.
+    // One pre-render at one size. Stopped, its thread publishes no more bitmaps, but the ones it has may still stand in
+    // for another size's. Its bitmaps are disposed exactly once: by whoever comes second between the thread finishing
+    // and the run being released — never while the thread may still publish, nor while the UI thread may still read them.
     private sealed class Run(int size)
     {
         private readonly object gate = new();
-        private bool cancelled;
+        private bool stopped;
+        private bool released;
         private bool finished;
 
         public int Size { get; } = size;
 
         public ConcurrentDictionary<string, Bitmap> Bitmaps { get; } = new();
 
-        public bool IsCancelled => Volatile.Read(ref this.cancelled);
+        public bool IsCancelled => Volatile.Read(ref this.stopped);
 
-        public void Cancel()
+        // The thread stops at its next emoji; the bitmaps stay.
+        public void Stop() => Volatile.Write(ref this.stopped, true);
+
+        // Stopped, and no longer read: the bitmaps go once the thread has finished.
+        public void Release()
         {
             lock (this.gate)
             {
-                Volatile.Write(ref this.cancelled, true);
+                Volatile.Write(ref this.stopped, true);
+                this.released = true;
                 if (this.finished)
                 {
                     this.DisposeBitmaps();
@@ -348,7 +394,7 @@ internal sealed class EmojiBitmapCache : IDisposable
             lock (this.gate)
             {
                 this.finished = true;
-                if (this.cancelled)
+                if (this.released)
                 {
                     this.DisposeBitmaps();
                 }
