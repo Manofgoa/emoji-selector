@@ -1,3 +1,5 @@
+<img src="https://flagcdn.com/w20/gb.png" width="20" alt="GB"> English · [<img src="https://flagcdn.com/w20/fr.png" width="20" alt="FR"> Français](SECURITY.fr.md)
+
 # Security
 
 Emoji Selector is an offline desktop app: it inserts the emojis you pick into the app you are

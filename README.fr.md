@@ -34,12 +34,12 @@ Chaque mot employé ici a un seul sens, donné dans le [glossaire](GLOSSARY.fr.m
 
 ## Compilation et exécution
 
-Voir [CONTRIBUTING.md § Build](CONTRIBUTING.md#build) (en anglais).
+Voir [CONTRIBUTING.fr.md § Compilation](CONTRIBUTING.fr.md#compilation).
 
 ## Technique
 
-C# / WinForms sur .NET 10, n'utilisant que les composants propres à Windows, aucune bibliothèque tierce. La liste des émojis et leurs mots-clés, en anglais et en français, viennent des données d'[Emojibase](https://emojibase.dev) (MIT), embarquées dans l'exe et écrites dans `emoji-data` à côté de lui : voir [CONTRIBUTING.md § Emoji data](CONTRIBUTING.md#emoji-data) (en anglais). L'icône de l'application est le *Slightly smiling face* des [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) de Microsoft (MIT) : voir [CONTRIBUTING.md § App icon](CONTRIBUTING.md#app-icon) (en anglais). Les images de drapeaux sont celles de [Twemoji](https://github.com/jdecked/twemoji), par Twitter et ses contributeurs ([CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.fr)) : voir [CONTRIBUTING.md § Flag images](CONTRIBUTING.md#flag-images) (en anglais).
+C# / WinForms sur .NET 10, n'utilisant que les composants propres à Windows, aucune bibliothèque tierce. La liste des émojis et leurs mots-clés, en anglais et en français, viennent des données d'[Emojibase](https://emojibase.dev) (MIT), embarquées dans l'exe et écrites dans `emoji-data` à côté de lui : voir [CONTRIBUTING.fr.md § Données des émojis](CONTRIBUTING.fr.md#données-des-émojis). L'icône de l'application est le *Slightly smiling face* des [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) de Microsoft (MIT) : voir [CONTRIBUTING.fr.md § Icône de l'application](CONTRIBUTING.fr.md#icône-de-lapplication). Les images de drapeaux sont celles de [Twemoji](https://github.com/jdecked/twemoji), par Twitter et ses contributeurs ([CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.fr)) : voir [CONTRIBUTING.fr.md § Images de drapeaux](CONTRIBUTING.fr.md#images-de-drapeaux).
 
 ## Licence
 
-[MIT](LICENSE) © Manofgoa. Contributions : voir [CONTRIBUTING.md](CONTRIBUTING.md) ; problèmes de sécurité : voir [SECURITY.md](SECURITY.md).
+[MIT](LICENSE) © Manofgoa. Contributions : voir [CONTRIBUTING.fr.md](CONTRIBUTING.fr.md) ; problèmes de sécurité : voir [SECURITY.fr.md](SECURITY.fr.md).
