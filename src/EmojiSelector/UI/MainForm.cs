@@ -70,6 +70,18 @@ internal sealed class MainForm : Form
 
     public const string HighlightColorText = "Highlight color…";
 
+    public const string EmojiZoomText = "Emoji zoom";
+
+    // The emojis' zoom, percent: from MinZoom to MaxZoom by ZoomStep, 100 by default. A saved one between two steps, or
+    // out of the range, takes the nearest step (see NearestZoom).
+    private const int MinZoom = 70;
+    private const int MaxZoom = 400;
+    private const int ZoomStep = 10;
+    private const int DefaultZoom = 100;
+
+    // The zoom box's width in the settings menu, in logical pixels.
+    private const int LogicalZoomBoxWidth = 64;
+
     public const string AlwaysShowSkinToneText = "Always show skin tone";
 
     public const string StartWithWindowsText = "Start with Windows";
@@ -109,7 +121,7 @@ internal sealed class MainForm : Form
         + "This deletes, and cannot be undone:\n"
         + "• the custom groups and their emojis\n"
         + "• the use counters of Frequently used\n"
-        + "• the window size and opacity, the tray emoji, the details panel's settings\n"
+        + "• the window size and opacity, the emoji zoom, the tray emoji, the details panel's settings\n"
         + "• the skin tones, the default ones and the emojis' own\n"
         + "• the special characters' list — back to the default one\n"
         + "• Start with Windows\n"
@@ -271,6 +283,14 @@ internal sealed class MainForm : Form
     // Windows' Acrylic backdrop under the whole window, in place of the opacity: the two are one setting.
     private bool acrylic = SettingsFile.ReadAcrylic();
 
+    // The emojis' zoom, percent — the grid's cells and emojis, the details panel's large emoji —: a step of the range,
+    // DefaultZoom when nothing is saved.
+    private int emojiZoom = NearestZoom(SettingsFile.ReadEmojiZoom() ?? DefaultZoom);
+
+    // The settings menu's zoom box, and whether the code is setting its value: its ValueChanged is not the user's then.
+    private PercentUpDown? zoomBox;
+    private bool settingZoomBox;
+
     // How many sections the custom tab has in the grid: one per shown group, the placeholder alone while there is no
     // group, none — and no custom tab — while every group is hidden.
     private int customSectionCount;
@@ -377,7 +397,7 @@ internal sealed class MainForm : Form
             .. this.specialCategory.Emojis];
         this.grid = new EmojiGrid(
             [.. this.CreateFrequentSections(), .. customSections, .. this.ShownCatalogSections(), .. this.ShownSpecialSections()],
-            offered, 100)
+            offered, this.emojiZoom)
         {
             Dock = DockStyle.Fill,
             ShownText = this.ShownText,
@@ -394,6 +414,7 @@ internal sealed class MainForm : Form
             HighlightColor = SettingsFile.ReadHighlightColor() ?? EmojiDetailsPanel.DefaultHighlightColor,
             ShownText = this.ShownText,
             DefaultTone = this.skinTone,
+            ZoomPercent = this.emojiZoom,
         };
 
         // Never narrower than the tab strip needs, its side resize borders added. Never lower than the details panel
@@ -429,6 +450,7 @@ internal sealed class MainForm : Form
         this.grid.EmojiRightClicked += (_, click) => this.ShowEmojiMenu(click);
         this.grid.SectionMenuClicked += (_, request) => this.ShowSectionMenu(request);
         this.grid.EmojiMoved += (_, move) => this.MoveEmoji(move);
+        this.grid.ZoomRequested += (_, request) => this.SetEmojiZoom(this.emojiZoom + request.Steps * ZoomStep, request.Anchor);
         ResumeLayout(performLayout: false);
 
         // The emoji the user chose — in its skin tone —, while the catalog still has it; the setting is left as it is
@@ -833,7 +855,9 @@ internal sealed class MainForm : Form
         // The search bar's preferred height: before the first show, its AutoSize may not have applied yet.
         Size grid = this.grid.SizeFor(DefaultColumns, DefaultRows);
         int searchBarHeight = this.searchBar.GetPreferredSize(new Size(grid.Width, 0)).Height;
-        return new Size(grid.Width, searchBarHeight + this.tabStrip.Height + grid.Height + this.detailsPanel.HeightFor(grid.Width));
+        // At 100 % whatever the zoom: the default size does not follow it, the grid and the panel do.
+        return new Size(grid.Width,
+            searchBarHeight + this.tabStrip.Height + grid.Height + this.detailsPanel.HeightFor(grid.Width, DefaultZoom));
     }
 
     // The details panel's height follows the window's width: the window's minimum height follows it — device pixels,
@@ -897,6 +921,7 @@ internal sealed class MainForm : Form
         var highlightColorItem = new ToolStripMenuItem(HighlightColorText);
         highlightColorItem.Click += (_, _) => this.ChooseHighlightColor();
         menu.Items.Add(highlightColorItem);
+        menu.Items.Add(this.CreateZoomItem());
         var alwaysShowSkinToneItem = new ToolStripMenuItem(AlwaysShowSkinToneText);
         alwaysShowSkinToneItem.Click += (_, _) => this.SetAlwaysShowSkinTone(!this.detailsPanel.AlwaysShowTone);
         menu.Items.Add(alwaysShowSkinToneItem);
@@ -957,6 +982,7 @@ internal sealed class MainForm : Form
             }
 
             this.SetSwatch(highlightColorItem, this.detailsPanel.HighlightColor);
+            this.UpdateZoomBox();
             // Read from the Startup folder each time: the user may delete the shortcut, or disable it in the Task
             // Manager.
             startWithWindowsItem.Checked = StartupShortcut.IsEnabled();
@@ -966,6 +992,91 @@ internal sealed class MainForm : Form
         menu.Disposed += (_, _) => highlightColorItem.Image?.Dispose();
         return menu;
     }
+
+    // The settings menu's zoom row: its label, then a numeric box with its arrows, hosted in the menu — clicking it
+    // leaves the menu open. Each change applies at once: the arrows, the arrow keys and the wheel in the box, a typed
+    // value on Enter or when the box loses the focus; one between two steps goes to the nearest.
+    private ToolStripControlHost CreateZoomItem()
+    {
+        var label = new Label { Text = EmojiZoomText, AutoSize = true, Anchor = AnchorStyles.Left, BackColor = Color.Transparent };
+        this.zoomBox = new PercentUpDown
+        {
+            Minimum = MinZoom,
+            Maximum = MaxZoom,
+            Increment = ZoomStep,
+            Value = this.emojiZoom,
+            TextAlign = HorizontalAlignment.Right,
+            Anchor = AnchorStyles.Left,
+        };
+        this.zoomBox.ValueChanged += (_, _) =>
+        {
+            if (!this.settingZoomBox && this.zoomBox is PercentUpDown box)
+            {
+                this.SetEmojiZoom(NearestZoom((int)box.Value), anchor: null);
+                // A typed value between two steps shows the step it went to.
+                this.UpdateZoomBox();
+            }
+        };
+        var row = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = false,
+            BackColor = Color.Transparent,
+            Margin = Padding.Empty,
+        };
+        row.Controls.Add(label);
+        row.Controls.Add(this.zoomBox);
+        return new ToolStripControlHost(row) { AutoSize = true, BackColor = Color.Transparent };
+    }
+
+    // The zoom box shows the zoom in use — Ctrl+wheel may have changed it —, at the window's DPI.
+    private void UpdateZoomBox()
+    {
+        if (this.zoomBox is not PercentUpDown box)
+        {
+            return;
+        }
+
+        this.settingZoomBox = true;
+        try
+        {
+            box.Width = this.LogicalToDeviceUnits(LogicalZoomBoxWidth);
+            box.Value = this.emojiZoom;
+        }
+        finally
+        {
+            this.settingZoomBox = false;
+        }
+    }
+
+    // The emojis' zoom, from the settings menu's box or Ctrl+wheel over the grid: clamped to the range, applied to the
+    // grid — keeping the anchor in place, the selection without one — and the details panel, saved; its value shown
+    // under the tone swatch for a moment, even at an end of the range, where the wheel changes nothing.
+    private void SetEmojiZoom(int percent, Point? anchor)
+    {
+        percent = Math.Clamp(percent, MinZoom, MaxZoom);
+        if (percent != this.emojiZoom)
+        {
+            this.emojiZoom = percent;
+            this.grid.SetZoom(percent, anchor);
+            this.detailsPanel.ZoomPercent = percent;
+            SettingsFile.WriteEmojiZoom(percent);
+        }
+
+        this.detailsPanel.ShowZoom();
+        // Painted now, not once the wheel stops: Windows paints only when no other message waits, and every notch of a
+        // Ctrl+wheel brings one.
+        this.grid.Update();
+        this.detailsPanel.Update();
+    }
+
+    // The step nearest a saved zoom, which may have been written by hand, clamped to the range: 95 → 100, 450 → 400; a
+    // tie goes to the step nearer 100 %: 85 → 90, 115 → 110.
+    private static int NearestZoom(int percent) =>
+        Enumerable.Range(0, (MaxZoom - MinZoom) / ZoomStep + 1)
+            .Select(step => MinZoom + step * ZoomStep)
+            .MinBy(step => (Math.Abs(step - percent), Math.Abs(step - DefaultZoom)));
 
     // A colour item's image becomes a swatch of the colour in use: a rounded square, outlined so a colour close to the
     // menu's background still shows, at the window's DPI. Drawn again on every opening of the menu, so it follows the
