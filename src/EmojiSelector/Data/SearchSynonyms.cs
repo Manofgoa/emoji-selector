@@ -1,14 +1,16 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 namespace EmojiSelector.Data;
 
 /// <summary>
 /// The <b>synonyms</b> of the search box: groups of equivalent words (<c>car, auto, voiture, bagnole</c>), read at launch
-/// from <see cref="FileName"/> next to the exe — a file the user may edit. A typed word equal to a word of a group also
-/// looks for the other words of that group, as whole keyword words (see <see cref="EmojiSearch.Find"/>). A copy of the
-/// default list is embedded in the exe: it writes the file when it is missing, never over an existing one, so the
-/// user's edits win over a newer exe.
+/// from <see cref="FileName"/> next to the exe — a file the user may edit. A typed word starting a word of a group —
+/// <see cref="MinPrefixLength"/> letters at least, <c>bag</c> starts <c>bagnole</c> — also looks for the words of that
+/// group, as whole keyword words (see <see cref="EmojiSearch.Find"/>); the details panel lists an emoji's synonyms
+/// (<see cref="SynonymsOf"/>). A copy of the default list is embedded in the exe: it writes the file when it is missing,
+/// never over an existing one, so the user's edits win over a newer exe.
 /// </summary>
 /// <remarks>
 /// An invalid file — not JSON, or without a <c>groups</c> list — is kept as it is, for the user to fix: the embedded
@@ -24,6 +26,9 @@ internal sealed class SearchSynonyms
     /// <summary>The file being written, before it replaces <see cref="FileName"/>.</summary>
     public const string TemporaryFileName = FileName + ".tmp";
 
+    /// <summary>The fewest letters a typed word needs to expand: one letter would start half the dictionary.</summary>
+    public const int MinPrefixLength = 2;
+
     private const string ResourceName = "EmojiSelector.Data.Synonyms.json";
 
     // Lenient on what a hand edit leaves behind: comments and trailing commas are read.
@@ -33,20 +38,31 @@ internal sealed class SearchSynonyms
         AllowTrailingCommas = true,
     };
 
-    // Each word of a group, normalized, to the other words of every group holding it.
-    private readonly Dictionary<string, string[]> alternatives;
+    // The groups kept, in the file's order, their words normalized; each word to the groups holding it, in order.
+    private readonly string[][] groups;
+    private readonly Dictionary<string, int[]> groupsOfWord;
 
-    private SearchSynonyms(Dictionary<string, string[]> alternatives, int groupCount)
+    // The words of every group, sorted (ordinal): the ones a typed start begins sit together.
+    private readonly string[] sortedWords;
+
+    // The synonyms of each emoji asked for, by reference: the details panel asks for the whole catalog's.
+    private readonly ConditionalWeakTable<Emoji, IReadOnlyList<string>> synonymsOfEmoji = [];
+
+    private SearchSynonyms(string[][] groups)
     {
-        this.alternatives = alternatives;
-        this.GroupCount = groupCount;
+        this.groups = groups;
+        this.groupsOfWord = groups
+            .SelectMany((words, group) => words.Select(word => (Word: word, Group: group)))
+            .GroupBy(pair => pair.Word)
+            .ToDictionary(byWord => byWord.Key, byWord => byWord.Select(pair => pair.Group).ToArray());
+        this.sortedWords = [.. this.groupsOfWord.Keys.Order(StringComparer.Ordinal)];
     }
 
     /// <summary>No synonym at all: every word looks for itself only.</summary>
-    public static SearchSynonyms Empty { get; } = new([], 0);
+    public static SearchSynonyms Empty { get; } = new([]);
 
     /// <summary>How many groups were kept.</summary>
-    public int GroupCount { get; }
+    public int GroupCount => this.groups.Length;
 
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, FileName);
 
@@ -54,11 +70,59 @@ internal sealed class SearchSynonyms
     public sealed record LoadResult(SearchSynonyms Synonyms, string? Error);
 
     /// <summary>
-    /// The other words of every group holding <paramref name="word"/> — a normalized word (see
-    /// <see cref="EmojiSearch.Normalize"/>) —; none when no group holds it.
+    /// The words <paramref name="typed"/> — a normalized word (see <see cref="EmojiSearch.Normalize"/>) — also looks
+    /// for: every word of every group holding a word it starts or equals (<c>bag</c> → the group of <c>bagnole</c>, so
+    /// <c>car</c>, <c>voiture</c>…), each once, in the file's order. None under <see cref="MinPrefixLength"/> letters,
+    /// or when no group word starts with it.
     /// </summary>
-    public IReadOnlyList<string> AlternativesOf(string word) =>
-        this.alternatives.TryGetValue(word, out string[]? found) ? found : [];
+    public IReadOnlyList<string> AlternativesOf(string typed)
+    {
+        if (typed.Length < MinPrefixLength)
+        {
+            return [];
+        }
+
+        // The first word not before typed, then every word starting with it.
+        int first = Array.BinarySearch(this.sortedWords, typed, StringComparer.Ordinal);
+        if (first < 0)
+        {
+            first = ~first;
+        }
+
+        var matched = new SortedSet<int>();
+        for (int index = first;
+            index < this.sortedWords.Length && this.sortedWords[index].StartsWith(typed, StringComparison.Ordinal);
+            index++)
+        {
+            matched.UnionWith(this.groupsOfWord[this.sortedWords[index]]);
+        }
+
+        return [.. matched.SelectMany(group => this.groups[group]).Distinct()];
+    }
+
+    /// <summary>
+    /// The synonyms of <paramref name="emoji"/>, for the details panel: the other words of every group holding one of
+    /// its keyword words, the words among its keyword words left out — each once, in the file's order. 🚗 →
+    /// <c>bagnole</c>, <c>tuture</c>…; none when no group holds one of its words.
+    /// </summary>
+    public IReadOnlyList<string> SynonymsOf(Emoji emoji) => this.synonymsOfEmoji.GetValue(emoji, this.ComputeSynonymsOf);
+
+    private IReadOnlyList<string> ComputeSynonymsOf(Emoji emoji)
+    {
+        HashSet<string> own = emoji.Keywords.Select(keyword => keyword.Word).ToHashSet(StringComparer.Ordinal);
+        var matched = new SortedSet<int>();
+        foreach (string word in own)
+        {
+            if (this.groupsOfWord.TryGetValue(word, out int[]? holding))
+            {
+                matched.UnionWith(holding);
+            }
+        }
+
+        return matched.Count == 0
+            ? []
+            : [.. matched.SelectMany(group => this.groups[group]).Where(word => !own.Contains(word)).Distinct()];
+    }
 
     /// <summary>
     /// The synonyms of <see cref="FileName"/> when it is valid. Missing, the file is written from the embedded list, then
@@ -143,38 +207,17 @@ internal sealed class SearchSynonyms
     }
 
     // Each entry normalized to one word — none or several left out —, each group kept with two words at least.
-    private static SearchSynonyms FromGroups(IEnumerable<IEnumerable<string>> groups)
-    {
-        var others = new Dictionary<string, HashSet<string>>();
-        int groupCount = 0;
-        foreach (IEnumerable<string> group in groups)
-        {
-            List<string> words = group
+    private static SearchSynonyms FromGroups(IEnumerable<IEnumerable<string>> groups) => new(
+    [
+        .. groups
+            .Select(group => group
                 .Select(EmojiSearch.Words)
                 .Where(entryWords => entryWords.Length == 1)
                 .Select(entryWords => entryWords[0])
                 .Distinct()
-                .ToList();
-            if (words.Count < 2)
-            {
-                continue;
-            }
-
-            groupCount++;
-            foreach (string word in words)
-            {
-                if (!others.TryGetValue(word, out HashSet<string>? set))
-                {
-                    set = [];
-                    others.Add(word, set);
-                }
-
-                set.UnionWith(words.Where(other => other != word));
-            }
-        }
-
-        return new SearchSynonyms(others.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray()), groupCount);
-    }
+                .ToArray())
+            .Where(words => words.Length >= 2),
+    ]);
 
     // Written through a temporary file then a replace: a crash never leaves it half-written. Throws IOException or
     // UnauthorizedAccessException when it cannot be written; the temporary file is then deleted.
