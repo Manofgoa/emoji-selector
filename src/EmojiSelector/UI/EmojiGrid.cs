@@ -12,8 +12,9 @@ namespace EmojiSelector.UI;
 /// <b>selection</b>, framed in the accent colour: the mouse moving over an emoji selects it, the keyboard moves it
 /// (<see cref="MoveSelection"/>), and <see cref="SelectedEmojiChanged"/> tells the details panel. A click raises
 /// <see cref="EmojiClicked"/>.
-/// While the search box holds text, the sections give way to one <c>Search results</c> section
-/// (<see cref="ShowSearchResults"/>), until <see cref="ShowCategories"/> brings them back where they were.
+/// While the search box holds text, the sections give way to one <c>Search results</c> section, then a
+/// <c>Synonyms</c> one while synonyms found some (<see cref="ShowSearchResults"/>), until <see cref="ShowCategories"/>
+/// brings them back where they were.
 /// <para>
 /// A right click on an emoji raises <see cref="EmojiRightClicked"/>. A section with a menu — a <b>custom group</b>'s, the
 /// frequent one — has a "…" button at the right end of its header, raising <see cref="SectionMenuClicked"/>. A group's
@@ -27,6 +28,9 @@ internal sealed class EmojiGrid : Control
     public const string SearchResultsHeader = "Search results";
 
     public const string NoResultText = "No emoji found";
+
+    /// <summary>The section of the emojis found only through a synonym, after the search results.</summary>
+    public const string SynonymsHeader = "Synonyms";
 
     public const string DoneText = "Done";
 
@@ -424,14 +428,19 @@ internal sealed class EmojiGrid : Control
     }
 
     /// <summary>
-    /// Shows <paramref name="results"/>, in their order, as one <c>Search results</c> section scrolled to the top;
-    /// the first call keeps the category view's scroll position for <see cref="ShowCategories"/>.
+    /// Shows <paramref name="results"/>, in their order: the direct ones as a <c>Search results</c> section — reading
+    /// <see cref="NoResultText"/> when empty —, then the ones found through a synonym as a <see cref="SynonymsHeader"/>
+    /// section while there are some, scrolled to the top; the first call keeps the category view's scroll position for
+    /// <see cref="ShowCategories"/>.
     /// </summary>
-    public void ShowSearchResults(IReadOnlyList<Emoji> results)
+    public void ShowSearchResults(SearchResults results)
     {
         this.EndReorder();
         this.categoriesOffset ??= this.Offset;
-        this.sections = [new EmojiCategory(SearchResultsHeader, ' ', results, EmptyText: NoResultText)];
+        var direct = new EmojiCategory(SearchResultsHeader, ' ', results.Direct, EmptyText: NoResultText);
+        this.sections = results.ViaSynonyms.Count == 0
+            ? [direct]
+            : [direct, new EmojiCategory(SynonymsHeader, ' ', results.ViaSynonyms)];
         this.Relayout();
         this.SetOffset(0);
         this.SetSelection(this.layout.First(), ensureVisible: false);

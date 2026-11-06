@@ -10,7 +10,8 @@ namespace EmojiSelector.UI;
 /// <summary>
 /// The <b>details panel</b>, under the grid, showing the grid's selection (<see cref="ShownEmoji"/>): the emoji drawn
 /// large, its emoticons under it; one row per language — its flag, the name, then every tag, wrapped, never cut —, the
-/// English row always, the French one while <see cref="ShowFrench"/>; at the right, a copy button copying the emoji to
+/// English row always, the French one while <see cref="ShowFrench"/>, then the emoji's synonyms while it has some, after
+/// a ≈, in italic grey (<see cref="Synonyms"/>); at the right, a copy button copying the emoji to
 /// the clipboard, its first code point as a tooltip. While the search box holds text (<see cref="SearchText"/>), the
 /// characters the search matches are highlighted in <see cref="HighlightColor"/>.
 /// <para>
@@ -68,6 +69,9 @@ internal sealed class EmojiDetailsPanel : Control
 
     private const string TagSeparator = ", ";
 
+    // In the flags' column of the synonyms' row: the words after it are like the emoji's, not its own.
+    private const string SynonymsMark = "≈";
+
     private const string ToneToolTip = "Skin tone: {0}";
 
     private const TextFormatFlags TextFlags = TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix;
@@ -83,18 +87,21 @@ internal sealed class EmojiDetailsPanel : Control
     private readonly Flag usFlag = new("us", LogicalUsFlagWidth);
     private readonly Flag frenchFlag = new("fr", LogicalFrenchFlagWidth);
 
-    // A word's width, in the name font (true) or the tag font (false): measured once, the words repeat across emojis.
-    private readonly Dictionary<(bool IsName, string Word), int> wordWidths = [];
+    // A word's width in a font of the rows — the name's bold, the tags' regular, the synonyms' italic, told apart by
+    // their style: measured once, the words repeat across emojis.
+    private readonly Dictionary<(FontStyle Style, string Word), int> wordWidths = [];
 
     // A font's line height, measured once: the height is computed over the whole catalog.
     private readonly Dictionary<Font, int> lineHeights = [];
 
     private Font nameFont;
+    private Font synonymFont;
     private Font emoticonFont;
     private Font iconFont;
     private Emoji? shownEmoji;
     private Bitmap? emojiBitmap;
     private string searchText = "";
+    private SearchSynonyms synonyms = SearchSynonyms.Empty;
     private bool showFrench = true;
     private Color highlightColor = DefaultHighlightColor;
     private SkinTone defaultTone;
@@ -121,6 +128,7 @@ internal sealed class EmojiDetailsPanel : Control
         this.SetStyle(ControlStyles.Selectable, false);
         this.BackColor = SystemColors.Window;
         this.nameFont = new Font(this.Font, FontStyle.Bold);
+        this.synonymFont = new Font(this.Font, FontStyle.Italic);
         this.emoticonFont = new Font(this.Font.FontFamily, this.Font.Size - EmoticonFontShrink);
         this.iconFont = this.CreateIconFont();
         this.copiedTimer.Tick += (_, _) => this.EndCopied();
@@ -224,6 +232,22 @@ internal sealed class EmojiDetailsPanel : Control
                 this.searchText = value;
                 this.Invalidate();
             }
+        }
+    }
+
+    /// <summary>
+    /// The search's synonyms: the words they add to the search text are highlighted too, as whole words, and the shown
+    /// emoji's own synonyms make its last row (see <see cref="SearchSynonyms.SynonymsOf"/>).
+    /// </summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public SearchSynonyms Synonyms
+    {
+        get => this.synonyms;
+        set
+        {
+            this.synonyms = value;
+            this.RequestHeight();
+            this.Invalidate();
         }
     }
 
@@ -372,10 +396,13 @@ internal sealed class EmojiDetailsPanel : Control
     {
         base.OnFontChanged(e);
         Font previousName = this.nameFont;
+        Font previousSynonym = this.synonymFont;
         Font previousEmoticon = this.emoticonFont;
         this.nameFont = new Font(this.Font, FontStyle.Bold);
+        this.synonymFont = new Font(this.Font, FontStyle.Italic);
         this.emoticonFont = new Font(this.Font.FontFamily, this.Font.Size - EmoticonFontShrink);
         previousName.Dispose();
+        previousSynonym.Dispose();
         previousEmoticon.Dispose();
         this.wordWidths.Clear();
         this.lineHeights.Clear();
@@ -487,13 +514,21 @@ internal sealed class EmojiDetailsPanel : Control
             }
 
             first = false;
+            if (row.Flag is not Flag flag)
+            {
+                // The synonyms: the mark in the flags' column, the words after it, wrapped under one another.
+                UI.Glass.DrawText(graphics, this.glass, SynonymsMark, this.Font, new Point(this.TextLeft, y), SystemColors.GrayText, TextFlags);
+                y = this.PaintText(graphics, row.Tags, this.synonymFont, this.TextLeft + this.NameIndent, y, textWidth - this.NameIndent);
+                continue;
+            }
+
             int nameLineHeight = this.LineHeight(this.nameFont);
-            this.PaintFlag(graphics, row.Flag, this.TextLeft, y + (nameLineHeight - this.LogicalToDeviceUnits(LogicalFlagHeight)) / 2);
-            y = this.PaintText(graphics, row.Name, isName: true, this.TextLeft + this.NameIndent, y, textWidth - this.NameIndent);
+            this.PaintFlag(graphics, flag, this.TextLeft, y + (nameLineHeight - this.LogicalToDeviceUnits(LogicalFlagHeight)) / 2);
+            y = this.PaintText(graphics, row.Name, this.nameFont, this.TextLeft + this.NameIndent, y, textWidth - this.NameIndent);
             if (row.Tags.Length > 0)
             {
                 y += this.LogicalToDeviceUnits(LogicalTagsGap);
-                y = this.PaintText(graphics, row.Tags, isName: false, this.TextLeft, y, textWidth);
+                y = this.PaintText(graphics, row.Tags, this.Font, this.TextLeft, y, textWidth);
             }
         }
 
@@ -562,6 +597,7 @@ internal sealed class EmojiDetailsPanel : Control
             this.frenchFlag.Dispose();
             this.emojiBitmap?.Dispose();
             this.nameFont.Dispose();
+            this.synonymFont.Dispose();
             this.emoticonFont.Dispose();
             this.iconFont.Dispose();
         }
@@ -569,13 +605,18 @@ internal sealed class EmojiDetailsPanel : Control
         base.Dispose(disposing);
     }
 
-    // The rows shown: English, then French while shown.
+    // The rows shown: English, then French while shown, then the synonyms while the emoji has some — no flag, no name.
     private IEnumerable<Row> RowsOf(Emoji emoji)
     {
         yield return new Row(this.usFlag, emoji.Name, string.Join(TagSeparator, emoji.EnglishTags));
         if (this.showFrench)
         {
             yield return new Row(this.frenchFlag, emoji.FrenchName, string.Join(TagSeparator, emoji.FrenchTags));
+        }
+
+        if (this.synonyms.SynonymsOf(emoji) is { Count: > 0 } synonyms)
+        {
+            yield return new Row(null, "", string.Join(TagSeparator, synonyms));
         }
     }
 
@@ -596,11 +637,17 @@ internal sealed class EmojiDetailsPanel : Control
             }
 
             first = false;
-            height += Math.Max(1, this.Wrap(row.Name, isName: true, textWidth - this.NameIndent).Count) * this.LineHeight(this.nameFont);
+            if (row.Flag is null)
+            {
+                height += Math.Max(1, this.Wrap(row.Tags, this.synonymFont, textWidth - this.NameIndent).Count) * this.LineHeight(this.synonymFont);
+                continue;
+            }
+
+            height += Math.Max(1, this.Wrap(row.Name, this.nameFont, textWidth - this.NameIndent).Count) * this.LineHeight(this.nameFont);
             if (row.Tags.Length > 0)
             {
                 height += this.LogicalToDeviceUnits(LogicalTagsGap)
-                    + this.Wrap(row.Tags, isName: false, textWidth).Count * this.LineHeight(this.Font);
+                    + this.Wrap(row.Tags, this.Font, textWidth).Count * this.LineHeight(this.Font);
             }
         }
 
@@ -616,12 +663,12 @@ internal sealed class EmojiDetailsPanel : Control
 
     // The words of text placed on lines at most width wide, breaking at spaces; a word wider than a line has a line of
     // its own. Each word: its start and length in text, its x from the line's start.
-    private List<List<(int Start, int Length, int X)>> Wrap(string text, bool isName, int width)
+    private List<List<(int Start, int Length, int X)>> Wrap(string text, Font font, int width)
     {
         var lines = new List<List<(int Start, int Length, int X)>>();
         var line = new List<(int Start, int Length, int X)>();
         int x = 0;
-        int space = this.WordWidth(" ", isName);
+        int space = this.WordWidth(" ", font);
         for (int start = 0; start < text.Length;)
         {
             int end = text.IndexOf(' ', start);
@@ -632,7 +679,7 @@ internal sealed class EmojiDetailsPanel : Control
 
             if (end > start)
             {
-                int wordWidth = this.WordWidth(text[start..end], isName);
+                int wordWidth = this.WordWidth(text[start..end], font);
                 if (line.Count > 0 && x + space + wordWidth > width)
                 {
                     lines.Add(line);
@@ -659,16 +706,18 @@ internal sealed class EmojiDetailsPanel : Control
         return lines;
     }
 
-    // Draws text wrapped at width from (left, top), the search's matches highlighted; returns the y under it.
-    private int PaintText(Graphics graphics, string text, bool isName, int left, int top, int width)
+    // Draws text wrapped at width from (left, top), the search's matches highlighted; returns the y under it. A name in
+    // the text's colour, the tags and the synonyms in grey. The synonyms' row highlights the typed words alone: their
+    // alternatives are its own words, every one of them would be.
+    private int PaintText(Graphics graphics, string text, Font font, int left, int top, int width)
     {
-        Font font = isName ? this.nameFont : this.Font;
-        Color color = isName ? SystemColors.ControlText : SystemColors.GrayText;
+        Color color = font == this.nameFont ? SystemColors.ControlText : SystemColors.GrayText;
         int lineHeight = this.LineHeight(font);
-        IReadOnlyList<(int Start, int Length)> matches = EmojiSearch.MatchSpans(text, this.searchText);
+        IReadOnlyList<(int Start, int Length)> matches =
+            EmojiSearch.MatchSpans(text, this.searchText, font == this.synonymFont ? null : this.synonyms);
         using var highlight = new SolidBrush(this.highlightColor);
         int y = top;
-        foreach (List<(int Start, int Length, int X)> line in this.Wrap(text, isName, width))
+        foreach (List<(int Start, int Length, int X)> line in this.Wrap(text, font, width))
         {
             foreach ((int start, int length, int x) in line)
             {
@@ -698,7 +747,7 @@ internal sealed class EmojiDetailsPanel : Control
         int left = (this.TextLeft - MeasureWidth(emoticons, this.emoticonFont)) / 2;
         int lineHeight = this.LineHeight(this.emoticonFont);
         using var highlight = new SolidBrush(this.highlightColor);
-        foreach ((int start, int length) in EmojiSearch.MatchSpans(emoticons, this.searchText))
+        foreach ((int start, int length) in EmojiSearch.MatchSpans(emoticons, this.searchText, this.synonyms))
         {
             int offset = MeasureWidth(emoticons[..start], this.emoticonFont);
             graphics.FillRectangle(highlight, left + offset, top, MeasureWidth(emoticons.Substring(start, length), this.emoticonFont),
@@ -859,12 +908,12 @@ internal sealed class EmojiDetailsPanel : Control
         previous?.Dispose();
     }
 
-    private int WordWidth(string word, bool isName)
+    private int WordWidth(string word, Font font)
     {
-        if (!this.wordWidths.TryGetValue((isName, word), out int width))
+        if (!this.wordWidths.TryGetValue((font.Style, word), out int width))
         {
-            width = MeasureWidth(word, isName ? this.nameFont : this.Font);
-            this.wordWidths[(isName, word)] = width;
+            width = this.MeasureWidth(word, font);
+            this.wordWidths[(font.Style, word)] = width;
         }
 
         return width;
@@ -894,8 +943,9 @@ internal sealed class EmojiDetailsPanel : Control
         return new Font(family, this.LogicalToDeviceUnits(LogicalButtonIconSize), GraphicsUnit.Pixel);
     }
 
-    // One language's row: its flag, the emoji's name, its tags joined.
-    private readonly record struct Row(Flag Flag, string Name, string Tags);
+    // One language's row: its flag, the emoji's name, its tags joined. The synonyms' row: no flag, no name, the
+    // synonyms joined in Tags.
+    private readonly record struct Row(Flag? Flag, string Name, string Tags);
 
     // The parts of the panel the mouse acts on.
     private enum Part
