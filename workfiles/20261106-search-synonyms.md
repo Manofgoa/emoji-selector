@@ -244,6 +244,7 @@ Questions asked by the agent during design, with user responses.
 | 7 | No direct result: keep the empty `Search results` section above `Synonyms`? | Keep it | 2026-11-06 |
 | 8 | Details panel: the synonyms in a row of their own, or after each row's tags? | A row of their own | 2026-11-06 |
 | 9 | Details panel: synonyms shown always, only while searching, or behind a setting? | Always | 2026-11-06 |
+| 10 | Go for Iteration 4: scope, and where? | *Code, unit tests and documentation*, in the current worktree | 2026-11-06 |
 
 ---
 
