@@ -111,6 +111,14 @@ Every question below was decided by the agent: the user delegated the choices (Q
 - [x] ~~Read at the next launch, or watched for changes?~~ → Next launch, like `special-characters.json`.
 - [x] ~~Do synonyms apply in near mode and to the special characters?~~ → Yes: both go through `EmojiSearch.Find`.
 
+Raised by Iteration 4:
+
+- [ ] How many letters before a typed word expands from the start of a group's word (`bag` → `bagnole`)?
+- [ ] No direct result but some through synonyms: is the empty `Search results` section (`No emoji found`) kept above
+  the `Synonyms` one?
+- [ ] Where do the emoji's synonyms go in the details panel: a row of their own, or after the tags of each language row?
+- [ ] When does the details panel show them: always, only while searching, or behind a settings item?
+
 ---
 
 ## Design Iterations
@@ -152,6 +160,19 @@ No rule broken. Choices the frozen design did not state:
   `EmojiSearch.Find` and `MatchSpans` take the synonyms as an optional last argument (`null` → no synonym).
 - **End of run**: no merge question — the user asked for no interaction; the branch waits for the user's word.
 
+### Iteration 4 — 2026-11-06 — ⚙️ Post-implementation — Prefix synonyms, a Synonyms section, synonyms in the details panel
+
+The user's request, after trying the delivery:
+
+- **`bag` should find the cars**: a typed word starting a group's word (`bag` → `bagnole`) expands too — Iteration 1's
+  "whole only" revised.
+- **A section of their own**: the emojis found through a synonym go to a separate `Synonyms` section, after the
+  results, so they never mix with the real ones (`bag` → 👜, *sac*, stays alone in the results).
+- **In the details panel**: the emoji's synonyms listed with its terms and highlighted by the search, but **not at the
+  same level** as its real names and tags.
+
+Four questions raised (see *Open Questions*), asked as Q&A 6–9.
+
 ---
 
 ## Implementation Log
@@ -180,6 +201,10 @@ Questions asked by the agent during design, with user responses.
 | 3 | Where does an emoji found only through a synonym rank? | After the direct results | 2026-11-06 |
 | 4 | Straightforward or tricky / long to explore? | Straightforward | 2026-11-06 |
 | 5 | (Not asked: the user, leaving) — the remaining choices and the go | "Make the choices and start the development in a worktree, without interactions — GO" | 2026-11-06 |
+| 6 | Minimum letters before a typed word expands from a group word's start? | | 2026-11-06 |
+| 7 | No direct result: keep the empty `Search results` section above `Synonyms`? | | 2026-11-06 |
+| 8 | Details panel: the synonyms in a row of their own, or after each row's tags? | | 2026-11-06 |
+| 9 | Details panel: synonyms shown always, only while searching, or behind a setting? | | 2026-11-06 |
 
 ---
 
