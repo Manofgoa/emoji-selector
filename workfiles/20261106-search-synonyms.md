@@ -83,7 +83,10 @@ default), `Data/EmojiSearch.cs` (`Find`, `MatchSpans`), `UI/MainForm.cs` (loadin
 - **Highlight** (details panel): the alternatives of each typed word are highlighted too, **as whole words**, in the
   names, tags and emoticons (`EmojiSearch.MatchSpans` given the synonyms, `EmojiDetailsPanel.Synonyms`) — so `bag`
   on 🚗 highlights `car`. Always, even on an emoji the typed word matched on its own. In the synonyms row (below), the
-  typed words are highlighted as the search matches them — `bag` in `bagnole`.
+  typed words **alone** are highlighted, as the search matches them — `bag` in `bagnole` —, never their alternatives:
+  they are the row's own words, every one would be.
+- **No group in search mode**: `MainForm.GroupOf` is null while the results are shown — the `Synonyms` section, the
+  second, must never be taken for the first custom group (a `Remove` entry in its emojis' menu).
 
 ---
 
@@ -91,7 +94,8 @@ default), `Data/EmojiSearch.cs` (`Find`, `MatchSpans`), `UI/MainForm.cs` (loadin
 
 - **What**: the emoji's **synonyms** (`SearchSynonyms.SynonymsOf(Emoji)`): for each of its keyword words that is a
   word of a group, the other words of that group — minus the words already among its keyword words, each once, in the
-  file's order. 🚗 (*car*, *voiture*…) → `bagnole, tuture, auto`.
+  file's order. 🚗 (*car*, *voiture*…) → `auto, bagnole, tuture`. Computed once per emoji (a `ConditionalWeakTable`):
+  the height runs over the whole catalog.
 - **A row of its own**, **last**, under the English and French rows, after the same thin line: a **`≈`** in place of a
   flag, then the synonyms joined with `, `, **italic**, in `SystemColors.GrayText` (`Glass.GrayText` on Acrylic),
   wrapped like the tags — never at the level of a name. No bold name.
@@ -212,6 +216,26 @@ an emoji, near mode keeping one list (direct then synonyms), the row's content (
 words' groups, its own words left out), `≈` in place of a flag, the alternatives still highlighted as whole words in
 the real tags.
 
+### Iteration 5 — 2026-11-06 — 🧭 Implementation choices
+
+No rule broken. Choices the frozen design did not state:
+
+- **The synonyms row's highlight**: the typed words alone, not their alternatives — with them, `bag` highlighted the
+  whole row of 🚗 (`bagnole`, `tuture`, `auto`), the alternatives being the row's own words. Found on the capture.
+- **`MainForm.GroupOf` null in search mode**: the `Synonyms` section is the grid's second, the index of the first
+  custom group while the frequent tab shows — its emojis' menu would have offered `Remove`. The guard also covers the
+  results section with the frequent tab hidden, which had the same flaw before this iteration.
+- **`AlternativesOf` by binary search** on the sorted group words, the groups kept in the file's order: the
+  alternatives and `SynonymsOf` come out in that order. `SynonymsOf` cached per emoji, by reference.
+- **The panel's fonts**: a third one, the italic; the word-width cache keyed by the font's style, the three row fonts
+  differing by it. The `≈` in the regular font, grey, in the flags' column; the synonyms wrapped after the names'
+  indent.
+- **Ties in `Synonyms`** keep the catalog order, as everywhere: `bagnole` puts 🚃 (*railway car*) before 🚗.
+- **Tests**: 41 reflection checks on a copy of the build folder, all passing — the prefix (`bag`, `ba`, not `b`), the
+  two lists (`bag`: 👜 direct, 🚗 via synonyms, none in both; the direct list unchanged by the synonyms for `auto`,
+  `chat`, `heureux`, `mdr content`, `bag`), near mode's order, `SynonymsOf`, the row's highlight; two captures of the
+  window (`bag`, `bagnole`).
+
 ---
 
 ## Implementation Log
@@ -221,11 +245,11 @@ says so rather than staying blank.
 
 | Step | Iteration | Date | Notes |
 |---|---|---|---|
-| Code | 3 | 2026-11-06 | `Data/SearchSynonyms.cs`, `Data/Synonyms.json`, `EmojiSearch` (`Find`, `MatchSpans`), `MainForm`, `EmojiDetailsPanel`, `AppReset` |
-| Unit tests | 3 | 2026-11-06 | No test project — 27 reflection checks on a copy of the build folder, all passing |
-| RULES.md | 3 | 2026-11-06 | *Search Box* § *Synonyms*, the ranking and highlight bullets, *Reset All Settings* |
-| README | 3 | 2026-11-06 | `README.md` / `README.fr.md`: the *Synonyms* bullet, the reset's file list |
-| GLOSSARY | 3 | 2026-11-06 | `GLOSSARY.md` / `GLOSSARY.fr.md`: *Synonym* (*synonyme*) |
+| Code | 3, 5 | 2026-11-06 | `Data/SearchSynonyms.cs`, `Data/Synonyms.json`, `EmojiSearch` (`Find`, `MatchSpans`), `MainForm`, `EmojiDetailsPanel`, `AppReset`; then the prefix, `Data/SearchResults.cs`, the `Synonyms` section (`EmojiGrid`), the synonyms row |
+| Unit tests | 3, 5 | 2026-11-06 | No test project — 27, then 41 reflection checks on a copy of the build folder, all passing; two window captures |
+| RULES.md | 3, 5 | 2026-11-06 | *Search Box* § *Synonyms*, the ranking and highlight bullets, *Reset All Settings*; then search mode's sections, the prefix, the *Details Panel*'s synonyms row and height |
+| README | 3, 5 | 2026-11-06 | `README.md` / `README.fr.md`: the *Synonyms* bullet, the reset's file list; then the prefix, the section, the panel's line |
+| GLOSSARY | 3, 5 | 2026-11-06 | `GLOSSARY.md` / `GLOSSARY.fr.md`: *Synonym* (*synonyme*); then the prefix and the section |
 
 ---
 
