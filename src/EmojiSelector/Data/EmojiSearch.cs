@@ -19,8 +19,8 @@ namespace EmojiSelector.Data;
 /// the catalog order.
 /// <para>
 /// A typed word matching nothing in an emoji may match through its <b>synonyms</b> (see <see cref="SearchSynonyms"/>):
-/// another word of its group, equal to a whole keyword word. Such an emoji ranks after every emoji whose typed words
-/// all match on their own; among them, the same keys, a synonym counting as a tag's whole word.
+/// a word of a group it starts, equal to a whole keyword word. Such an emoji goes to a second list, after every emoji
+/// whose typed words all match on their own; among them, the same keys, a synonym counting as a tag's whole word.
 /// </para>
 /// </remarks>
 internal static class EmojiSearch
@@ -54,32 +54,34 @@ internal static class EmojiSearch
     }
 
     /// <summary>
-    /// The emojis matching <paramref name="text"/>, most relevant first; none for a blank text. A typed word matching
-    /// nothing in an emoji may match through its <paramref name="synonyms"/> — another word of its group, as a whole
-    /// keyword word —: such an emoji ranks after every emoji whose typed words all match on their own.
+    /// The emojis matching <paramref name="text"/>, in two lists, each most relevant first; none for a blank text.
+    /// <see cref="SearchResults.Direct"/>: every typed word matched on its own. <see cref="SearchResults.ViaSynonyms"/>:
+    /// a typed word matching nothing in the emoji matched through its <paramref name="synonyms"/> — a word of a group it
+    /// starts, as a whole keyword word (see <see cref="SearchSynonyms.AlternativesOf"/>). An emoji is in one list only.
     /// </summary>
-    public static IReadOnlyList<Emoji> Find(IReadOnlyList<EmojiCategory> categories, string text, SearchSynonyms? synonyms = null)
+    public static SearchResults Find(IReadOnlyList<EmojiCategory> categories, string text, SearchSynonyms? synonyms = null)
     {
         TypedWord[] typed = TypedWords(text);
         if (typed.Length == 0)
         {
-            return [];
+            return SearchResults.None;
         }
 
         IReadOnlyList<string>[] alternatives = AlternativesOf(typed, synonyms);
 
         // OrderBy is a stable sort: equal ranks keep the catalog order.
-        return categories
+        var ranked = categories
             .SelectMany(category => category.Emojis)
             .Select(emoji => (Emoji: emoji, Rank: RankOf(emoji, typed, alternatives)))
             .Where(result => result.Rank is not null)
             .Select(result => (result.Emoji, Rank: result.Rank!.Value))
-            .OrderBy(result => result.Rank.ViaSynonym)
-            .ThenBy(result => result.Rank.WorstTier)
+            .OrderBy(result => result.Rank.WorstTier)
             .ThenByDescending(result => result.Rank.LowestCoverage)
             .ThenByDescending(result => result.Rank.NameMatches)
-            .Select(result => result.Emoji)
             .ToList();
+        return new SearchResults(
+            [.. ranked.Where(result => !result.Rank.ViaSynonym).Select(result => result.Emoji)],
+            [.. ranked.Where(result => result.Rank.ViaSynonym).Select(result => result.Emoji)]);
     }
 
     /// <summary>

@@ -1621,7 +1621,7 @@ internal sealed class MainForm : Form
         string? nearTerm = EmojiSearch.NearTerm(text);
         this.clearButton.Visible = text.Length > 0;
         this.detailsPanel.SearchText = nearTerm ?? text;
-        this.nearMatches = nearTerm is null ? [] : EmojiSearch.Find([.. this.ShownSpecialSections(), .. this.categories], nearTerm, this.synonyms);
+        this.nearMatches = nearTerm is null ? [] : EmojiSearch.Find([.. this.ShownSpecialSections(), .. this.categories], nearTerm, this.synonyms).All;
         this.nearIndex = 0;
         if (nearTerm is not null || string.IsNullOrWhiteSpace(text))
         {
@@ -1828,9 +1828,15 @@ internal sealed class MainForm : Form
     private int SectionOf(int tab) =>
         tab < this.CustomTab + this.CustomTabCount ? tab : tab - this.CustomTabCount + this.customSectionCount;
 
-    // The group shown in a section; null for a section that is not a group's.
+    // The group shown in a section; null for a section that is not a group's — none in search mode, whose sections are
+    // the results and the synonyms.
     private int? GroupOf(int section)
     {
+        if (this.IsFiltering)
+        {
+            return null;
+        }
+
         int shown = section - this.FirstCustomSection;
         return shown >= 0 && shown < this.shownGroups.Count ? this.shownGroups[shown] : null;
     }
