@@ -854,13 +854,15 @@ The **search box** sits above the tab strip (`UI/MainForm.cs`); the matching and
   the whole word → its start → anywhere else; then the share of the word covered; then a name before
   a tag. Several typed words: the worst tier, then the lowest coverage, then the most name matches.
   Ties keep the catalog order. `caca` → 💩 before 🥜 *cacahuète*; `1` → 1️⃣ first, `:)` → 🙂 first.
-  An emoji found through a **synonym** comes after all of them (see *Synonyms* below).
+  An emoji found through a **synonym** goes to a `Synonyms` section after them (see *Synonyms* below).
 - **Every show** clears the box and focuses it (`OnVisibleChanged`), and brings the grid back to the
   top on its first emoji (see *Keyboard*). The placeholder is the native
   cue banner shown while focused (`EM_SETCUEBANNER`): `PlaceholderText` hides on focus, and the box
   always has it.
 - **Search mode** (non-blank text, not near mode — see *Near Mode* below): the tab strip is `Greyed` (clicks ignored), the grid shows one
-  `Search results` section (`No emoji found` when empty) and raises no `ActiveCategoryChanged`.
+  `Search results` section (`No emoji found` when empty), then a `Synonyms` one while synonyms found some (see
+  *Synonyms* below), and raises no `ActiveCategoryChanged`. No custom group's menu entry there: `MainForm.GroupOf` is
+  null in search mode.
   Emptying the box while the window stays open brings the categories back at their previous scroll
   position; a show brings them back at the top.
 - The ✕ next to the box is exactly as high as it: showing it must not move the tabs.
@@ -897,8 +899,8 @@ A text starting with **`n:`** or **`near:`** selects without filtering (origin:
 ### Synonyms
 
 **Groups of equivalent words** widen the search (origin: `workfiles/20261106-search-synonyms.md`): a typed word
-belonging to a group also looks for the other words of that group — `bagnole` finds 🚗 through `car`, `mdr` 😂 through
-`laugh`.
+starting a word of a group also looks for the words of that group — `bag` and `bagnole` find 🚗 through `car`, `mdr`
+😂 through `laugh` —, in a section of their own.
 
 - **`synonyms.json`, next to the exe** (`Data/SearchSynonyms.cs`), **the user's to edit**: `{ "groups": [ ["car",
   "auto", "voiture", "bagnole"], … ] }`, a group an array of words, English and French mixed — the keywords are both
@@ -916,20 +918,32 @@ belonging to a group also looks for the other words of that group — `bagnole` 
   out; a word given twice counts once.
 - An edit is read at the **next launch**; `Open app folder` finds the file. No settings item. `Reset all settings…`
   deletes it: the default comes back at the restart (see *Reset All Settings*).
-- **The trigger** (`SearchSynonyms.AlternativesOf`): a typed word **without symbol**, folded, **equal** to a word of a
-  group — whole: `bagn` expands nothing. Its **alternatives** are the other words of every group holding it — a word in
-  two groups gets both —, not transitive beyond that.
+- **The trigger** (`SearchSynonyms.AlternativesOf`): a typed word **without symbol**, folded, of at least **2 letters**
+  (`SearchSynonyms.MinPrefixLength`), that **starts** a word of a group, or equals it — `bag` starts `bagnole`; `b`
+  expands nothing. Its **alternatives** are the words of every group holding such a word — `bag` also gets the group of
+  `bague` —, not transitive beyond that.
 - **Matching** (`EmojiSearch.Find`, given the loaded `SearchSynonyms`): a typed word's own match first — characters,
   symbols, keywords, as above —; **none** → an alternative equal to a **whole keyword word** (`car` never finds
   `cardigan`), counted as a tag's whole word. An emoji is a result when every typed word matches, on its own or through
   a synonym.
-- **Ranking**: every emoji whose typed words all match on their own first; then those with a typed word matched only
-  through a synonym; inside each, the keys above. The search results, near mode and the special characters' search
-  alike: all go through `Find`.
+- **Two lists** (`SearchResults`): `Direct` — every typed word matched on its own —, then `ViaSynonyms` — a typed word
+  matched only through a synonym —; each ranked by the keys above, an emoji in one list only.
+- **Two sections** in search mode (`EmojiGrid.ShowSearchResults`): `Search results`, `No emoji found` when empty —
+  **kept** even when synonyms found some —, then **`Synonyms`** (`EmojiGrid.SynonymsHeader`) while it holds an emoji:
+  the real results never mix with them — `bag` → 👜 in the results, 🚗 in `Synonyms`. The selection goes to the grid's
+  first emoji, the first synonym when the results are empty.
+- **Near mode** jumps through both lists, the direct matches first (`SearchResults.All`); the special characters are
+  searched with the catalog, their synonym matches in the same section.
 - **Highlight** (`EmojiSearch.MatchSpans`, `EmojiDetailsPanel.Synonyms`): the alternatives of each typed word are
-  highlighted as **whole words** in the names, tags and emoticons, next to what the typed text matches.
-- An agent checking them calls `SearchSynonyms.Parse` / `Load`, `EmojiSearch.Find` / `MatchSpans` and `AppReset` by
-  reflection on the dll of a **copy** of the build folder (`APP_CONTEXT_BASE_DIRECTORY`, see *Reset All Settings*).
+  highlighted as **whole words** in the names, tags and emoticons, next to what the typed text matches — `bag` on 🚗
+  highlights `car`.
+- **The details panel's synonyms row** (see *Details Panel*): the emoji's own synonyms
+  (`SearchSynonyms.SynonymsOf`) — the other words of every group holding one of its keyword words, its keyword words left
+  out, in the file's order, cached per emoji.
+- An agent checking them calls `SearchSynonyms.Parse` / `Load` / `AlternativesOf` / `SynonymsOf`, `EmojiSearch.Find` /
+  `MatchSpans` and `AppReset` by reflection on the dll of a **copy** of the build folder (`APP_CONTEXT_BASE_DIRECTORY`,
+  see *Reset All Settings*), and sees the sections and the row by typing a search into the box (`WM_SETTEXT`) and
+  capturing the window (`PrintWindow`).
 
 ## Keyboard
 
@@ -1000,6 +1014,10 @@ selected emoji changes — the same cell may hold another emoji once the section
   then the name in bold (the French name capitalized like the English one), then **every tag**,
   joined with `, ` and **wrapped** at spaces — never truncated, never an ellipsis. The names of both
   rows line up after the widest flag.
+- **Synonyms row**, last, after the same thin line, while the emoji has synonyms (see *Search Box* § *Synonyms*),
+  whatever the search and the French row: a `≈` in the flags' column, then the synonyms joined with `, `, **italic**
+  grey, wrapped under one another after the names' indent — never at the level of a name or a tag. The search
+  highlights the **typed words** there, not their alternatives (they are the row's own words).
 - **Characters among the tags**: the emoji's characters (see *Search Box*) end both rows' tags, each
   row skipping one it already holds, case ignored (❓ already has `?`, 🆗 `ok`) — the French row only
   when the French data has the emoji.
@@ -1015,7 +1033,7 @@ selected emoji changes — the same cell may hold another emoji once the section
 - The emoji drawn large and copied is its **shown text** (see *Skin Tones*); the names and tags are
   the base emoji's — Emojibase gives the variants none.
 - **Height**: fixed, the one the emoji with the **most text** needs at the window's width, French row
-  included while shown (`EmojiDetailsPanel.HeightFor`, over the whole catalog, word widths cached),
+  included while shown, synonyms row included (`EmojiDetailsPanel.HeightFor`, over the whole catalog, word widths cached),
   and at least the right column's — the button, then the tone swatch when the catalog has variants or
   `Always show skin tone` is on, then the zoom's line, always kept (see *Emoji Zoom*) — and the emoji's,
   zoomed:
