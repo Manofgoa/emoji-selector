@@ -707,12 +707,14 @@ internal sealed class EmojiDetailsPanel : Control
     }
 
     // Draws text wrapped at width from (left, top), the search's matches highlighted; returns the y under it. A name in
-    // the text's colour, the tags and the synonyms in grey.
+    // the text's colour, the tags and the synonyms in grey. The synonyms' row highlights the typed words alone: their
+    // alternatives are its own words, every one of them would be.
     private int PaintText(Graphics graphics, string text, Font font, int left, int top, int width)
     {
         Color color = font == this.nameFont ? SystemColors.ControlText : SystemColors.GrayText;
         int lineHeight = this.LineHeight(font);
-        IReadOnlyList<(int Start, int Length)> matches = EmojiSearch.MatchSpans(text, this.searchText, this.synonyms);
+        IReadOnlyList<(int Start, int Length)> matches =
+            EmojiSearch.MatchSpans(text, this.searchText, font == this.synonymFont ? null : this.synonyms);
         using var highlight = new SolidBrush(this.highlightColor);
         int y = top;
         foreach (List<(int Start, int Length, int X)> line in this.Wrap(text, font, width))
