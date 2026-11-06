@@ -18,7 +18,9 @@ a group also looks for the other words of that group.
   words.
 - **Source**: `synonyms.json` next to the exe, **the user's to edit**, written from a default embedded in the exe —
   the model of `special-characters.json`.
-- **Ranking**: an emoji found **only through a synonym** ranks **after** every emoji found by its own keywords.
+- **Ranking**: an emoji found **only through a synonym** goes to a **`Synonyms` section** after the search results,
+  never mixed with the emojis found by their own keywords; a typed word's start expands too (`bag` → `bagnole`).
+- **Details panel**: the emoji's synonyms in a row of their own, below its real names and tags, italic grey.
 
 Components: `Data/SearchSynonyms.cs` (new: the file, its loading, the lookup), `Data/Synonyms.json` (new: the embedded
 default), `Data/EmojiSearch.cs` (`Find`, `MatchSpans`), `UI/MainForm.cs` (loading, warning, the search calls),
@@ -61,19 +63,44 @@ default), `Data/EmojiSearch.cs` (`Find`, `MatchSpans`), `UI/MainForm.cs` (loadin
 
 ## Search
 
-- **The trigger**: a typed word **without symbol**, folded, **equal** to a word of a group — whole, not its start
-  (`bag` expands nothing: one letter would expand half the dictionary). Its **alternatives**: every other word of
-  every group holding it (a word in two groups gets both) — not transitive beyond that.
+- **The trigger**: a typed word **without symbol**, folded, of **at least 2 letters** (`SearchSynonyms.MinPrefixLength`),
+  that **starts** a word of a group — or equals it: `bag` and `bagnole` both start `bagnole`. Its **alternatives**:
+  every word of every group holding such a word (`bag` → `car`, `auto`, `voiture`, `bagnole`, `tuture`, and the words
+  of a group holding `bague` too) — not transitive beyond that. One letter expands nothing.
 - **The alternatives match whole keyword words only** (`Exact`): `car` must not find `cardigan`, `carrot`.
-- **Per typed word**: its own match first (characters, symbols, keywords — as today); **none** → its alternatives',
+- **Per typed word**: its own match first (characters, symbols, keywords — as before); **none** → its alternatives',
   that match marked **via synonym**. An emoji is a result when every typed word matches, directly or via a synonym.
-- **Ranking**: first the emojis with **no** typed word matched via synonym, then the others; inside each, the current
-  keys (worst tier, lowest coverage, name matches), a synonym match counting as `Exact`, full coverage, a tag.
-- **Everywhere `Find` runs**: the search results, near mode (`n:` / `near:`), the special characters' search — all
-  through `EmojiSearch.Find`, given the loaded `SearchSynonyms`.
+- **Two lists** (`EmojiSearch.Find` returns `SearchResults(Direct, ViaSynonyms)`): **direct** — every typed word
+  matched on its own —, then **via synonyms** — at least one typed word matched only through its alternatives. Each
+  ranked by the current keys (worst tier, lowest coverage, name matches), a synonym match counting as `Exact`, full
+  coverage, a tag; an emoji is in one list only.
+- **Two sections** in search mode (`EmojiGrid.ShowSearchResults(direct, viaSynonyms)`): `Search results`, as before —
+  `No emoji found` when empty, **kept** even when the second section has emojis —, then **`Synonyms`**
+  (`EmojiGrid.SynonymsHeader`), only while it holds an emoji. `bag` → 👜 alone in the results, 🚗 in `Synonyms`. The
+  selection's rule is unchanged: the grid's first emoji — the first synonym when the results are empty.
+- **Near mode** (`n:` / `near:`): its matches are the direct ones then the synonyms', one list — the jump order.
+- **The special characters**: searched with the catalog, their synonym matches in the same `Synonyms` section.
 - **Highlight** (details panel): the alternatives of each typed word are highlighted too, **as whole words**, in the
-  names, tags and emoticons (`EmojiSearch.MatchSpans` given the synonyms, `EmojiDetailsPanel.Synonyms`) — so `bagnole`
-  on 🚗 highlights `car`. Always, even on an emoji the typed word matched on its own.
+  names, tags and emoticons (`EmojiSearch.MatchSpans` given the synonyms, `EmojiDetailsPanel.Synonyms`) — so `bag`
+  on 🚗 highlights `car`. Always, even on an emoji the typed word matched on its own. In the synonyms row (below), the
+  typed words are highlighted as the search matches them — `bag` in `bagnole`.
+
+---
+
+## Details Panel — the Synonyms Row
+
+- **What**: the emoji's **synonyms** (`SearchSynonyms.SynonymsOf(Emoji)`): for each of its keyword words that is a
+  word of a group, the other words of that group — minus the words already among its keyword words, each once, in the
+  file's order. 🚗 (*car*, *voiture*…) → `bagnole, tuture, auto`.
+- **A row of its own**, **last**, under the English and French rows, after the same thin line: a **`≈`** in place of a
+  flag, then the synonyms joined with `, `, **italic**, in `SystemColors.GrayText` (`Glass.GrayText` on Acrylic),
+  wrapped like the tags — never at the level of a name. No bold name.
+- **Always** shown while the emoji has synonyms, whatever the search; none → no row, no line.
+- **Highlight**: the search's matches, in `highlightColor`, as in the other rows.
+- **Height**: `EmojiDetailsPanel.HeightFor` counts the row for the emoji with the most text, as it counts the French
+  row — moving the selection never moves the grid.
+- Mixed languages (the groups mix English and French), so one row, not one per language; shown whether or not the
+  French row is.
 
 ---
 
@@ -89,6 +116,10 @@ special characters —, the window by a capture.
 | `SearchSynonyms.Load`: missing file written from the default, invalid file kept and reported | None — reflection check on a copy of the build folder | — |
 | `EmojiSearch.Find`: a synonym finds the emoji, ranked after the direct results; whole-word alternatives only; no expansion on a partial word | None — reflection check on the dll | — |
 | `EmojiSearch.MatchSpans`: the alternatives highlighted as whole words | None — reflection check on the dll | — |
+| `SearchSynonyms.AlternativesOf`: a typed start of 2 letters or more expands (`bag` → `car`), one letter does not | None — reflection check on the dll | — |
+| `EmojiSearch.Find`: two lists, `bag` → 👜 direct, 🚗 via synonyms, no emoji in both | None — reflection check on the dll | — |
+| `SearchSynonyms.SynonymsOf`: 🚗 → `bagnole`…, its own keyword words left out | None — reflection check on the dll | — |
+| The `Synonyms` section and the synonyms row on screen | None — capture of the window (`WM_SETTEXT` into the box, `PrintWindow`) | — |
 | `AppReset` deletes `synonyms.json` | None — reflection check on a copy of the build folder | — |
 
 ---
@@ -98,7 +129,7 @@ special characters —, the window by a capture.
 Every question below was decided by the agent: the user delegated the choices (Q&A 5).
 
 - [x] ~~Does a typed word expand only when whole, or from its start too?~~ → Whole only: a start would expand on one or
-  two letters.
+  two letters. *(revised 2026-11-06, see Iteration 4: from its start, 2 letters at least)*
 - [x] ~~Do the alternatives match keywords like typed words (contained) or whole words only?~~ → Whole words only:
   `car` would find `cardigan`.
 - [x] ~~Multi-word or symbol entries (`pomme de terre`, `:)`)?~~ → Left out: a keyword is split into words, a
@@ -113,11 +144,14 @@ Every question below was decided by the agent: the user delegated the choices (Q
 
 Raised by Iteration 4:
 
-- [ ] How many letters before a typed word expands from the start of a group's word (`bag` → `bagnole`)?
-- [ ] No direct result but some through synonyms: is the empty `Search results` section (`No emoji found`) kept above
-  the `Synonyms` one?
-- [ ] Where do the emoji's synonyms go in the details panel: a row of their own, or after the tags of each language row?
-- [ ] When does the details panel show them: always, only while searching, or behind a settings item?
+- [x] ~~How many letters before a typed word expands from the start of a group's word (`bag` → `bagnole`)?~~ → 2
+  (Q&A 6).
+- [x] ~~No direct result but some through synonyms: is the empty `Search results` section (`No emoji found`) kept above
+  the `Synonyms` one?~~ → Kept (Q&A 7).
+- [x] ~~Where do the emoji's synonyms go in the details panel: a row of their own, or after the tags of each language
+  row?~~ → A row of their own, last, `≈`, italic grey (Q&A 8).
+- [x] ~~When does the details panel show them: always, only while searching, or behind a settings item?~~ → Always
+  (Q&A 9).
 
 ---
 
@@ -171,7 +205,12 @@ The user's request, after trying the delivery:
 - **In the details panel**: the emoji's synonyms listed with its terms and highlighted by the search, but **not at the
   same level** as its real names and tags.
 
-Four questions raised (see *Open Questions*), asked as Q&A 6–9.
+Four questions raised (see *Open Questions*), asked as Q&A 6–9 and answered: a start of **2 letters** expands, the
+empty `Search results` section is **kept** above `Synonyms`, the panel's synonyms in a **row of their own**, **always**
+shown. Designed by the agent around them: `Find` returning two lists, the `Synonyms` section shown only while it holds
+an emoji, near mode keeping one list (direct then synonyms), the row's content (`SynonymsOf`: the emoji's keyword
+words' groups, its own words left out), `≈` in place of a flag, the alternatives still highlighted as whole words in
+the real tags.
 
 ---
 
@@ -201,10 +240,10 @@ Questions asked by the agent during design, with user responses.
 | 3 | Where does an emoji found only through a synonym rank? | After the direct results | 2026-11-06 |
 | 4 | Straightforward or tricky / long to explore? | Straightforward | 2026-11-06 |
 | 5 | (Not asked: the user, leaving) — the remaining choices and the go | "Make the choices and start the development in a worktree, without interactions — GO" | 2026-11-06 |
-| 6 | Minimum letters before a typed word expands from a group word's start? | | 2026-11-06 |
-| 7 | No direct result: keep the empty `Search results` section above `Synonyms`? | | 2026-11-06 |
-| 8 | Details panel: the synonyms in a row of their own, or after each row's tags? | | 2026-11-06 |
-| 9 | Details panel: synonyms shown always, only while searching, or behind a setting? | | 2026-11-06 |
+| 6 | Minimum letters before a typed word expands from a group word's start? | 2 letters | 2026-11-06 |
+| 7 | No direct result: keep the empty `Search results` section above `Synonyms`? | Keep it | 2026-11-06 |
+| 8 | Details panel: the synonyms in a row of their own, or after each row's tags? | A row of their own | 2026-11-06 |
+| 9 | Details panel: synonyms shown always, only while searching, or behind a setting? | Always | 2026-11-06 |
 
 ---
 
