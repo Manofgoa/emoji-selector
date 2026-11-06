@@ -28,7 +28,9 @@ internal sealed class TrayIcon : IDisposable
     public TrayIcon(string tooltip, string emoji)
     {
         this.menu = new ContextMenuStrip();
-        this.menu.Items.Add(ExitText, image: null, (_, _) => this.ExitRequested?.Invoke(this, EventArgs.Empty));
+        ToolStripItem exit = this.menu.Items.Add(ExitText, image: null, (_, _) => this.ExitRequested?.Invoke(this, EventArgs.Empty));
+        // Set at each opening, at the small-icon size, as the tray icon itself: the monitor's scale may have changed.
+        this.menu.Opening += (_, _) => MenuIcons.Set(exit, MenuIcons.Exit, SystemInformation.SmallIconSize.Width);
         this.notifyIcon = new NotifyIcon
         {
             Text = tooltip.Length <= MaxTooltipLength ? tooltip : tooltip[..(MaxTooltipLength - 1)] + "…",
